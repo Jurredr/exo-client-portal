@@ -1,5 +1,4 @@
 import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -22,6 +21,7 @@ export const projects = pgTable("projects", {
   title: text("title").notNull(),
   description: text("description"),
   status: text("status").notNull().default("active"), // active, completed, etc.
+  stage: text("stage").notNull().default("kick_off"), // kick_off, pay_first, deliver, revise, pay_final, completed
   startDate: timestamp("start_date"),
   deadline: timestamp("deadline"),
   subtotal: text("subtotal").notNull(),

@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { projects, users, organizations } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { projects, users, organizations, hourRegistrations } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import {
   ADMIN_EMAIL_DOMAIN,
   EXO_ORGANIZATION_NAME,
@@ -124,4 +124,40 @@ export async function getProjectWithOrganization(projectId: string) {
     .limit(1);
 
   return result[0] || null;
+}
+
+export async function createHourRegistration(
+  userId: string,
+  description: string,
+  hours: number,
+  projectId?: string | null
+) {
+  const [registration] = await db
+    .insert(hourRegistrations)
+    .values({
+      userId,
+      projectId: projectId || null,
+      description,
+      hours: hours.toString(),
+      date: new Date(),
+    })
+    .returning();
+
+  return registration;
+}
+
+export async function getHourRegistrationsByUser(userId: string) {
+  return await db
+    .select()
+    .from(hourRegistrations)
+    .where(eq(hourRegistrations.userId, userId))
+    .orderBy(desc(hourRegistrations.date));
+}
+
+export async function getHourRegistrationsByProject(projectId: string) {
+  return await db
+    .select()
+    .from(hourRegistrations)
+    .where(eq(hourRegistrations.projectId, projectId))
+    .orderBy(desc(hourRegistrations.date));
 }

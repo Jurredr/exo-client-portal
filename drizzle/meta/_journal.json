@@ -15,6 +15,13 @@
       "when": 1764155476922,
       "tag": "0001_absent_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1764232193779,
+      "tag": "0002_happy_unicorn",
+      "breakpoints": true
     }
   ]
 }

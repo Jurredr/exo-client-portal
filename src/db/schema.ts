@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, integer, decimal } from "drizzle-orm/pg-core";
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -65,4 +65,18 @@ export const legalDocuments = pgTable("legal_documents", {
   signed: boolean("signed").default(false).notNull(),
   signedAt: timestamp("signed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const hourRegistrations = pgTable("hour_registrations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+  projectId: uuid("project_id")
+    .references(() => projects.id),
+  description: text("description").notNull(),
+  hours: decimal("hours", { precision: 10, scale: 2 }).notNull(), // Stored as decimal for precision
+  date: timestamp("date").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

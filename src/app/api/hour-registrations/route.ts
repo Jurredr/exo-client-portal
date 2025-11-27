@@ -1,6 +1,33 @@
 import { createClient } from "@/lib/supabase/server";
-import { createHourRegistration, getUserByEmail } from "@/lib/db/queries";
+import { createHourRegistration, getUserByEmail, getHourRegistrationsByUser } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
+
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await getUserByEmail(user.email);
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const registrations = await getHourRegistrationsByUser(dbUser.id);
+    return NextResponse.json(registrations);
+  } catch (error) {
+    console.error("Error fetching hour registrations:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -44,4 +71,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

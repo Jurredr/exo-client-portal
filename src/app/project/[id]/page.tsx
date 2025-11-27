@@ -28,7 +28,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   // Ensure user exists in database
   await ensureUserExists(
     user.email,
-    user.user_metadata?.name || user.user_metadata?.full_name
+    user.user_metadata?.name || user.user_metadata?.full_name,
+    user.user_metadata?.avatar_url || user.user_metadata?.image
   );
 
   // Check if user can access this project

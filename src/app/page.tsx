@@ -18,7 +18,8 @@ export default async function Home() {
   // Ensure user exists in database (sync from Supabase Auth)
   const dbUser = await ensureUserExists(
     user.email,
-    user.user_metadata?.name || user.user_metadata?.full_name
+    user.user_metadata?.name || user.user_metadata?.full_name,
+    user.user_metadata?.avatar_url || user.user_metadata?.image
   );
 
   // Admins can see all projects, others need organization

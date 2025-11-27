@@ -35,11 +35,21 @@ export async function getOrCreateEXOOrganization() {
 
 export async function ensureUserExists(
   email: string,
-  name?: string | null
+  name?: string | null,
+  image?: string | null
 ): Promise<typeof users.$inferSelect> {
   // Check if user exists
   const existing = await getUserByEmail(email);
   if (existing) {
+    // Update image if provided and different
+    if (image && existing.image !== image) {
+      const [updated] = await db
+        .update(users)
+        .set({ image, updatedAt: new Date() })
+        .where(eq(users.id, existing.id))
+        .returning();
+      return updated;
+    }
     return existing;
   }
 
@@ -56,6 +66,7 @@ export async function ensureUserExists(
     .values({
       email,
       name: name || null,
+      image: image || null,
       organizationId,
     })
     .returning();
@@ -160,4 +171,131 @@ export async function getHourRegistrationsByProject(projectId: string) {
     .from(hourRegistrations)
     .where(eq(hourRegistrations.projectId, projectId))
     .orderBy(desc(hourRegistrations.date));
+}
+
+export async function createOrganization(name: string) {
+  const [organization] = await db
+    .insert(organizations)
+    .values({
+      name,
+    })
+    .returning();
+
+  return organization;
+}
+
+export async function getAllOrganizations() {
+  return await db.select().from(organizations).orderBy(organizations.name);
+}
+
+export async function createUser(
+  email: string,
+  name: string | null,
+  organizationId: string | null,
+  image?: string | null
+) {
+  const [newUser] = await db
+    .insert(users)
+    .values({
+      email,
+      name: name || null,
+      image: image || null,
+      organizationId: organizationId || null,
+    })
+    .returning();
+
+  return newUser;
+}
+
+export async function updateUser(
+  userId: string,
+  data: Partial<{
+    name: string | null;
+    organizationId: string | null;
+    image: string | null;
+  }>
+) {
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning();
+
+  return updatedUser;
+}
+
+export async function getAllUsers() {
+  return await db
+    .select({
+      user: users,
+      organization: organizations,
+    })
+    .from(users)
+    .leftJoin(organizations, eq(users.organizationId, organizations.id))
+    .orderBy(users.email);
+}
+
+export async function createProject(data: {
+  title: string;
+  description?: string | null;
+  status?: string;
+  stage?: string;
+  startDate?: Date | null;
+  deadline?: Date | null;
+  subtotal: string;
+  organizationId: string;
+}) {
+  const [project] = await db
+    .insert(projects)
+    .values({
+      title: data.title,
+      description: data.description || null,
+      status: data.status || "active",
+      stage: data.stage || "kick_off",
+      startDate: data.startDate || null,
+      deadline: data.deadline || null,
+      subtotal: data.subtotal,
+      organizationId: data.organizationId,
+    })
+    .returning();
+
+  return project;
+}
+
+export async function getAllProjects() {
+  return await db
+    .select({
+      project: projects,
+      organization: organizations,
+    })
+    .from(projects)
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .orderBy(desc(projects.createdAt));
+}
+
+export async function updateProject(
+  projectId: string,
+  data: Partial<{
+    title: string;
+    description: string | null;
+    status: string;
+    stage: string;
+    startDate: Date | null;
+    deadline: Date | null;
+    subtotal: string;
+  }>
+) {
+  const [project] = await db
+    .update(projects)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, projectId))
+    .returning();
+
+  return project;
 }

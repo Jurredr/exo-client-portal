@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import { Play, Pause, X, Clock } from "lucide-react";
 
 export function HourRegistrationTimer() {
@@ -89,12 +90,20 @@ export function HourRegistrationTimer() {
         throw new Error("Failed to save hour registration");
       }
 
+      toast.success("Hour registration saved successfully");
+      
       // Reset timer
       setIsRunning(false);
       setElapsedSeconds(0);
       startTimeRef.current = null;
       setDescription("");
       setShowDescriptionDialog(false);
+      
+      // Trigger refresh of hour registrations table
+      window.dispatchEvent(new Event("hour-registration-saved"));
+      
+      // Trigger refresh of hour registrations table
+      window.dispatchEvent(new Event("hour-registration-saved"));
     } catch (error) {
       console.error("Error saving hour registration:", error);
       alert("Failed to save hour registration. Please try again.");

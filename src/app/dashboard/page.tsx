@@ -3,13 +3,16 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/db/queries";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Clock, Building2, Users, FolderPlus } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -55,9 +58,7 @@ export default async function DashboardPage() {
                         <Clock className="h-5 w-5" />
                         Hour Registration
                       </CardTitle>
-                      <CardDescription>
-                        Track your work hours
-                      </CardDescription>
+                      <CardDescription>Track your work hours</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Button asChild className="w-full">
@@ -77,7 +78,9 @@ export default async function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href="/dashboard/organizations">Go to Organizations</Link>
+                        <Link href="/dashboard/organizations">
+                          Go to Organizations
+                        </Link>
                       </Button>
                     </CardContent>
                   </Card>
@@ -87,9 +90,7 @@ export default async function DashboardPage() {
                         <Users className="h-5 w-5" />
                         Client Accounts
                       </CardTitle>
-                      <CardDescription>
-                        Manage user accounts
-                      </CardDescription>
+                      <CardDescription>Manage user accounts</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Button asChild variant="outline" className="w-full">

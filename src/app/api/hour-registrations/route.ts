@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { description, hours, projectId } = body;
+    const { description, hours, projectId, date } = body;
 
     if (!description || typeof hours !== "number" || hours <= 0) {
       return NextResponse.json(
@@ -55,11 +55,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const registrationDate = date ? new Date(date) : undefined;
+
     const registration = await createHourRegistration(
       dbUser.id,
       description,
       hours,
-      projectId || null
+      projectId || null,
+      registrationDate
     );
 
     return NextResponse.json(registration, { status: 201 });

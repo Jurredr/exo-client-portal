@@ -3,13 +3,13 @@
 import * as React from "react";
 import {
   IconDashboard,
-  IconInnerShadowTop,
   IconClock,
   IconBuilding,
   IconUsers,
   IconFolder,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
@@ -271,8 +271,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <Link href="/dashboard">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">EXO Admin</span>
+                <Image
+                  src="/exo.svg"
+                  alt="EXO"
+                  width={32}
+                  height={24}
+                  className="h-10 w-auto"
+                />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

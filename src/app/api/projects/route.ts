@@ -4,6 +4,7 @@ import {
   getAllProjects,
   isAdmin,
   updateProject,
+  getTotalHoursByProject,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
@@ -19,7 +20,15 @@ export async function GET() {
     }
 
     const projects = await getAllProjects();
-    return NextResponse.json(projects);
+    const hoursByProject = await getTotalHoursByProject();
+    
+    // Add hours to each project
+    const projectsWithHours = projects.map((p) => ({
+      ...p,
+      totalHours: hoursByProject[p.project.id] || 0,
+    }));
+    
+    return NextResponse.json(projectsWithHours);
   } catch (error) {
     console.error("Error fetching projects:", error);
     return NextResponse.json(

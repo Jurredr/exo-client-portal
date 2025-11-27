@@ -78,6 +78,7 @@ interface ProjectData {
     id: string;
     name: string;
   };
+  totalHours?: number;
 }
 
 const PROJECT_STAGES = [
@@ -95,6 +96,62 @@ const PROJECT_STATUSES = [
   { value: "on_hold", label: "On Hold" },
   { value: "cancelled", label: "Cancelled" },
 ];
+
+// Format stage value to readable label
+const formatStage = (stage: string) => {
+  const stageConfig = PROJECT_STAGES.find((s) => s.value === stage);
+  return stageConfig
+    ? stageConfig.label
+    : stage
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+};
+
+// Format status value to readable label
+const formatStatus = (status: string) => {
+  const statusConfig = PROJECT_STATUSES.find((s) => s.value === status);
+  return statusConfig
+    ? statusConfig.label
+    : status.charAt(0).toUpperCase() + status.slice(1);
+};
+
+// Get status indicator color
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "active":
+      return "bg-green-500";
+    case "completed":
+      return "bg-blue-500";
+    case "on_hold":
+      return "bg-yellow-500";
+    case "cancelled":
+      return "bg-red-500";
+    default:
+      return "bg-gray-500";
+  }
+};
+
+// Format hours (as decimal) to "xhrs ymin" format
+const formatHours = (decimalHours: number) => {
+  const totalMinutes = Math.round(decimalHours * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0 && minutes === 0) {
+    return "0min";
+  }
+
+  const parts: string[] = [];
+  if (hours > 0) {
+    parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}min`);
+  }
+
+  return parts.join(" ");
+};
 
 const columns: ColumnDef<ProjectData>[] = [
   {
@@ -116,16 +173,27 @@ const columns: ColumnDef<ProjectData>[] = [
   {
     accessorKey: "project.status",
     header: "Status",
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.project.status}</Badge>
-    ),
+    cell: ({ row }) => {
+      const status = row.original.project.status;
+      return (
+        <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
+          <span className={`h-2 w-2 rounded-full ${getStatusColor(status)}`} />
+          {formatStatus(status)}
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: "project.stage",
     header: "Stage",
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.project.stage}</Badge>
-    ),
+    cell: ({ row }) => {
+      const stage = row.original.project.stage;
+      return (
+        <Badge variant="outline" className="w-fit">
+          {formatStage(stage)}
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: "project.subtotal",
@@ -135,6 +203,14 @@ const columns: ColumnDef<ProjectData>[] = [
         ${row.original.project.subtotal}
       </div>
     ),
+  },
+  {
+    accessorKey: "totalHours",
+    header: "Hours",
+    cell: ({ row }) => {
+      const hours = row.original.totalHours || 0;
+      return <div className="font-medium">{formatHours(hours)}</div>;
+    },
   },
   {
     id: "actions",
@@ -426,7 +502,7 @@ export function ProjectsTable() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Projects</h2>
+          <h2 className="text-2xl font-semibold">All Projects</h2>
           <p className="text-muted-foreground">
             Create and configure projects for client organizations
           </p>

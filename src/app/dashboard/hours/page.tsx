@@ -7,10 +7,7 @@ import { HourRegistrationsTable } from "@/components/admin/HourRegistrationsTabl
 import { HourStatsCards } from "@/components/admin/HourStatsCards";
 import { HourChart } from "@/components/admin/HourChart";
 import { SiteHeader } from "@/components/site-header";
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default async function HoursPage() {
   const supabase = await createClient();
@@ -56,10 +53,7 @@ export default async function HoursPage() {
                   </div>
                   <HourStatsCards />
                   <HourChart />
-                  <div>
-                    <h2 className="text-2xl font-semibold mb-4">Hour Registrations</h2>
-                    <HourRegistrationsTable />
-                  </div>
+                  <HourRegistrationsTable />
                 </div>
               </div>
             </div>
@@ -69,4 +63,3 @@ export default async function HoursPage() {
     </SidebarProvider>
   );
 }
-

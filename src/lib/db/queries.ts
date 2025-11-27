@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { projects, users, organizations, hourRegistrations } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
 export function isAdmin(email: string): boolean {
@@ -138,7 +138,8 @@ export async function createHourRegistration(
   userId: string,
   description: string,
   hours: number,
-  projectId?: string | null
+  projectId?: string | null,
+  date?: Date
 ) {
   const [registration] = await db
     .insert(hourRegistrations)
@@ -147,7 +148,7 @@ export async function createHourRegistration(
       projectId: projectId || null,
       description,
       hours: hours.toString(),
-      date: new Date(),
+      date: date || new Date(),
     })
     .returning();
 
@@ -201,7 +202,34 @@ export async function createOrganization(name: string) {
 }
 
 export async function getAllOrganizations() {
-  return await db.select().from(organizations).orderBy(organizations.name);
+  const orgs = await db
+    .select()
+    .from(organizations)
+    .orderBy(organizations.name);
+
+  // Get user counts for each organization
+  const userCounts = await db
+    .select({
+      organizationId: users.organizationId,
+      count: sql<number>`COUNT(*)::int`.as("count"),
+    })
+    .from(users)
+    .where(sql`${users.organizationId} IS NOT NULL`)
+    .groupBy(users.organizationId);
+
+  // Create a map of organizationId -> count
+  const countMap: Record<string, number> = {};
+  userCounts.forEach((row) => {
+    if (row.organizationId) {
+      countMap[row.organizationId] = row.count;
+    }
+  });
+
+  // Add user count to each organization
+  return orgs.map((org) => ({
+    ...org,
+    userCount: countMap[org.id] || 0,
+  }));
 }
 
 export async function createUser(
@@ -314,4 +342,28 @@ export async function updateProject(
     .returning();
 
   return project;
+}
+
+export async function getTotalHoursByProject() {
+  const result = await db
+    .select({
+      projectId: hourRegistrations.projectId,
+      totalHours:
+        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
+          "total_hours"
+        ),
+    })
+    .from(hourRegistrations)
+    .where(sql`${hourRegistrations.projectId} IS NOT NULL`)
+    .groupBy(hourRegistrations.projectId);
+
+  // Convert to a map for easy lookup
+  const hoursMap: Record<string, number> = {};
+  result.forEach((row) => {
+    if (row.projectId) {
+      hoursMap[row.projectId] = parseFloat(row.totalHours);
+    }
+  });
+
+  return hoursMap;
 }

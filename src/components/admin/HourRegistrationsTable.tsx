@@ -28,7 +28,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { IconDotsVertical } from "@tabler/icons-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface HourRegistration {
@@ -195,15 +215,31 @@ const createColumns = (onDelete: (id: string) => Promise<void>): ColumnDef<HourR
   },
 ];
 
+interface Project {
+  id: string;
+  title: string;
+}
+
 export function HourRegistrationsTable() {
   const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "date", desc: true },
   ]);
+  const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [manualEntry, setManualEntry] = useState({
+    date: new Date().toISOString().split("T")[0],
+    hours: "",
+    minutes: "",
+    description: "",
+    projectId: undefined as string | undefined,
+  });
 
   useEffect(() => {
     fetchRegistrations();
+    fetchProjects();
 
     // Listen for hour registration saved events
     const handleRefresh = () => {
@@ -212,6 +248,23 @@ export function HourRegistrationsTable() {
     window.addEventListener("hour-registration-saved", handleRefresh);
     return () => window.removeEventListener("hour-registration-saved", handleRefresh);
   }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch("/api/projects");
+      if (response.ok) {
+        const data = await response.json();
+        setProjects(
+          data.map((item: { project: Project }) => ({
+            id: item.project.id,
+            title: item.project.title,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  };
 
   const fetchRegistrations = async () => {
     try {
@@ -245,6 +298,63 @@ export function HourRegistrationsTable() {
     }
   };
 
+  const handleManualEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const hoursNum = parseInt(manualEntry.hours) || 0;
+    const minutesNum = parseInt(manualEntry.minutes) || 0;
+
+    if (hoursNum === 0 && minutesNum === 0) {
+      toast.error("Please enter at least 1 hour or minute");
+      return;
+    }
+
+    if (!manualEntry.description.trim()) {
+      toast.error("Description is required");
+      return;
+    }
+
+    // Convert hours and minutes to decimal hours
+    const totalHours = hoursNum + minutesNum / 60;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/hour-registrations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: manualEntry.description.trim(),
+          hours: totalHours,
+          projectId: manualEntry.projectId && manualEntry.projectId !== "none" ? manualEntry.projectId : null,
+          date: manualEntry.date,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save hour registration");
+      }
+
+      toast.success("Hour registration added successfully");
+      setIsManualEntryOpen(false);
+      setManualEntry({
+        date: new Date().toISOString().split("T")[0],
+        hours: "",
+        minutes: "",
+        description: "",
+        projectId: undefined,
+      });
+      fetchRegistrations();
+      window.dispatchEvent(new Event("hour-registration-saved"));
+    } catch (error) {
+      console.error("Error saving hour registration:", error);
+      toast.error("Failed to save hour registration");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const columns = createColumns(handleDelete);
 
   const table = useReactTable({
@@ -265,6 +375,117 @@ export function HourRegistrationsTable() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">Hour Registrations</h2>
+        <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Entry
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Manual Entry</DialogTitle>
+              <DialogDescription>
+                Manually log hours for a specific date
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleManualEntry} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="manual-date">Date *</Label>
+                <Input
+                  id="manual-date"
+                  type="date"
+                  value={manualEntry.date}
+                  onChange={(e) =>
+                    setManualEntry({ ...manualEntry, date: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="manual-hours">Hours</Label>
+                  <Input
+                    id="manual-hours"
+                    type="number"
+                    min="0"
+                    value={manualEntry.hours}
+                    onChange={(e) =>
+                      setManualEntry({ ...manualEntry, hours: e.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="manual-minutes">Minutes</Label>
+                  <Input
+                    id="manual-minutes"
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={manualEntry.minutes}
+                    onChange={(e) =>
+                      setManualEntry({ ...manualEntry, minutes: e.target.value })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-description">Description *</Label>
+                <Textarea
+                  id="manual-description"
+                  placeholder="Describe the work..."
+                  value={manualEntry.description}
+                  onChange={(e) =>
+                    setManualEntry({ ...manualEntry, description: e.target.value })
+                  }
+                  rows={4}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-project">Project (Optional)</Label>
+                <Select
+                  value={manualEntry.projectId || "none"}
+                  onValueChange={(value) =>
+                    setManualEntry({
+                      ...manualEntry,
+                      projectId: value === "none" ? undefined : value,
+                    })
+                  }
+                >
+                  <SelectTrigger id="manual-project" className="w-full">
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsManualEntryOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Add Entry"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>

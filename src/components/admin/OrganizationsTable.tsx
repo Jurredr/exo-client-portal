@@ -49,22 +49,31 @@ interface Organization {
   name: string;
   createdAt: string;
   updatedAt: string;
+  userCount?: number;
 }
 
 const columns: ColumnDef<Organization>[] = [
   {
     accessorKey: "name",
     header: "Name",
-    cell: ({ row }) => (
-      <div className="font-medium">{row.original.name}</div>
-    ),
+    cell: ({ row }) => <div className="font-medium">{row.original.name}</div>,
+  },
+  {
+    accessorKey: "userCount",
+    header: "Users",
+    cell: ({ row }) => {
+      const count = row.original.userCount || 0;
+      return <div className="font-medium">{count}</div>;
+    },
   },
   {
     accessorKey: "createdAt",
     header: "Created",
     cell: ({ row }) => {
       const date = new Date(row.original.createdAt);
-      return <div className="text-muted-foreground">{date.toLocaleDateString()}</div>;
+      return (
+        <div className="text-muted-foreground">{date.toLocaleDateString()}</div>
+      );
     },
   },
 ];
@@ -149,11 +158,13 @@ export function OrganizationsTable() {
     <>
       <DrawerHeader className="gap-1">
         <DrawerTitle>Edit Organization</DrawerTitle>
-        <DrawerDescription>
-          Update organization details
-        </DrawerDescription>
+        <DrawerDescription>Update organization details</DrawerDescription>
       </DrawerHeader>
-      <form id="edit-form" onSubmit={handleUpdate} className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
+      <form
+        id="edit-form"
+        onSubmit={handleUpdate}
+        className="flex flex-col gap-4 overflow-y-auto px-4 text-sm"
+      >
         <div className="flex flex-col gap-3">
           <Label htmlFor="edit-name">Name</Label>
           <Input
@@ -165,7 +176,9 @@ export function OrganizationsTable() {
         </div>
       </form>
       <DrawerFooter>
-        <Button type="submit" form="edit-form">Save Changes</Button>
+        <Button type="submit" form="edit-form">
+          Save Changes
+        </Button>
         <DrawerClose asChild>
           <Button variant="outline">Cancel</Button>
         </DrawerClose>
@@ -178,9 +191,7 @@ export function OrganizationsTable() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Organizations</h2>
-          <p className="text-muted-foreground">
-            Manage client organizations
-          </p>
+          <p className="text-muted-foreground">Manage client organizations</p>
         </div>
         {isMobile ? (
           <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -193,9 +204,7 @@ export function OrganizationsTable() {
             <DrawerContent>
               <DrawerHeader>
                 <DrawerTitle>Create Organization</DrawerTitle>
-                <DrawerDescription>
-                  Create a new organization
-                </DrawerDescription>
+                <DrawerDescription>Create a new organization</DrawerDescription>
               </DrawerHeader>
               <div className="px-4">
                 <CreateOrganizationForm onSuccess={handleCreateSuccess} />
@@ -294,9 +303,7 @@ export function OrganizationsTable() {
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DrawerContent>
-            {selectedOrg && <EditContent />}
-          </DrawerContent>
+          <DrawerContent>{selectedOrg && <EditContent />}</DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -309,7 +316,11 @@ export function OrganizationsTable() {
                     Update organization details
                   </DialogDescription>
                 </DialogHeader>
-                <form id="edit-form" onSubmit={handleUpdate} className="space-y-4">
+                <form
+                  id="edit-form"
+                  onSubmit={handleUpdate}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="edit-name">Name</Label>
                     <Input
@@ -338,4 +349,3 @@ export function OrganizationsTable() {
     </div>
   );
 }
-

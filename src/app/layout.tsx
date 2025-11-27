@@ -11,6 +11,20 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "EXO Client Portal",
   description: "Client portal for EXO projects",
+  icons: {
+    icon: [
+      {
+        url: "/exo.svg",
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/exo-white.svg",
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

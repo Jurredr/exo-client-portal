@@ -165,18 +165,6 @@ export function HourRegistrationTimer() {
   // Keyboard shortcuts (spacebar for start/pause, enter for submit, escape for cancel)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Handle escape key for cancel (only when timer is running and no dialogs are open)
-      if (
-        e.key === "Escape" &&
-        isRunning &&
-        !showDescriptionDialog &&
-        !showCancelDialog
-      ) {
-        e.preventDefault();
-        handleCancel();
-        return;
-      }
-
       // Don't trigger shortcuts if user is typing in an input/textarea or if dialogs are open
       if (
         e.target instanceof HTMLInputElement ||
@@ -198,6 +186,18 @@ export function HourRegistrationTimer() {
         return;
       }
 
+      // Handle escape key for cancel (when timer has elapsed time, running or paused)
+      if (
+        e.key === "Escape" &&
+        elapsedSeconds > 0 &&
+        !showDescriptionDialog &&
+        !showCancelDialog
+      ) {
+        e.preventDefault();
+        handleCancel();
+        return;
+      }
+
       // Spacebar: start/pause
       if (e.code === "Space" || e.key === " ") {
         e.preventDefault();
@@ -208,8 +208,8 @@ export function HourRegistrationTimer() {
         }
       }
 
-      // Enter: submit (open description dialog)
-      if (e.key === "Enter" && isRunning) {
+      // Enter: submit (open description dialog) - works when running or paused with elapsed time
+      if (e.key === "Enter" && elapsedSeconds > 0) {
         e.preventDefault();
         handleSubmit();
       }

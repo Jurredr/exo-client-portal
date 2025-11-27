@@ -1,10 +1,7 @@
 import { db } from "@/db";
 import { projects, users, organizations, hourRegistrations } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
-import {
-  ADMIN_EMAIL_DOMAIN,
-  EXO_ORGANIZATION_NAME,
-} from "@/lib/constants";
+import { eq, desc } from "drizzle-orm";
+import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
 export function isAdmin(email: string): boolean {
   return email.endsWith(ADMIN_EMAIL_DOMAIN);
@@ -159,8 +156,21 @@ export async function createHourRegistration(
 
 export async function getHourRegistrationsByUser(userId: string) {
   return await db
-    .select()
+    .select({
+      id: hourRegistrations.id,
+      userId: hourRegistrations.userId,
+      projectId: hourRegistrations.projectId,
+      description: hourRegistrations.description,
+      hours: hourRegistrations.hours,
+      date: hourRegistrations.date,
+      createdAt: hourRegistrations.createdAt,
+      updatedAt: hourRegistrations.updatedAt,
+      project: projects,
+      user: users,
+    })
     .from(hourRegistrations)
+    .leftJoin(projects, eq(hourRegistrations.projectId, projects.id))
+    .innerJoin(users, eq(hourRegistrations.userId, users.id))
     .where(eq(hourRegistrations.userId, userId))
     .orderBy(desc(hourRegistrations.date));
 }
@@ -171,6 +181,12 @@ export async function getHourRegistrationsByProject(projectId: string) {
     .from(hourRegistrations)
     .where(eq(hourRegistrations.projectId, projectId))
     .orderBy(desc(hourRegistrations.date));
+}
+
+export async function deleteHourRegistration(registrationId: string) {
+  await db
+    .delete(hourRegistrations)
+    .where(eq(hourRegistrations.id, registrationId));
 }
 
 export async function createOrganization(name: string) {

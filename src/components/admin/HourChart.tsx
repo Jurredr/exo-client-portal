@@ -119,6 +119,27 @@ export function HourChart() {
     return data;
   };
 
+  // Format hours (as decimal) to "xhrs ymin" format
+  const formatHours = (decimalHours: number) => {
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    if (hours === 0 && minutes === 0) {
+      return "0min";
+    }
+    
+    const parts: string[] = [];
+    if (hours > 0) {
+      parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
+    }
+    if (minutes > 0) {
+      parts.push(`${minutes}min`);
+    }
+    
+    return parts.join(" ");
+  };
+
   const chartData = generateChartData();
   const totalHours = chartData.reduce((sum, item) => sum + item.hours, 0);
 
@@ -144,10 +165,10 @@ export function HourChart() {
         <CardTitle>Hours Over Time</CardTitle>
         <CardDescription>
           <span className="hidden @[540px]/card:block">
-            Total: {totalHours.toFixed(2)} hours in selected period
+            Total: {formatHours(totalHours)} in selected period
           </span>
           <span className="@[540px]/card:hidden">
-            {totalHours.toFixed(2)} hours
+            {formatHours(totalHours)}
           </span>
         </CardDescription>
         <CardAction>
@@ -227,6 +248,7 @@ export function HourChart() {
                       year: "numeric",
                     });
                   }}
+                  valueFormatter={(value) => formatHours(Number(value))}
                   indicator="dot"
                 />
               }

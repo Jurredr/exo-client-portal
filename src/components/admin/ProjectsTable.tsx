@@ -50,7 +50,13 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { FolderPlus, DollarSign, Calendar, ExternalLink, Copy } from "lucide-react";
+import {
+  FolderPlus,
+  DollarSign,
+  Calendar,
+  ExternalLink,
+  Copy,
+} from "lucide-react";
 import { CreateProjectForm } from "./CreateProjectForm";
 import Link from "next/link";
 
@@ -151,10 +157,14 @@ const columns: ColumnDef<ProjectData>[] = [
 
 export function ProjectsTable() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
+  const [organizations, setOrganizations] = useState<
+    { id: string; name: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectData | null>(
+    null
+  );
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -170,6 +180,12 @@ export function ProjectsTable() {
       if (response.ok) {
         const data = await response.json();
         setProjects(data);
+      } else {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
+        console.error("Error fetching projects:", errorData);
+        toast.error(errorData.error || "Failed to load projects");
       }
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -205,7 +221,7 @@ export function ProjectsTable() {
 
   const handleRowClick = (project: ProjectData, e: React.MouseEvent) => {
     // Don't open edit modal if clicking on the actions button
-    if ((e.target as HTMLElement).closest('a, button')) {
+    if ((e.target as HTMLElement).closest("a, button")) {
       return;
     }
     setSelectedProject(project);
@@ -268,11 +284,13 @@ export function ProjectsTable() {
     <>
       <DrawerHeader className="gap-1">
         <DrawerTitle>Edit Project</DrawerTitle>
-        <DrawerDescription>
-          Update project details
-        </DrawerDescription>
+        <DrawerDescription>Update project details</DrawerDescription>
       </DrawerHeader>
-      <form id="edit-form" onSubmit={handleUpdate} className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
+      <form
+        id="edit-form"
+        onSubmit={handleUpdate}
+        className="flex flex-col gap-4 overflow-y-auto px-4 text-sm"
+      >
         <div className="flex flex-col gap-3">
           <Label htmlFor="edit-id">Project ID</Label>
           <div className="flex gap-2">
@@ -336,10 +354,7 @@ export function ProjectsTable() {
           </div>
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-stage">Stage</Label>
-            <Select
-              name="stage"
-              defaultValue={selectedProject?.project.stage}
-            >
+            <Select name="stage" defaultValue={selectedProject?.project.stage}>
               <SelectTrigger id="edit-stage" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -372,7 +387,9 @@ export function ProjectsTable() {
               type="date"
               defaultValue={
                 selectedProject?.project.startDate
-                  ? new Date(selectedProject.project.startDate).toISOString().split("T")[0]
+                  ? new Date(selectedProject.project.startDate)
+                      .toISOString()
+                      .split("T")[0]
                   : ""
               }
             />
@@ -385,7 +402,9 @@ export function ProjectsTable() {
               type="date"
               defaultValue={
                 selectedProject?.project.deadline
-                  ? new Date(selectedProject.project.deadline).toISOString().split("T")[0]
+                  ? new Date(selectedProject.project.deadline)
+                      .toISOString()
+                      .split("T")[0]
                   : ""
               }
             />
@@ -393,7 +412,9 @@ export function ProjectsTable() {
         </div>
       </form>
       <DrawerFooter>
-        <Button type="submit" form="edit-form">Save Changes</Button>
+        <Button type="submit" form="edit-form">
+          Save Changes
+        </Button>
         <DrawerClose asChild>
           <Button variant="outline">Cancel</Button>
         </DrawerClose>
@@ -522,9 +543,7 @@ export function ProjectsTable() {
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DrawerContent>
-            {selectedProject && <EditContent />}
-          </DrawerContent>
+          <DrawerContent>{selectedProject && <EditContent />}</DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -533,11 +552,13 @@ export function ProjectsTable() {
               <>
                 <DialogHeader>
                   <DialogTitle>Edit Project</DialogTitle>
-                  <DialogDescription>
-                    Update project details
-                  </DialogDescription>
+                  <DialogDescription>Update project details</DialogDescription>
                 </DialogHeader>
-                <form id="edit-form" onSubmit={handleUpdate} className="space-y-4">
+                <form
+                  id="edit-form"
+                  onSubmit={handleUpdate}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="edit-id">Project ID</Label>
                     <div className="flex gap-2">
@@ -552,7 +573,9 @@ export function ProjectsTable() {
                         variant="outline"
                         size="icon"
                         onClick={() => {
-                          navigator.clipboard.writeText(selectedProject.project.id);
+                          navigator.clipboard.writeText(
+                            selectedProject.project.id
+                          );
                           toast.success("Project ID copied to clipboard");
                         }}
                       >
@@ -635,7 +658,9 @@ export function ProjectsTable() {
                         type="date"
                         defaultValue={
                           selectedProject.project.startDate
-                            ? new Date(selectedProject.project.startDate).toISOString().split("T")[0]
+                            ? new Date(selectedProject.project.startDate)
+                                .toISOString()
+                                .split("T")[0]
                             : ""
                         }
                       />
@@ -648,7 +673,9 @@ export function ProjectsTable() {
                         type="date"
                         defaultValue={
                           selectedProject.project.deadline
-                            ? new Date(selectedProject.project.deadline).toISOString().split("T")[0]
+                            ? new Date(selectedProject.project.deadline)
+                                .toISOString()
+                                .split("T")[0]
                             : ""
                         }
                       />
@@ -673,4 +700,3 @@ export function ProjectsTable() {
     </div>
   );
 }
-

@@ -44,6 +44,27 @@ export function HourStatsCards() {
     }
   };
 
+  // Format hours (as decimal) to "xhrs ymin" format
+  const formatHours = (decimalHours: number) => {
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    if (hours === 0 && minutes === 0) {
+      return "0min";
+    }
+    
+    const parts: string[] = [];
+    if (hours > 0) {
+      parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
+    }
+    if (minutes > 0) {
+      parts.push(`${minutes}min`);
+    }
+    
+    return parts.join(" ");
+  };
+
   const calculateStats = () => {
     const now = new Date();
     const startOfWeek = new Date(now);
@@ -98,7 +119,7 @@ export function HourStatsCards() {
           <Clock className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.total.toFixed(2)}</div>
+          <div className="text-2xl font-bold">{formatHours(stats.total)}</div>
           <p className="text-xs text-muted-foreground">All time</p>
         </CardContent>
       </Card>
@@ -108,7 +129,7 @@ export function HourStatsCards() {
           <Target className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.thisYear.toFixed(2)}</div>
+          <div className="text-2xl font-bold">{formatHours(stats.thisYear)}</div>
           <p className="text-xs text-muted-foreground">
             Since {new Date().getFullYear()}
           </p>
@@ -120,7 +141,7 @@ export function HourStatsCards() {
           <Calendar className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.thisMonth.toFixed(2)}</div>
+          <div className="text-2xl font-bold">{formatHours(stats.thisMonth)}</div>
           <p className="text-xs text-muted-foreground">
             {new Date().toLocaleString("default", { month: "long" })}
           </p>
@@ -132,7 +153,7 @@ export function HourStatsCards() {
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.thisWeek.toFixed(2)}</div>
+          <div className="text-2xl font-bold">{formatHours(stats.thisWeek)}</div>
           <p className="text-xs text-muted-foreground">Last 7 days</p>
         </CardContent>
       </Card>

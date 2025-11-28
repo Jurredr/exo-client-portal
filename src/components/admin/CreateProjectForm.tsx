@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { FolderPlus, DollarSign, Calendar } from "lucide-react";
+import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 
 interface Organization {
   id: string;
@@ -22,20 +23,20 @@ interface Organization {
   updatedAt: Date;
 }
 
-const PROJECT_STAGES = [
-  { value: "kick_off", label: "Kick Off" },
-  { value: "pay_first", label: "Pay First" },
-  { value: "deliver", label: "Deliver" },
-  { value: "revise", label: "Revise" },
-  { value: "pay_final", label: "Pay Final" },
-  { value: "completed", label: "Completed" },
+const PROJECT_STAGES: StatusOption[] = [
+  { value: "kick_off", label: "Kick Off", state: "bg-blue-500" },
+  { value: "pay_first", label: "Pay First", state: "bg-yellow-500" },
+  { value: "deliver", label: "Deliver", state: "bg-purple-500" },
+  { value: "revise", label: "Revise", state: "bg-orange-500" },
+  { value: "pay_final", label: "Pay Final", state: "bg-cyan-500" },
+  { value: "completed", label: "Completed", state: "bg-green-500" },
 ];
 
-const PROJECT_STATUSES = [
-  { value: "active", label: "Active" },
-  { value: "completed", label: "Completed" },
-  { value: "on_hold", label: "On Hold" },
-  { value: "cancelled", label: "Cancelled" },
+const PROJECT_STATUSES: StatusOption[] = [
+  { value: "active", label: "Active", state: "bg-green-500" },
+  { value: "completed", label: "Completed", state: "bg-blue-500" },
+  { value: "on_hold", label: "On Hold", state: "bg-yellow-500" },
+  { value: "cancelled", label: "Cancelled", state: "bg-red-500" },
 ];
 
 export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
@@ -175,33 +176,21 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="project-status">Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger id="project-status" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PROJECT_STATUSES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <StatusCombobox
+            options={PROJECT_STATUSES}
+            value={status}
+            onValueChange={setStatus}
+            placeholder="Select status..."
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="project-stage">Stage</Label>
-          <Select value={stage} onValueChange={setStage}>
-            <SelectTrigger id="project-stage" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PROJECT_STAGES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <StatusCombobox
+            options={PROJECT_STAGES}
+            value={stage}
+            onValueChange={setStage}
+            placeholder="Select stage..."
+          />
         </div>
       </div>
       <div className="space-y-2">

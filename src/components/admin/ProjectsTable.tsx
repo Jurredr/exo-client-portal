@@ -27,15 +27,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { StatusCombobox, StatusOption } from "@/components/status-combobox";
+import { cn } from "@/lib/utils";
 import {
   FolderPlus,
   DollarSign,
@@ -80,20 +75,20 @@ interface ProjectData {
   totalHours?: number;
 }
 
-const PROJECT_STAGES = [
-  { value: "kick_off", label: "Kick Off" },
-  { value: "pay_first", label: "Pay First" },
-  { value: "deliver", label: "Deliver" },
-  { value: "revise", label: "Revise" },
-  { value: "pay_final", label: "Pay Final" },
-  { value: "completed", label: "Completed" },
+const PROJECT_STAGES: StatusOption[] = [
+  { value: "kick_off", label: "Kick Off", state: "bg-blue-500" },
+  { value: "pay_first", label: "Pay First", state: "bg-yellow-500" },
+  { value: "deliver", label: "Deliver", state: "bg-purple-500" },
+  { value: "revise", label: "Revise", state: "bg-orange-500" },
+  { value: "pay_final", label: "Pay Final", state: "bg-cyan-500" },
+  { value: "completed", label: "Completed", state: "bg-green-500" },
 ];
 
-const PROJECT_STATUSES = [
-  { value: "active", label: "Active" },
-  { value: "completed", label: "Completed" },
-  { value: "on_hold", label: "On Hold" },
-  { value: "cancelled", label: "Cancelled" },
+const PROJECT_STATUSES: StatusOption[] = [
+  { value: "active", label: "Active", state: "bg-green-500" },
+  { value: "completed", label: "Completed", state: "bg-blue-500" },
+  { value: "on_hold", label: "On Hold", state: "bg-yellow-500" },
+  { value: "cancelled", label: "Cancelled", state: "bg-red-500" },
 ];
 
 // Format stage value to readable label
@@ -115,20 +110,16 @@ const formatStatus = (status: string) => {
     : status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-// Get status indicator color
+// Get status indicator color from PROJECT_STATUSES
 const getStatusColor = (status: string) => {
-  switch (status) {
-    case "active":
-      return "bg-green-500";
-    case "completed":
-      return "bg-blue-500";
-    case "on_hold":
-      return "bg-yellow-500";
-    case "cancelled":
-      return "bg-red-500";
-    default:
-      return "bg-gray-500";
-  }
+  const statusConfig = PROJECT_STATUSES.find((s) => s.value === status);
+  return statusConfig ? statusConfig.state : "bg-gray-500";
+};
+
+// Get stage indicator color from PROJECT_STAGES
+const getStageColor = (stage: string) => {
+  const stageConfig = PROJECT_STAGES.find((s) => s.value === stage);
+  return stageConfig ? stageConfig.state : "bg-gray-500";
 };
 
 // Format hours (as decimal) to "xhrs ymin" format
@@ -161,6 +152,8 @@ export function ProjectsTable() {
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(
     null
   );
+  const [editStatus, setEditStatus] = useState<string>("");
+  const [editStage, setEditStage] = useState<string>("");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteProject, setDeleteProject] = useState<ProjectData | null>(null);
@@ -237,7 +230,7 @@ export function ProjectsTable() {
           return (
             <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
               <span
-                className={`h-2 w-2 rounded-full ${getStatusColor(status)}`}
+                className={cn("size-1.5 rounded-full", getStatusColor(status))}
               />
               {formatStatus(status)}
             </Badge>
@@ -266,7 +259,10 @@ export function ProjectsTable() {
         cell: ({ row }) => {
           const stage = row.original.project.stage;
           return (
-            <Badge variant="outline" className="w-fit">
+            <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
+              <span
+                className={cn("size-1.5 rounded-full", getStageColor(stage))}
+              />
               {formatStage(stage)}
             </Badge>
           );
@@ -425,6 +421,8 @@ export function ProjectsTable() {
 
   const handleRowClick = (project: ProjectData) => {
     setSelectedProject(project);
+    setEditStatus(project.project.status);
+    setEditStage(project.project.stage);
     setIsEditOpen(true);
   };
 
@@ -435,8 +433,8 @@ export function ProjectsTable() {
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
-    const status = formData.get("status") as string;
-    const stage = formData.get("stage") as string;
+    const status = editStatus;
+    const stage = editStage;
     const subtotal = formData.get("subtotal") as string;
     const startDate = formData.get("startDate") as string;
     const deadline = formData.get("deadline") as string;
@@ -560,36 +558,21 @@ export function ProjectsTable() {
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-status">Status</Label>
-            <Select
-              name="status"
-              defaultValue={selectedProject?.project.status}
-            >
-              <SelectTrigger id="edit-status" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROJECT_STATUSES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <StatusCombobox
+              options={PROJECT_STATUSES}
+              value={editStatus}
+              onValueChange={setEditStatus}
+              placeholder="Select status..."
+            />
           </div>
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-stage">Stage</Label>
-            <Select name="stage" defaultValue={selectedProject?.project.stage}>
-              <SelectTrigger id="edit-stage" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROJECT_STAGES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <StatusCombobox
+              options={PROJECT_STAGES}
+              value={editStage}
+              onValueChange={setEditStage}
+              placeholder="Select stage..."
+            />
           </div>
         </div>
         <div className="flex flex-col gap-3">
@@ -785,39 +768,21 @@ export function ProjectsTable() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit-status">Status</Label>
-                      <Select
-                        name="status"
-                        defaultValue={selectedProject.project.status}
-                      >
-                        <SelectTrigger id="edit-status" className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PROJECT_STATUSES.map((s) => (
-                            <SelectItem key={s.value} value={s.value}>
-                              {s.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <StatusCombobox
+                        options={PROJECT_STATUSES}
+                        value={editStatus}
+                        onValueChange={setEditStatus}
+                        placeholder="Select status..."
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit-stage">Stage</Label>
-                      <Select
-                        name="stage"
-                        defaultValue={selectedProject.project.stage}
-                      >
-                        <SelectTrigger id="edit-stage" className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PROJECT_STAGES.map((s) => (
-                            <SelectItem key={s.value} value={s.value}>
-                              {s.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <StatusCombobox
+                        options={PROJECT_STAGES}
+                        value={editStage}
+                        onValueChange={setEditStage}
+                        placeholder="Select stage..."
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">

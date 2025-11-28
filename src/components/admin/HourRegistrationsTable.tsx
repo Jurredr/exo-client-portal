@@ -454,10 +454,6 @@ export function HourRegistrationsTable() {
     return projects.map((project) => ({ label: project.title, value: project.id }));
   }, [projects]);
 
-  if (loading) {
-    return <div className="text-center py-8">Loading...</div>;
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -495,6 +491,7 @@ export function HourRegistrationsTable() {
         }
         initialSorting={[{ id: "date", desc: true }]}
         emptyMessage="No hour registrations found."
+        isLoading={loading}
         toolbar={
           <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
             <DialogTrigger asChild>

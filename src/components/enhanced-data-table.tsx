@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -67,6 +68,7 @@ interface EnhancedDataTableProps<TData, TValue> {
   onRowClick?: (row: TData) => void;
   emptyMessage?: string;
   toolbar?: React.ReactNode;
+  isLoading?: boolean;
 }
 
 export function EnhancedDataTable<TData, TValue>({
@@ -81,6 +83,7 @@ export function EnhancedDataTable<TData, TValue>({
   onRowClick,
   emptyMessage = "No results found.",
   toolbar,
+  isLoading = false,
 }: EnhancedDataTableProps<TData, TValue>) {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -327,7 +330,33 @@ export function EnhancedDataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+              // Show skeleton loading rows
+              Array.from({ length: pagination.pageSize }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-${rowIndex}`}>
+                  {table
+                    .getHeaderGroups()[0]
+                    ?.headers.map((header, colIndex) => {
+                      if (header.isPlaceholder) return null;
+                      // Check if column has custom skeleton in meta
+                      const customSkeleton = (
+                        header.column.columnDef.meta as {
+                          skeleton?: React.ReactNode;
+                        }
+                      )?.skeleton;
+                      return (
+                        <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                          {customSkeleton ? (
+                            customSkeleton
+                          ) : (
+                            <Skeleton className="h-8 w-full" />
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

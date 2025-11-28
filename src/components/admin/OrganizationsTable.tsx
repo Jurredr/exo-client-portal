@@ -326,10 +326,6 @@ export function OrganizationsTable() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-8">Loading...</div>;
-  }
-
   const EditContent = () => (
     <>
       <DrawerHeader className="gap-1">
@@ -420,6 +416,7 @@ export function OrganizationsTable() {
         initialSorting={[{ id: "name", desc: false }]}
         onRowClick={handleRowClick}
         emptyMessage="No organizations found."
+        isLoading={loading}
         toolbar={
           isMobile ? (
             <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>

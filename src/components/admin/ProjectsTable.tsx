@@ -498,10 +498,6 @@ export function ProjectsTable() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-8">Loading...</div>;
-  }
-
   const EditContent = () => (
     <>
       <DrawerHeader className="gap-1">
@@ -662,6 +658,7 @@ export function ProjectsTable() {
         initialSorting={[{ id: "title", desc: false }]}
         onRowClick={handleRowClick}
         emptyMessage="No projects found."
+        isLoading={loading}
         toolbar={
           isMobile ? (
             <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>

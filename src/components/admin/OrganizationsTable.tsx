@@ -32,8 +32,9 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Building2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2, X } from "lucide-react";
 import { CreateOrganizationForm } from "./CreateOrganizationForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import {
@@ -48,6 +49,7 @@ import {
 interface Organization {
   id: string;
   name: string;
+  image: string | null;
   createdAt: string;
   updatedAt: string;
   userCount?: number;
@@ -62,9 +64,33 @@ export function OrganizationsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<Organization>[] = [
+    {
+      id: "avatar",
+      header: "",
+      cell: ({ row }) => {
+        const org = row.original;
+        const getInitials = (name: string) => {
+          return name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+        };
+        return (
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={org.image || undefined} alt={org.name} />
+            <AvatarFallback>{getInitials(org.name)}</AvatarFallback>
+          </Avatar>
+        );
+      },
+      size: 50,
+    },
     {
       accessorKey: "name",
       header: "Name",
@@ -158,6 +184,41 @@ export function OrganizationsTable() {
     setIsEditOpen(true);
   };
 
+  useEffect(() => {
+    if (selectedOrg?.image) {
+      setImagePreview(selectedOrg.image);
+      setImageBase64(null);
+    } else {
+      setImagePreview(null);
+      setImageBase64(null);
+    }
+  }, [selectedOrg]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file");
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size must be less than 5MB");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setImageBase64(base64String);
+        setImagePreview(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrg) return;
@@ -171,12 +232,32 @@ export function OrganizationsTable() {
     }
 
     try {
-      // For now, we'll just show a toast since we don't have an update endpoint yet
+      const response = await fetch("/api/organizations", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: selectedOrg.id,
+          name: name.trim(),
+          image: imageBase64 || selectedOrg.image || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update organization");
+      }
+
       toast.success("Organization updated successfully");
       setIsEditOpen(false);
+      setImagePreview(null);
+      setImageBase64(null);
       fetchOrganizations();
     } catch (error) {
-      toast.error("Failed to update organization");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update organization"
+      );
     }
   };
 
@@ -229,6 +310,49 @@ export function OrganizationsTable() {
             defaultValue={selectedOrg?.name}
             required
           />
+        </div>
+        <div className="flex flex-col gap-3">
+          <Label>Logo Image</Label>
+          <div className="flex items-center gap-4">
+            {imagePreview && (
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={imagePreview} alt="Logo" />
+                <AvatarFallback>
+                  {selectedOrg?.name
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2) || "O"}
+                </AvatarFallback>
+              </Avatar>
+            )}
+            <div className="flex-1">
+              <Input
+                id="edit-image"
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Max 5MB. Image will be converted to base64.
+              </p>
+            </div>
+            {imagePreview && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setImagePreview(null);
+                  setImageBase64(null);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </form>
       <DrawerFooter>
@@ -386,11 +510,58 @@ export function OrganizationsTable() {
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Logo Image</Label>
+                    <div className="flex items-center gap-4">
+                      {imagePreview && (
+                        <Avatar className="h-16 w-16">
+                          <AvatarImage src={imagePreview} alt="Logo" />
+                          <AvatarFallback>
+                            {selectedOrg.name
+                              ?.split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2) || "O"}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          id="edit-image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="cursor-pointer"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Max 5MB. Image will be converted to base64.
+                        </p>
+                      </div>
+                      {imagePreview && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setImagePreview(null);
+                            setImageBase64(null);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex justify-end gap-2">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setIsEditOpen(false)}
+                      onClick={() => {
+                        setIsEditOpen(false);
+                        setImagePreview(null);
+                        setImageBase64(null);
+                      }}
                     >
                       Cancel
                     </Button>

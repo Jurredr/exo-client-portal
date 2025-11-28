@@ -200,15 +200,35 @@ export async function deleteHourRegistration(registrationId: string) {
     .where(eq(hourRegistrations.id, registrationId));
 }
 
-export async function createOrganization(name: string) {
+export async function createOrganization(name: string, image?: string | null) {
   const [organization] = await db
     .insert(organizations)
     .values({
       name,
+      image: image || null,
     })
     .returning();
 
   return organization;
+}
+
+export async function updateOrganization(
+  organizationId: string,
+  data: {
+    name: string;
+    image: string | null;
+  }
+) {
+  const [updatedOrganization] = await db
+    .update(organizations)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.id, organizationId))
+    .returning();
+
+  return updatedOrganization;
 }
 
 export async function getAllOrganizations() {

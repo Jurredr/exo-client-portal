@@ -121,6 +121,11 @@ export function EnhancedDataTable<TData, TValue>({
           const config = filterConfig[key];
           if (!config) return true;
           const itemValue = config.getValue(item);
+          // Handle comma-separated values (for multiple organizations)
+          if (typeof itemValue === "string" && itemValue.includes(",")) {
+            const itemValues = itemValue.split(",");
+            return values.some((v) => itemValues.includes(v));
+          }
           return values.includes(itemValue);
         });
       });
@@ -200,7 +205,15 @@ export function EnhancedDataTable<TData, TValue>({
       const filterCounts: Record<string, number> = {};
       dataForCounts.forEach((item) => {
         const value = config.getValue(item);
-        filterCounts[value] = (filterCounts[value] || 0) + 1;
+        // Handle comma-separated values (for multiple organizations)
+        if (typeof value === "string" && value.includes(",")) {
+          const values = value.split(",");
+          values.forEach((v) => {
+            filterCounts[v] = (filterCounts[v] || 0) + 1;
+          });
+        } else {
+          filterCounts[value] = (filterCounts[value] || 0) + 1;
+        }
       });
       counts[key] = filterCounts;
     });

@@ -4,20 +4,15 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { UserPlus, Mail, User, X } from "lucide-react";
+import { OrganizationCombobox } from "@/components/organization-combobox";
 
 interface Organization {
   id: string;
   name: string;
+  image?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,7 +20,7 @@ interface Organization {
 export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [organizationId, setOrganizationId] = useState<string | undefined>(undefined);
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
@@ -93,7 +88,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         body: JSON.stringify({
           email: email.trim(),
           name: name.trim() || null,
-          organizationId: organizationId && organizationId !== "none" ? organizationId : null,
+          organizationIds: selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
           image: imageBase64 || null,
         }),
       });
@@ -106,7 +101,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
       toast.success("User created successfully");
       setEmail("");
       setName("");
-      setOrganizationId(undefined);
+      setSelectedOrganizationIds([]);
       setImagePreview(null);
       setImageBase64(null);
       onSuccess?.();
@@ -148,24 +143,14 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="user-org">Organization (Optional)</Label>
-        <Select
-          value={organizationId || "none"}
-          onValueChange={(value) => setOrganizationId(value === "none" ? undefined : value)}
+        <Label htmlFor="user-org">Organizations (Optional)</Label>
+        <OrganizationCombobox
+          organizations={organizations}
+          selectedIds={selectedOrganizationIds}
+          onSelectionChange={setSelectedOrganizationIds}
+          placeholder="Select organizations..."
           disabled={isLoadingOrgs}
-        >
-          <SelectTrigger id="user-org" className="w-full">
-            <SelectValue placeholder="Select an organization" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            {organizations.map((org) => (
-              <SelectItem key={org.id} value={org.id}>
-                {org.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       </div>
       <div className="space-y-2">
         <Label>Profile Image (Optional)</Label>

@@ -36,6 +36,20 @@
       "when": 1764323187918,
       "tag": "0004_stale_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1764324569473,
+      "tag": "0005_early_tarot",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1764324715148,
+      "tag": "0006_quiet_mattie_franklin",
+      "breakpoints": true
     }
   ]
 }

@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { email, name, organizationId, image } = body;
+    const { email, name, organizationId, organizationIds, image } = body;
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
@@ -64,10 +64,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Support both organizationId (single, for backward compatibility) and organizationIds (array)
+    const orgIds = organizationIds 
+      ? (Array.isArray(organizationIds) ? organizationIds : [organizationIds])
+      : (organizationId ? [organizationId] : null);
+
     const newUser = await createUser(
       email.trim(),
       name?.trim() || null,
-      organizationId || null,
+      orgIds,
       image || null
     );
     return NextResponse.json(newUser, { status: 201 });
@@ -97,7 +102,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, organizationId, image } = body;
+    const { id, name, organizationId, organizationIds, image } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -106,11 +111,19 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // Support both organizationId (single, for backward compatibility) and organizationIds (array)
+    let orgIds: string[] | null | undefined = undefined;
+    if (organizationIds !== undefined) {
+      orgIds = Array.isArray(organizationIds) 
+        ? (organizationIds.length > 0 ? organizationIds : null)
+        : (organizationIds ? [organizationIds] : null);
+    } else if (organizationId !== undefined) {
+      orgIds = organizationId && organizationId !== "none" ? [organizationId] : null;
+    }
+
     const updatedUser = await updateUser(id, {
       ...(name !== undefined && { name: name?.trim() || null }),
-      ...(organizationId !== undefined && {
-        organizationId: organizationId && organizationId !== "none" ? organizationId : null,
-      }),
+      ...(orgIds !== undefined && { organizationIds: orgIds }),
       ...(image !== undefined && { image: image || null }),
     });
 

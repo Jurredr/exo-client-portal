@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean, integer, decimal, primaryKey } from "drizzle-orm/pg-core";
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -82,3 +82,16 @@ export const hourRegistrations = pgTable("hour_registrations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Many-to-many relationship between users and organizations
+export const userOrganizations = pgTable("user_organizations", {
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.organizationId] }),
+}));

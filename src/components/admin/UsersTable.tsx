@@ -26,13 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { UserPlus, Mail, User, Upload, X, Trash2, Pencil, MoreVertical, ArrowUpDown } from "lucide-react";
@@ -40,6 +33,8 @@ import { CreateUserForm } from "./CreateUserForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { EnhancedDataTable } from "@/components/enhanced-data-table";
+import { OrganizationCombobox } from "@/components/organization-combobox";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,13 +57,19 @@ interface UserData {
     id: string;
     name: string;
   } | null;
+  organizations?: {
+    id: string;
+    name: string;
+    image?: string | null;
+  }[];
 }
 
 export function UsersTable() {
   const [users, setUsers] = useState<UserData[]>([]);
-  const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
+  const [organizations, setOrganizations] = useState<{ id: string; name: string; image?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
@@ -169,11 +170,21 @@ export function UsersTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {row.original.organization?.name || "—"}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const orgs = row.original.organizations || (row.original.organization ? [row.original.organization] : []);
+          if (orgs.length === 0) {
+            return <div className="text-muted-foreground">—</div>;
+          }
+          return (
+            <div className="flex flex-wrap gap-1">
+              {orgs.map((org) => (
+                <Badge key={org.id} variant="outline" className="text-xs">
+                  {org.name}
+                </Badge>
+              ))}
+            </div>
+          );
+        },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
           const orgA = rowA.original.organization?.name || "";
@@ -329,6 +340,14 @@ export function UsersTable() {
       setImagePreview(null);
       setImageBase64(null);
     }
+    
+    // Set selected organization IDs when editing
+    if (selectedUser) {
+      const orgs = selectedUser.organizations || (selectedUser.organization ? [selectedUser.organization] : []);
+      setSelectedOrganizationIds(orgs.map(org => org.id));
+    } else {
+      setSelectedOrganizationIds([]);
+    }
   }, [selectedUser]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -362,7 +381,6 @@ export function UsersTable() {
 
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const name = formData.get("name") as string;
-    const organizationId = formData.get("organizationId") as string;
 
     try {
       const response = await fetch("/api/users", {
@@ -373,7 +391,7 @@ export function UsersTable() {
         body: JSON.stringify({
           id: selectedUser.user.id,
           name: name.trim() || null,
-          organizationId: organizationId && organizationId !== "none" ? organizationId : null,
+          organizationIds: selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
           image: imageBase64 || selectedUser.user.image || null,
         }),
       });
@@ -456,23 +474,13 @@ export function UsersTable() {
           />
         </div>
         <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-org">Organization</Label>
-          <Select
-            name="organizationId"
-            defaultValue={selectedUser?.user.organizationId || "none"}
-          >
-            <SelectTrigger id="edit-org" className="w-full">
-              <SelectValue placeholder="Select an organization" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              {organizations.map((org) => (
-                <SelectItem key={org.id} value={org.id}>
-                  {org.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="edit-org">Organizations</Label>
+          <OrganizationCombobox
+            organizations={organizations}
+            selectedIds={selectedOrganizationIds}
+            onSelectionChange={setSelectedOrganizationIds}
+            placeholder="Select organizations..."
+          />
         </div>
         <div className="flex flex-col gap-3">
           <Label>Profile Image</Label>
@@ -551,7 +559,12 @@ export function UsersTable() {
                 organization: {
                   label: "Organization",
                   options: [{ label: "None", value: "none" }, ...organizationFilterOptions],
-                  getValue: (row) => row.user.organizationId || "none",
+                  getValue: (row) => {
+                    const orgs = row.organizations || (row.organization ? [row.organization] : []);
+                    if (orgs.length === 0) return "none";
+                    // Return all organization IDs for filtering
+                    return orgs.map(org => org.id).join(",");
+                  },
                 },
               }
             : undefined
@@ -639,23 +652,13 @@ export function UsersTable() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-org">Organization</Label>
-                    <Select
-                      name="organizationId"
-                      defaultValue={selectedUser.user.organizationId || "none"}
-                    >
-                      <SelectTrigger id="edit-org" className="w-full">
-                        <SelectValue placeholder="Select an organization" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {organizations.map((org) => (
-                          <SelectItem key={org.id} value={org.id}>
-                            {org.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="edit-org">Organizations</Label>
+                    <OrganizationCombobox
+                      organizations={organizations}
+                      selectedIds={selectedOrganizationIds}
+                      onSelectionChange={setSelectedOrganizationIds}
+                      placeholder="Select organizations..."
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Profile Image</Label>

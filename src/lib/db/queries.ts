@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { projects, users, organizations, hourRegistrations } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { projects, users, organizations, hourRegistrations, userOrganizations } from "@/db/schema";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
 export function isAdmin(email: string): boolean {
@@ -9,12 +9,27 @@ export function isAdmin(email: string): boolean {
 
 export async function isUserInEXOOrganization(userEmail: string): Promise<boolean> {
   const user = await getUserByEmail(userEmail);
-  if (!user || !user.organizationId) {
+  if (!user) {
     return false;
   }
   
   const exoOrg = await getOrCreateEXOOrganization();
-  return user.organizationId === exoOrg.id;
+  
+  // Check primary organization (backward compatibility)
+  if (user.organizationId === exoOrg.id) {
+    return true;
+  }
+  
+  // Check junction table
+  const userOrg = await db
+    .select()
+    .from(userOrganizations)
+    .where(
+      sql`${userOrganizations.userId} = ${user.id} AND ${userOrganizations.organizationId} = ${exoOrg.id}`
+    )
+    .limit(1);
+  
+  return userOrg.length > 0;
 }
 
 export async function getOrCreateEXOOrganization() {
@@ -112,7 +127,7 @@ export async function canUserAccessProject(
 
   // Get the project
   const project = await getProjectById(projectId);
-  if (!project) {
+  if (!project || !project.organizationId) {
     return false;
   }
 
@@ -122,12 +137,21 @@ export async function canUserAccessProject(
     return false;
   }
 
-  // Check if user's organization matches project's organization
-  if (!user.organizationId || !project.organizationId) {
-    return false;
+  // Check primary organization (backward compatibility)
+  if (user.organizationId === project.organizationId) {
+    return true;
   }
 
-  return user.organizationId === project.organizationId;
+  // Check junction table
+  const userOrg = await db
+    .select()
+    .from(userOrganizations)
+    .where(
+      sql`${userOrganizations.userId} = ${user.id} AND ${userOrganizations.organizationId} = ${project.organizationId}`
+    )
+    .limit(1);
+
+  return userOrg.length > 0;
 }
 
 export async function getProjectWithOrganization(projectId: string) {
@@ -265,18 +289,31 @@ export async function getAllOrganizations() {
 export async function createUser(
   email: string,
   name: string | null,
-  organizationId: string | null,
+  organizationIds: string[] | null,
   image?: string | null
 ) {
+  // Create user with first organization as primary (for backward compatibility)
+  const primaryOrgId = organizationIds && organizationIds.length > 0 ? organizationIds[0] : null;
+  
   const [newUser] = await db
     .insert(users)
     .values({
       email,
       name: name || null,
       image: image || null,
-      organizationId: organizationId || null,
+      organizationId: primaryOrgId,
     })
     .returning();
+
+  // Add all organizations to the junction table
+  if (organizationIds && organizationIds.length > 0) {
+    await db.insert(userOrganizations).values(
+      organizationIds.map((orgId) => ({
+        userId: newUser.id,
+        organizationId: orgId,
+      }))
+    );
+  }
 
   return newUser;
 }
@@ -286,15 +323,48 @@ export async function updateUser(
   data: Partial<{
     name: string | null;
     organizationId: string | null;
+    organizationIds?: string[] | null;
     image: string | null;
   }>
 ) {
+  // If organizationIds is provided, update the junction table
+  if (data.organizationIds !== undefined) {
+    // Delete existing relationships
+    await db
+      .delete(userOrganizations)
+      .where(eq(userOrganizations.userId, userId));
+
+    // Add new relationships
+    if (data.organizationIds && data.organizationIds.length > 0) {
+      await db.insert(userOrganizations).values(
+        data.organizationIds.map((orgId) => ({
+          userId,
+          organizationId: orgId,
+        }))
+      );
+      
+      // Update primary organizationId for backward compatibility
+      data.organizationId = data.organizationIds[0];
+    } else {
+      data.organizationId = null;
+    }
+  }
+
+  const updateData: Partial<{
+    name: string | null;
+    organizationId: string | null;
+    image: string | null;
+    updatedAt: Date;
+  }> = {
+    ...(data.name !== undefined && { name: data.name }),
+    ...(data.organizationId !== undefined && { organizationId: data.organizationId }),
+    ...(data.image !== undefined && { image: data.image }),
+    updatedAt: new Date(),
+  };
+
   const [updatedUser] = await db
     .update(users)
-    .set({
-      ...data,
-      updatedAt: new Date(),
-    })
+    .set(updateData)
     .where(eq(users.id, userId))
     .returning();
 
@@ -302,7 +372,8 @@ export async function updateUser(
 }
 
 export async function getAllUsers() {
-  return await db
+  // Get all users with their primary organization (for backward compatibility)
+  const usersWithPrimaryOrg = await db
     .select({
       user: users,
       organization: organizations,
@@ -310,6 +381,31 @@ export async function getAllUsers() {
     .from(users)
     .leftJoin(organizations, eq(users.organizationId, organizations.id))
     .orderBy(users.email);
+
+  // Get all user-organization relationships
+  const allUserOrgs = await db
+    .select({
+      userId: userOrganizations.userId,
+      organization: organizations,
+    })
+    .from(userOrganizations)
+    .innerJoin(organizations, eq(userOrganizations.organizationId, organizations.id));
+
+  // Group organizations by user ID
+  const orgsByUserId: Record<string, typeof organizations.$inferSelect[]> = {};
+  allUserOrgs.forEach((row) => {
+    if (!orgsByUserId[row.userId]) {
+      orgsByUserId[row.userId] = [];
+    }
+    orgsByUserId[row.userId].push(row.organization);
+  });
+
+  // Combine results
+  return usersWithPrimaryOrg.map((row) => ({
+    user: row.user,
+    organization: row.organization,
+    organizations: orgsByUserId[row.user.id] || [],
+  }));
 }
 
 export async function createProject(data: {

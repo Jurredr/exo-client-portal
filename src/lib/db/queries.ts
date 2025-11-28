@@ -377,3 +377,21 @@ export async function getTotalHoursByProject() {
 
   return hoursMap;
 }
+
+export async function deleteOrganization(organizationId: string) {
+  await db
+    .delete(organizations)
+    .where(eq(organizations.id, organizationId));
+}
+
+export async function deleteUser(userId: string) {
+  await db
+    .delete(users)
+    .where(eq(users.id, userId));
+}
+
+export async function deleteProject(projectId: string) {
+  await db
+    .delete(projects)
+    .where(eq(projects.id, projectId));
+}

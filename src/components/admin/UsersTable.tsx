@@ -49,8 +49,9 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { UserPlus, Mail, User, Upload, X } from "lucide-react";
+import { UserPlus, Mail, User, Upload, X, Trash2, Pencil } from "lucide-react";
 import { CreateUserForm } from "./CreateUserForm";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 
 interface UserData {
   user: {
@@ -68,65 +69,6 @@ interface UserData {
   } | null;
 }
 
-const columns: ColumnDef<UserData>[] = [
-  {
-    id: "avatar",
-    header: "",
-    cell: ({ row }) => {
-      const user = row.original.user;
-      const getInitials = (name: string | null) => {
-        if (!name) return user.email?.charAt(0).toUpperCase() || "U";
-        return name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2);
-      };
-      return (
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={user.image || undefined} alt={user.name || user.email} />
-          <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-        </Avatar>
-      );
-    },
-    size: 50,
-  },
-  {
-    accessorKey: "user.email",
-    header: "Email",
-    cell: ({ row }) => (
-      <div className="font-medium">{row.original.user.email}</div>
-    ),
-  },
-  {
-    accessorKey: "user.name",
-    header: "Name",
-    cell: ({ row }) => (
-      <div className="text-muted-foreground">
-        {row.original.user.name || "—"}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "organization.name",
-    header: "Organization",
-    cell: ({ row }) => (
-      <div className="text-muted-foreground">
-        {row.original.organization?.name || "—"}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "user.createdAt",
-    header: "Created",
-    cell: ({ row }) => {
-      const date = new Date(row.original.user.createdAt);
-      return <div className="text-muted-foreground">{date.toLocaleDateString()}</div>;
-    },
-  },
-];
-
 export function UsersTable() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
@@ -135,9 +77,100 @@ export function UsersTable() {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const isMobile = useIsMobile();
+
+  const columns: ColumnDef<UserData>[] = [
+    {
+      id: "avatar",
+      header: "",
+      cell: ({ row }) => {
+        const user = row.original.user;
+        const getInitials = (name: string | null) => {
+          if (!name) return user.email?.charAt(0).toUpperCase() || "U";
+          return name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+        };
+        return (
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.image || undefined} alt={user.name || user.email} />
+            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+          </Avatar>
+        );
+      },
+      size: 50,
+    },
+    {
+      accessorKey: "user.email",
+      header: "Email",
+      cell: ({ row }) => (
+        <div className="font-medium">{row.original.user.email}</div>
+      ),
+    },
+    {
+      accessorKey: "user.name",
+      header: "Name",
+      cell: ({ row }) => (
+        <div className="text-muted-foreground">
+          {row.original.user.name || "—"}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "organization.name",
+      header: "Organization",
+      cell: ({ row }) => (
+        <div className="text-muted-foreground">
+          {row.original.organization?.name || "—"}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "user.createdAt",
+      header: "Created",
+      cell: ({ row }) => {
+        const date = new Date(row.original.user.createdAt);
+        return <div className="text-muted-foreground">{date.toLocaleDateString()}</div>;
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedUser(row.original);
+              setIsEditOpen(true);
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteUser(row.original);
+              setIsDeleteOpen(true);
+            }}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   useEffect(() => {
     fetchUsers();
@@ -268,6 +301,27 @@ export function UsersTable() {
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
     fetchUsers();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteUser) return;
+
+    try {
+      const response = await fetch(`/api/users?id=${deleteUser.user.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete user");
+      }
+
+      toast.success("User deleted successfully");
+      fetchUsers();
+      setDeleteUser(null);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error("Failed to delete user");
+    }
   };
 
   if (loading) {
@@ -610,6 +664,17 @@ export function UsersTable() {
           </DialogContent>
         </Dialog>
       )}
+
+      <DeleteConfirmationDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onConfirm={handleDelete}
+        title="Delete User"
+        description={`Are you sure you want to delete "${deleteUser?.user.email}"? This action cannot be undone.`}
+        itemName="User"
+        confirmationText={deleteUser?.user.email || ""}
+        warningMessage="This will permanently delete the user account and all associated data. This action cannot be undone."
+      />
     </div>
   );
 }

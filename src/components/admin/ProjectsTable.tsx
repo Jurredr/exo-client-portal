@@ -56,8 +56,11 @@ import {
   Calendar,
   ExternalLink,
   Copy,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { CreateProjectForm } from "./CreateProjectForm";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import Link from "next/link";
 
 interface ProjectData {
@@ -153,84 +156,6 @@ const formatHours = (decimalHours: number) => {
   return parts.join(" ");
 };
 
-const columns: ColumnDef<ProjectData>[] = [
-  {
-    accessorKey: "project.title",
-    header: "Title",
-    cell: ({ row }) => (
-      <div className="font-medium">{row.original.project.title}</div>
-    ),
-  },
-  {
-    accessorKey: "organization.name",
-    header: "Organization",
-    cell: ({ row }) => (
-      <div className="text-muted-foreground">
-        {row.original.organization.name}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "project.status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.original.project.status;
-      return (
-        <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
-          <span className={`h-2 w-2 rounded-full ${getStatusColor(status)}`} />
-          {formatStatus(status)}
-        </Badge>
-      );
-    },
-  },
-  {
-    accessorKey: "project.stage",
-    header: "Stage",
-    cell: ({ row }) => {
-      const stage = row.original.project.stage;
-      return (
-        <Badge variant="outline" className="w-fit">
-          {formatStage(stage)}
-        </Badge>
-      );
-    },
-  },
-  {
-    accessorKey: "project.subtotal",
-    header: "Subtotal",
-    cell: ({ row }) => (
-      <div className="text-muted-foreground">
-        ${row.original.project.subtotal}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "totalHours",
-    header: "Hours",
-    cell: ({ row }) => {
-      const hours = row.original.totalHours || 0;
-      return <div className="font-medium">{formatHours(hours)}</div>;
-    },
-  },
-  {
-    id: "actions",
-    header: "Actions",
-    cell: ({ row }) => (
-      <Button
-        variant="outline"
-        size="sm"
-        asChild
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Link href={`/project/${row.original.project.id}`}>
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Open
-        </Link>
-      </Button>
-    ),
-  },
-];
-
 export function ProjectsTable() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [organizations, setOrganizations] = useState<
@@ -243,7 +168,102 @@ export function ProjectsTable() {
   );
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteProject, setDeleteProject] = useState<ProjectData | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  const columns: ColumnDef<ProjectData>[] = [
+    {
+      accessorKey: "project.title",
+      header: "Title",
+      cell: ({ row }) => (
+        <div className="font-medium">{row.original.project.title}</div>
+      ),
+    },
+    {
+      accessorKey: "organization.name",
+      header: "Organization",
+      cell: ({ row }) => (
+        <div className="text-muted-foreground">
+          {row.original.organization.name}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "project.status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.original.project.status;
+        return (
+          <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
+            <span
+              className={`h-2 w-2 rounded-full ${getStatusColor(status)}`}
+            />
+            {formatStatus(status)}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "project.stage",
+      header: "Stage",
+      cell: ({ row }) => {
+        const stage = row.original.project.stage;
+        return (
+          <Badge variant="outline" className="w-fit">
+            {formatStage(stage)}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "project.subtotal",
+      header: "Subtotal",
+      cell: ({ row }) => (
+        <div className="text-muted-foreground">
+          ${row.original.project.subtotal}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "totalHours",
+      header: "Hours",
+      cell: ({ row }) => {
+        const hours = row.original.totalHours || 0;
+        return <div className="font-medium">{formatHours(hours)}</div>;
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Link href={`/project/${row.original.project.id}`}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteProject(row.original);
+              setIsDeleteOpen(true);
+            }}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   useEffect(() => {
     fetchProjects();
@@ -350,6 +370,30 @@ export function ProjectsTable() {
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
     fetchProjects();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteProject) return;
+
+    try {
+      const response = await fetch(
+        `/api/projects?id=${deleteProject.project.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete project");
+      }
+
+      toast.success("Project deleted successfully");
+      fetchProjects();
+      setDeleteProject(null);
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      toast.error("Failed to delete project");
+    }
   };
 
   if (loading) {
@@ -773,6 +817,17 @@ export function ProjectsTable() {
           </DialogContent>
         </Dialog>
       )}
+
+      <DeleteConfirmationDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onConfirm={handleDelete}
+        title="Delete Project"
+        description={`Are you sure you want to delete "${deleteProject?.project.title}"? This action cannot be undone.`}
+        itemName="Project"
+        confirmationText={deleteProject?.project.title || ""}
+        warningMessage="This will permanently delete the project and all associated data including hour registrations, deliverables, and client assets. This action cannot be undone."
+      />
     </div>
   );
 }

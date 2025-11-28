@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { createOrganization, getAllOrganizations, isAdmin } from "@/lib/db/queries";
+import { createOrganization, getAllOrganizations, isUserInEXOOrganization, deleteOrganization } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -9,7 +9,12 @@ export async function GET() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user || !user.email || !isAdmin(user.email)) {
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isInEXO = await isUserInEXOOrganization(user.email);
+    if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -31,7 +36,12 @@ export async function POST(request: Request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user || !user.email || !isAdmin(user.email)) {
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isInEXO = await isUserInEXOOrganization(user.email);
+    if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -49,6 +59,43 @@ export async function POST(request: Request) {
     return NextResponse.json(organization, { status: 201 });
   } catch (error) {
     console.error("Error creating organization:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isInEXO = await isUserInEXOOrganization(user.email);
+    if (!isInEXO) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get("id");
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: "Organization ID is required" },
+        { status: 400 }
+      );
+    }
+
+    await deleteOrganization(organizationId);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting organization:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

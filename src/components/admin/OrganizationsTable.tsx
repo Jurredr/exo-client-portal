@@ -33,8 +33,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Building2, Plus, Pencil } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2 } from "lucide-react";
 import { CreateOrganizationForm } from "./CreateOrganizationForm";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import {
   Dialog,
   DialogContent,
@@ -52,32 +53,6 @@ interface Organization {
   userCount?: number;
 }
 
-const columns: ColumnDef<Organization>[] = [
-  {
-    accessorKey: "name",
-    header: "Name",
-    cell: ({ row }) => <div className="font-medium">{row.original.name}</div>,
-  },
-  {
-    accessorKey: "userCount",
-    header: "Users",
-    cell: ({ row }) => {
-      const count = row.original.userCount || 0;
-      return <div className="font-medium">{count}</div>;
-    },
-  },
-  {
-    accessorKey: "createdAt",
-    header: "Created",
-    cell: ({ row }) => {
-      const date = new Date(row.original.createdAt);
-      return (
-        <div className="text-muted-foreground">{date.toLocaleDateString()}</div>
-      );
-    },
-  },
-];
-
 export function OrganizationsTable() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +60,67 @@ export function OrganizationsTable() {
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  const columns: ColumnDef<Organization>[] = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => <div className="font-medium">{row.original.name}</div>,
+    },
+    {
+      accessorKey: "userCount",
+      header: "Users",
+      cell: ({ row }) => {
+        const count = row.original.userCount || 0;
+        return <div className="font-medium">{count}</div>;
+      },
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created",
+      cell: ({ row }) => {
+        const date = new Date(row.original.createdAt);
+        return (
+          <div className="text-muted-foreground">
+            {date.toLocaleDateString()}
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedOrg(row.original);
+              setIsEditOpen(true);
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteOrg(row.original);
+              setIsDeleteOpen(true);
+            }}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   useEffect(() => {
     fetchOrganizations();
@@ -148,6 +183,27 @@ export function OrganizationsTable() {
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
     fetchOrganizations();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteOrg) return;
+
+    try {
+      const response = await fetch(`/api/organizations?id=${deleteOrg.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete organization");
+      }
+
+      toast.success("Organization deleted successfully");
+      fetchOrganizations();
+      setDeleteOrg(null);
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      toast.error("Failed to delete organization");
+    }
   };
 
   if (loading) {
@@ -346,6 +402,17 @@ export function OrganizationsTable() {
           </DialogContent>
         </Dialog>
       )}
+
+      <DeleteConfirmationDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onConfirm={handleDelete}
+        title="Delete Organization"
+        description={`Are you sure you want to delete "${deleteOrg?.name}"? This action cannot be undone.`}
+        itemName="Organization"
+        confirmationText={deleteOrg?.name || ""}
+        warningMessage="This will permanently delete the organization and all associated data. Users associated with this organization will lose their organization assignment."
+      />
     </div>
   );
 }

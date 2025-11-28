@@ -4,8 +4,10 @@ import {
   getProjectWithOrganization,
   canUserAccessProject,
   ensureUserExists,
+  isUserInEXOOrganization,
+  getUserByEmail,
 } from "@/lib/db/queries";
-import UserInfo from "@/components/UserInfo";
+import { ProjectUserMenu } from "@/components/ProjectUserMenu";
 import ProjectDetails from "@/components/ProjectDetails";
 
 interface ProjectPageProps {
@@ -46,6 +48,21 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     redirect("/not-found");
   }
 
+  // Get user data from database
+  const dbUser = await getUserByEmail(user.email);
+  const isInEXO = await isUserInEXOOrganization(user.email);
+
+  // Prepare user data for the menu
+  const userData = {
+    name:
+      dbUser?.name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "User",
+    email: user.email || "",
+    avatar: dbUser?.image || user.user_metadata?.avatar_url || undefined,
+  };
+
   return (
     <div className="relative min-h-screen">
       {/* Fixed Background - stays in place when scrolling */}
@@ -62,8 +79,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <div className="absolute inset-0 bg-black/20" />
       </div>
 
-      {/* Fixed User Info - always in top right */}
-      <UserInfo />
+      {/* Fixed User Menu - always in top right */}
+      <ProjectUserMenu user={userData} showAdminLink={isInEXO} />
 
       {/* Main Content - scrolls over background */}
       <div className="relative z-10 pt-24 pb-12">

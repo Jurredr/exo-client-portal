@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/db/queries";
+import { isUserInEXOOrganization } from "@/lib/db/queries";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ProjectsTable } from "@/components/admin/ProjectsTable";
 import { ProjectStatsCards } from "@/components/admin/ProjectStatsCards";
@@ -18,7 +18,8 @@ export default async function ProjectsPage() {
     redirect("/login");
   }
 
-  if (!isAdmin(user.email)) {
+  const isInEXO = await isUserInEXOOrganization(user.email);
+  if (!isInEXO) {
     redirect("/unauthorized");
   }
 

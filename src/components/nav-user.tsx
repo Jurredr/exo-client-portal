@@ -4,7 +4,11 @@ import {
   IconDotsVertical,
   IconLogout,
   IconUserCircle,
+  IconDashboard,
 } from "@tabler/icons-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 
 import {
   Avatar,
@@ -30,6 +34,7 @@ import {
 export function NavUser({
   user,
   onAccountClick,
+  showAdminLink = false,
 }: {
   user: {
     name: string
@@ -37,8 +42,20 @@ export function NavUser({
     avatar?: string
   }
   onAccountClick?: () => void
+  showAdminLink?: boolean
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -97,13 +114,21 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              {showAdminLink && (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard">
+                    <IconDashboard />
+                    Admin Panel
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={onAccountClick}>
                 <IconUserCircle />
                 Account
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>
               <IconLogout />
               Log out
             </DropdownMenuItem>

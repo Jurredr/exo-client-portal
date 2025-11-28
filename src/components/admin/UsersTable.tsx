@@ -57,6 +57,7 @@ interface UserData {
     id: string;
     email: string;
     name: string | null;
+    image: string | null;
     organizationId: string | null;
     createdAt: string;
     updatedAt: string;
@@ -68,6 +69,29 @@ interface UserData {
 }
 
 const columns: ColumnDef<UserData>[] = [
+  {
+    id: "avatar",
+    header: "",
+    cell: ({ row }) => {
+      const user = row.original.user;
+      const getInitials = (name: string | null) => {
+        if (!name) return user.email?.charAt(0).toUpperCase() || "U";
+        return name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2);
+      };
+      return (
+        <Avatar className="h-8 w-8">
+          <AvatarImage src={user.image || undefined} alt={user.name || user.email} />
+          <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+        </Avatar>
+      );
+    },
+    size: 50,
+  },
   {
     accessorKey: "user.email",
     header: "Email",

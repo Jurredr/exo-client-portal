@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/db/queries";
+import { isUserInEXOOrganization } from "@/lib/db/queries";
 import { AppSidebar } from "@/components/app-sidebar";
 import { OrganizationsTable } from "@/components/admin/OrganizationsTable";
 import { SiteHeader } from "@/components/site-header";
@@ -19,7 +19,8 @@ export default async function OrganizationsPage() {
     redirect("/login");
   }
 
-  if (!isAdmin(user.email)) {
+  const isInEXO = await isUserInEXOOrganization(user.email);
+  if (!isInEXO) {
     redirect("/unauthorized");
   }
 

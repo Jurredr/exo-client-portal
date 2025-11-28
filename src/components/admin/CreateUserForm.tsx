@@ -12,13 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { toast } from "sonner";
 import { UserPlus, Mail, User, X } from "lucide-react";
 
@@ -127,114 +120,101 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <UserPlus className="h-5 w-5" />
-          Create Client Account
-        </CardTitle>
-        <CardDescription>
-          Create a new user account for a client
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="user-email" className="flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              Email
-            </Label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="user-email" className="flex items-center gap-2">
+          <Mail className="h-4 w-4" />
+          Email
+        </Label>
+        <Input
+          id="user-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="client@example.com"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="user-name" className="flex items-center gap-2">
+          <User className="h-4 w-4" />
+          Name (Optional)
+        </Label>
+        <Input
+          id="user-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="John Doe"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="user-org">Organization (Optional)</Label>
+        <Select
+          value={organizationId || "none"}
+          onValueChange={(value) => setOrganizationId(value === "none" ? undefined : value)}
+          disabled={isLoadingOrgs}
+        >
+          <SelectTrigger id="user-org" className="w-full">
+            <SelectValue placeholder="Select an organization" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {organizations.map((org) => (
+              <SelectItem key={org.id} value={org.id}>
+                {org.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Profile Image (Optional)</Label>
+        <div className="flex items-center gap-4">
+          {imagePreview && (
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={imagePreview} alt="Profile" />
+              <AvatarFallback>
+                {name
+                  ?.split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2) || "U"}
+              </AvatarFallback>
+            </Avatar>
+          )}
+          <div className="flex-1">
             <Input
-              id="user-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="client@example.com"
-              required
+              id="user-image"
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="cursor-pointer"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Max 5MB. Image will be converted to base64.
+            </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="user-name" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Name (Optional)
-            </Label>
-            <Input
-              id="user-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="John Doe"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="user-org">Organization (Optional)</Label>
-            <Select
-              value={organizationId || "none"}
-              onValueChange={(value) => setOrganizationId(value === "none" ? undefined : value)}
-              disabled={isLoadingOrgs}
+          {imagePreview && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setImagePreview(null);
+                setImageBase64(null);
+              }}
             >
-              <SelectTrigger id="user-org" className="w-full">
-                <SelectValue placeholder="Select an organization" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Profile Image (Optional)</Label>
-            <div className="flex items-center gap-4">
-              {imagePreview && (
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={imagePreview} alt="Profile" />
-                  <AvatarFallback>
-                    {name
-                      ?.split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <div className="flex-1">
-                <Input
-                  id="user-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="cursor-pointer"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Max 5MB. Image will be converted to base64.
-                </p>
-              </div>
-              {imagePreview && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setImagePreview(null);
-                    setImageBase64(null);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            <UserPlus className="h-4 w-4 mr-2" />
-            {isSubmitting ? "Creating..." : "Create User"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+      <Button type="submit" disabled={isSubmitting} className="w-full">
+        <UserPlus className="h-4 w-4 mr-2" />
+        {isSubmitting ? "Creating..." : "Create User"}
+      </Button>
+    </form>
   );
 }
 

@@ -12,13 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { toast } from "sonner";
 import { FolderPlus, DollarSign, Calendar } from "lucide-react";
 
@@ -138,136 +131,123 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FolderPlus className="h-5 w-5" />
-          Create Project
-        </CardTitle>
-        <CardDescription>
-          Create and configure a new project for a client organization
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="project-title">Project Title *</Label>
-            <Input
-              id="project-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Website Redesign"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="project-description">Description</Label>
-            <Textarea
-              id="project-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Project description..."
-              rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="project-org">Organization *</Label>
-            <Select
-              value={organizationId}
-              onValueChange={setOrganizationId}
-              disabled={isLoadingOrgs}
-              required
-            >
-              <SelectTrigger id="project-org" className="w-full">
-                <SelectValue placeholder="Select an organization" />
-              </SelectTrigger>
-              <SelectContent>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="project-status">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger id="project-status" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROJECT_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="project-stage">Stage</Label>
-              <Select value={stage} onValueChange={setStage}>
-                <SelectTrigger id="project-stage" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROJECT_STAGES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="project-subtotal" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Subtotal *
-            </Label>
-            <Input
-              id="project-subtotal"
-              value={subtotal}
-              onChange={(e) => setSubtotal(e.target.value)}
-              placeholder="5000.00"
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="project-start-date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Start Date
-              </Label>
-              <Input
-                id="project-start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="project-deadline" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Deadline
-              </Label>
-              <Input
-                id="project-deadline"
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-              />
-            </div>
-          </div>
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            <FolderPlus className="h-4 w-4 mr-2" />
-            {isSubmitting ? "Creating..." : "Create Project"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="project-title">Project Title *</Label>
+        <Input
+          id="project-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Website Redesign"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="project-description">Description</Label>
+        <Textarea
+          id="project-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Project description..."
+          rows={3}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="project-org">Organization *</Label>
+        <Select
+          value={organizationId}
+          onValueChange={setOrganizationId}
+          disabled={isLoadingOrgs}
+          required
+        >
+          <SelectTrigger id="project-org" className="w-full">
+            <SelectValue placeholder="Select an organization" />
+          </SelectTrigger>
+          <SelectContent>
+            {organizations.map((org) => (
+              <SelectItem key={org.id} value={org.id}>
+                {org.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="project-status">Status</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger id="project-status" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECT_STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="project-stage">Stage</Label>
+          <Select value={stage} onValueChange={setStage}>
+            <SelectTrigger id="project-stage" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECT_STAGES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="project-subtotal" className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4" />
+          Subtotal *
+        </Label>
+        <Input
+          id="project-subtotal"
+          value={subtotal}
+          onChange={(e) => setSubtotal(e.target.value)}
+          placeholder="5000.00"
+          required
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="project-start-date" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Start Date
+          </Label>
+          <Input
+            id="project-start-date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="project-deadline" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Deadline
+          </Label>
+          <Input
+            id="project-deadline"
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+          />
+        </div>
+      </div>
+      <Button type="submit" disabled={isSubmitting} className="w-full">
+        <FolderPlus className="h-4 w-4 mr-2" />
+        {isSubmitting ? "Creating..." : "Create Project"}
+      </Button>
+    </form>
   );
 }
 

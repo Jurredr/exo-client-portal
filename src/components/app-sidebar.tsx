@@ -56,6 +56,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [userOrganizationId, setUserOrganizationId] = useState<string | null>(
     null
   );
+  const [isInEXO, setIsInEXO] = useState<boolean>(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [organizations, setOrganizations] = useState<
     { id: string; name: string }[]
@@ -112,13 +113,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         if (response.ok) {
           const data = await response.json();
           setOrganizations(data);
+          // Check if user is in EXO organization
+          const exoOrg = data.find(
+            (org: { id: string; name: string }) => org.name === "EXO"
+          );
+          if (exoOrg && userOrganizationId === exoOrg.id) {
+            setIsInEXO(true);
+          }
         }
       } catch (error) {
         console.error("Error fetching organizations:", error);
       }
     };
     fetchOrganizations();
-  }, []);
+  }, [userOrganizationId]);
 
   useEffect(() => {
     if (isAccountModalOpen && userImage) {
@@ -290,6 +298,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavUser
           user={userData}
           onAccountClick={() => setIsAccountModalOpen(true)}
+          showAdminLink={isInEXO}
         />
       </SidebarFooter>
 

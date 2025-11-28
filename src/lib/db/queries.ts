@@ -7,6 +7,16 @@ export function isAdmin(email: string): boolean {
   return email.endsWith(ADMIN_EMAIL_DOMAIN);
 }
 
+export async function isUserInEXOOrganization(userEmail: string): Promise<boolean> {
+  const user = await getUserByEmail(userEmail);
+  if (!user || !user.organizationId) {
+    return false;
+  }
+  
+  const exoOrg = await getOrCreateEXOOrganization();
+  return user.organizationId === exoOrg.id;
+}
+
 export async function getOrCreateEXOOrganization() {
   // Try to find EXO organization
   const existing = await db

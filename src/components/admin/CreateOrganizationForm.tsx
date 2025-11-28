@@ -4,9 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Building2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface Organization {
   id: string;
@@ -59,35 +58,22 @@ export function CreateOrganizationForm({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Building2 className="h-5 w-5" />
-          Create Organization
-        </CardTitle>
-        <CardDescription>
-          Create a new organization for client accounts
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="org-name">Organization Name</Label>
-            <Input
-              id="org-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Acme Corporation"
-              required
-            />
-          </div>
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            {isSubmitting ? "Creating..." : "Create Organization"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="org-name">Organization Name</Label>
+        <Input
+          id="org-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Acme Corporation"
+          required
+        />
+      </div>
+      <Button type="submit" disabled={isSubmitting} className="w-full">
+        <Plus className="h-4 w-4 mr-2" />
+        {isSubmitting ? "Creating..." : "Create Organization"}
+      </Button>
+    </form>
   );
 }
 

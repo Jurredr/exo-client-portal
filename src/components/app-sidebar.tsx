@@ -298,7 +298,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavUser
           user={userData}
           onAccountClick={() => setIsAccountModalOpen(true)}
-          showAdminLink={isInEXO}
+          showAdminLink={isInEXO && !pathname.startsWith("/dashboard")}
         />
       </SidebarFooter>
 

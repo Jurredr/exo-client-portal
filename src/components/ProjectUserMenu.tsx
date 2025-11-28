@@ -7,7 +7,7 @@ import {
   IconDashboard,
 } from "@tabler/icons-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 import {
@@ -40,6 +40,7 @@ export function ProjectUserMenu({
   onAccountClick?: () => void
 }) {
   const router = useRouter()
+  const pathname = usePathname()
 
   const getInitials = (name: string) => {
     return name
@@ -108,7 +109,7 @@ export function ProjectUserMenu({
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            {showAdminLink && (
+            {showAdminLink && !pathname.startsWith("/dashboard") && (
               <DropdownMenuItem asChild>
                 <Link href="/dashboard">
                   <IconDashboard />

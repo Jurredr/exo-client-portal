@@ -52,6 +52,13 @@ import { toast } from "sonner";
 import { UserPlus, Mail, User, Upload, X, Trash2, Pencil } from "lucide-react";
 import { CreateUserForm } from "./CreateUserForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface UserData {
   user: {
@@ -81,6 +88,7 @@ export function UsersTable() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<UserData>[] = [
@@ -143,39 +151,73 @@ export function UsersTable() {
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedUser(row.original);
-              setIsEditOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteUser(row.original);
-              setIsDeleteOpen(true);
-            }}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const isCurrentUser = currentUserEmail === row.original.user.email;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedUser(row.original);
+                setIsEditOpen(true);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={isCurrentUser}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isCurrentUser) {
+                          setDeleteUser(row.original);
+                          setIsDeleteOpen(true);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isCurrentUser && (
+                  <TooltipContent>
+                    <p>You cannot delete your own account</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        );
+      },
     },
   ];
 
   useEffect(() => {
     fetchUsers();
     fetchOrganizations();
+    fetchCurrentUser();
   }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.email) {
+        setCurrentUserEmail(user.email);
+      }
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {

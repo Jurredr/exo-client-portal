@@ -1,14 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
-  useReactTable,
 } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -22,19 +16,11 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Building2, Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, ArrowUpDown, MoreVertical } from "lucide-react";
 import { CreateOrganizationForm } from "./CreateOrganizationForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import {
@@ -45,6 +31,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EnhancedDataTable } from "@/components/enhanced-data-table";
 
 interface Organization {
   id: string;
@@ -58,7 +52,6 @@ interface Organization {
 export function OrganizationsTable() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -68,85 +61,143 @@ export function OrganizationsTable() {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  const columns: ColumnDef<Organization>[] = [
-    {
-      id: "avatar",
-      header: "",
-      cell: ({ row }) => {
-        const org = row.original;
-        const getInitials = (name: string) => {
-          return name
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase()
-            .slice(0, 2);
-        };
-        return (
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={org.image || undefined} alt={org.name} />
-            <AvatarFallback>{getInitials(org.name)}</AvatarFallback>
-          </Avatar>
-        );
+  const columns: ColumnDef<Organization>[] = useMemo(
+    () => [
+      {
+        id: "avatar",
+        header: "",
+        cell: ({ row }) => {
+          const org = row.original;
+          const getInitials = (name: string) => {
+            return name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2);
+          };
+          return (
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={org.image || undefined} alt={org.name} />
+              <AvatarFallback>{getInitials(org.name)}</AvatarFallback>
+            </Avatar>
+          );
+        },
+        enableSorting: false,
+        size: 50,
       },
-      size: 50,
-    },
-    {
-      accessorKey: "name",
-      header: "Name",
-      cell: ({ row }) => <div className="font-medium">{row.original.name}</div>,
-    },
-    {
-      accessorKey: "userCount",
-      header: "Users",
-      cell: ({ row }) => {
-        const count = row.original.userCount || 0;
-        return <div className="font-medium">{count}</div>;
+      {
+        accessorKey: "name",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Name
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => <div className="font-medium">{row.original.name}</div>,
+        enableSorting: true,
       },
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Created",
-      cell: ({ row }) => {
-        const date = new Date(row.original.createdAt);
-        return (
-          <div className="text-muted-foreground">
-            {date.toLocaleDateString()}
-          </div>
-        );
+      {
+        accessorKey: "userCount",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Users
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const count = row.original.userCount || 0;
+          return <div className="font-medium">{count}</div>;
+        },
+        enableSorting: true,
       },
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedOrg(row.original);
-              setIsEditOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteOrg(row.original);
-              setIsDeleteOpen(true);
-            }}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+      {
+        accessorKey: "createdAt",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Created
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const date = new Date(row.original.createdAt);
+          return (
+            <div className="text-muted-foreground">
+              {date.toLocaleDateString()}
+            </div>
+          );
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const dateA = new Date(rowA.original.createdAt).getTime();
+          const dateB = new Date(rowB.original.createdAt).getTime();
+          return dateA - dateB;
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="sr-only">Open menu</span>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedOrg(row.original);
+                  setIsEditOpen(true);
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteOrg(row.original);
+                  setIsDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+        enableSorting: false,
+      },
+    ],
+    []
+  );
 
   useEffect(() => {
     fetchOrganizations();
@@ -166,18 +217,6 @@ export function OrganizationsTable() {
       setLoading(false);
     }
   };
-
-  const table = useReactTable({
-    data: organizations,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
-    state: {
-      sorting,
-    },
-  });
 
   const handleRowClick = (org: Organization) => {
     setSelectedOrg(org);
@@ -368,118 +407,59 @@ export function OrganizationsTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Organizations</h2>
-          <p className="text-muted-foreground">Manage client organizations</p>
-        </div>
-        {isMobile ? (
-          <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DrawerTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Organization
-              </Button>
-            </DrawerTrigger>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>Create Organization</DrawerTitle>
-                <DrawerDescription>Create a new organization</DrawerDescription>
-              </DrawerHeader>
-              <div className="px-4">
+      <div>
+        <h2 className="text-2xl font-semibold">Organizations</h2>
+        <p className="text-muted-foreground">Manage client organizations</p>
+      </div>
+
+      <EnhancedDataTable
+        columns={columns}
+        data={organizations}
+        searchPlaceholder="Search organizations..."
+        searchableFields={["name"]}
+        initialSorting={[{ id: "name", desc: false }]}
+        onRowClick={handleRowClick}
+        emptyMessage="No organizations found."
+        toolbar={
+          isMobile ? (
+            <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DrawerTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Organization
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader>
+                  <DrawerTitle>Create Organization</DrawerTitle>
+                  <DrawerDescription>Create a new organization</DrawerDescription>
+                </DrawerHeader>
+                <div className="px-4">
+                  <CreateOrganizationForm onSuccess={handleCreateSuccess} />
+                </div>
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Organization
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Organization</DialogTitle>
+                  <DialogDescription>
+                    Create a new organization for client accounts
+                  </DialogDescription>
+                </DialogHeader>
                 <CreateOrganizationForm onSuccess={handleCreateSuccess} />
-              </div>
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Organization
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Organization</DialogTitle>
-                <DialogDescription>
-                  Create a new organization for client accounts
-                </DialogDescription>
-              </DialogHeader>
-              <CreateOrganizationForm onSuccess={handleCreateSuccess} />
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer"
-                  onClick={() => handleRowClick(row.original)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No organizations found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex items-center justify-end space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
+              </DialogContent>
+            </Dialog>
+          )
+        }
+      />
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>

@@ -1,14 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
-  useReactTable,
 } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -30,14 +24,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,10 +44,20 @@ import {
   Copy,
   Trash2,
   Pencil,
+  ArrowUpDown,
+  MoreVertical,
 } from "lucide-react";
 import { CreateProjectForm } from "./CreateProjectForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import Link from "next/link";
+import { EnhancedDataTable } from "@/components/enhanced-data-table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ProjectData {
   project: {
@@ -162,7 +158,6 @@ export function ProjectsTable() {
     { id: string; name: string }[]
   >([]);
   const [loading, setLoading] = useState(true);
-  const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(
     null
   );
@@ -172,98 +167,223 @@ export function ProjectsTable() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  const columns: ColumnDef<ProjectData>[] = [
-    {
-      accessorKey: "project.title",
-      header: "Title",
-      cell: ({ row }) => (
-        <div className="font-medium">{row.original.project.title}</div>
-      ),
-    },
-    {
-      accessorKey: "organization.name",
-      header: "Organization",
-      cell: ({ row }) => (
-        <div className="text-muted-foreground">
-          {row.original.organization.name}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "project.status",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.original.project.status;
-        return (
-          <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
-            <span
-              className={`h-2 w-2 rounded-full ${getStatusColor(status)}`}
-            />
-            {formatStatus(status)}
-          </Badge>
-        );
+  const columns: ColumnDef<ProjectData>[] = useMemo(
+    () => [
+      {
+        accessorKey: "project.title",
+        id: "title",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Title
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => (
+          <div className="font-medium">{row.original.project.title}</div>
+        ),
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          return rowA.original.project.title.localeCompare(rowB.original.project.title);
+        },
       },
-    },
-    {
-      accessorKey: "project.stage",
-      header: "Stage",
-      cell: ({ row }) => {
-        const stage = row.original.project.stage;
-        return (
-          <Badge variant="outline" className="w-fit">
-            {formatStage(stage)}
-          </Badge>
-        );
+      {
+        accessorKey: "organization.name",
+        id: "organization",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Organization
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => (
+          <div className="text-muted-foreground">
+            {row.original.organization.name}
+          </div>
+        ),
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          return rowA.original.organization.name.localeCompare(rowB.original.organization.name);
+        },
       },
-    },
-    {
-      accessorKey: "project.subtotal",
-      header: "Subtotal",
-      cell: ({ row }) => (
-        <div className="text-muted-foreground">
-          ${row.original.project.subtotal}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "totalHours",
-      header: "Hours",
-      cell: ({ row }) => {
-        const hours = row.original.totalHours || 0;
-        return <div className="font-medium">{formatHours(hours)}</div>;
+      {
+        accessorKey: "project.status",
+        id: "status",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Status
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const status = row.original.project.status;
+          return (
+            <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
+              <span
+                className={`h-2 w-2 rounded-full ${getStatusColor(status)}`}
+              />
+              {formatStatus(status)}
+            </Badge>
+          );
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          return rowA.original.project.status.localeCompare(rowB.original.project.status);
+        },
       },
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            asChild
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Link href={`/project/${row.original.project.id}`}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteProject(row.original);
-              setIsDeleteOpen(true);
-            }}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+      {
+        accessorKey: "project.stage",
+        id: "stage",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Stage
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const stage = row.original.project.stage;
+          return (
+            <Badge variant="outline" className="w-fit">
+              {formatStage(stage)}
+            </Badge>
+          );
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          return rowA.original.project.stage.localeCompare(rowB.original.project.stage);
+        },
+      },
+      {
+        accessorKey: "project.subtotal",
+        id: "subtotal",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Subtotal
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => (
+          <div className="text-muted-foreground">
+            ${row.original.project.subtotal}
+          </div>
+        ),
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const a = parseFloat(rowA.original.project.subtotal) || 0;
+          const b = parseFloat(rowB.original.project.subtotal) || 0;
+          return a - b;
+        },
+      },
+      {
+        accessorKey: "totalHours",
+        id: "hours",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Hours
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const hours = row.original.totalHours || 0;
+          return <div className="font-medium">{formatHours(hours)}</div>;
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const a = rowA.original.totalHours || 0;
+          const b = rowB.original.totalHours || 0;
+          return a - b;
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="sr-only">Open menu</span>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedProject(row.original);
+                  setIsEditOpen(true);
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Link href={`/project/${row.original.project.id}`}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteProject(row.original);
+                  setIsDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+        enableSorting: false,
+      },
+    ],
+    []
+  );
 
   useEffect(() => {
     fetchProjects();
@@ -303,23 +423,7 @@ export function ProjectsTable() {
     }
   };
 
-  const table = useReactTable({
-    data: projects,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
-    state: {
-      sorting,
-    },
-  });
-
-  const handleRowClick = (project: ProjectData, e: React.MouseEvent) => {
-    // Don't open edit modal if clicking on the actions button
-    if ((e.target as HTMLElement).closest("a, button")) {
-      return;
-    }
+  const handleRowClick = (project: ProjectData) => {
     setSelectedProject(project);
     setIsEditOpen(true);
   };
@@ -544,122 +648,79 @@ export function ProjectsTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">All Projects</h2>
-          <p className="text-muted-foreground">
-            Create and configure projects for client organizations
-          </p>
-        </div>
-        {isMobile ? (
-          <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DrawerTrigger asChild>
-              <Button>
-                <FolderPlus className="h-4 w-4 mr-2" />
-                Add Project
-              </Button>
-            </DrawerTrigger>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>Create Project</DrawerTitle>
-                <DrawerDescription>
-                  Create and configure a new project
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="px-4">
+      <div>
+        <h2 className="text-2xl font-semibold">All Projects</h2>
+        <p className="text-muted-foreground">
+          Create and configure projects for client organizations
+        </p>
+      </div>
+
+      <EnhancedDataTable
+        columns={columns}
+        data={projects}
+        searchPlaceholder="Search projects by title or organization..."
+        searchFn={(row, query) => {
+          const title = row.project.title.toLowerCase();
+          const org = row.organization.name.toLowerCase();
+          return title.includes(query) || org.includes(query);
+        }}
+        filterConfig={{
+          status: {
+            label: "Status",
+            options: PROJECT_STATUSES.map((s) => ({ label: s.label, value: s.value })),
+            getValue: (row) => row.project.status,
+          },
+          stage: {
+            label: "Stage",
+            options: PROJECT_STAGES.map((s) => ({ label: s.label, value: s.value })),
+            getValue: (row) => row.project.stage,
+          },
+        }}
+        initialSorting={[{ id: "title", desc: false }]}
+        onRowClick={handleRowClick}
+        emptyMessage="No projects found."
+        toolbar={
+          isMobile ? (
+            <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DrawerTrigger asChild>
+                <Button>
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Add Project
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader>
+                  <DrawerTitle>Create Project</DrawerTitle>
+                  <DrawerDescription>
+                    Create and configure a new project
+                  </DrawerDescription>
+                </DrawerHeader>
+                <div className="px-4">
+                  <CreateProjectForm onSuccess={handleCreateSuccess} />
+                </div>
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Add Project
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create Project</DialogTitle>
+                  <DialogDescription>
+                    Create and configure a new project for a client organization
+                  </DialogDescription>
+                </DialogHeader>
                 <CreateProjectForm onSuccess={handleCreateSuccess} />
-              </div>
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <FolderPlus className="h-4 w-4 mr-2" />
-                Add Project
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Create Project</DialogTitle>
-                <DialogDescription>
-                  Create and configure a new project for a client organization
-                </DialogDescription>
-              </DialogHeader>
-              <CreateProjectForm onSuccess={handleCreateSuccess} />
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer"
-                  onClick={(e) => handleRowClick(row.original, e)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No projects found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex items-center justify-end space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
+              </DialogContent>
+            </Dialog>
+          )
+        }
+      />
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>

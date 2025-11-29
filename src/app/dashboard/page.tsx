@@ -4,16 +4,7 @@ import { isUserInEXOOrganization } from "@/lib/db/queries";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Clock, Building2, Users, FolderPlus } from "lucide-react";
+import DashboardStats from "@/components/admin/DashboardStats";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -52,70 +43,7 @@ export default async function DashboardPage() {
                     Manage organizations, clients, projects, and track hours
                   </p>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Clock className="h-5 w-5" />
-                        Hour Registration
-                      </CardTitle>
-                      <CardDescription>Track your work hours</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button asChild className="w-full">
-                        <Link href="/dashboard/hours">Go to Hours</Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5" />
-                        Organizations
-                      </CardTitle>
-                      <CardDescription>
-                        Manage client organizations
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button asChild variant="outline" className="w-full">
-                        <Link href="/dashboard/organizations">
-                          Go to Organizations
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Client Accounts
-                      </CardTitle>
-                      <CardDescription>Manage user accounts</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button asChild variant="outline" className="w-full">
-                        <Link href="/dashboard/users">Go to Users</Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <FolderPlus className="h-5 w-5" />
-                        Projects
-                      </CardTitle>
-                      <CardDescription>
-                        Create and configure projects
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button asChild variant="outline" className="w-full">
-                        <Link href="/dashboard/projects">Go to Projects</Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
+                <DashboardStats />
               </div>
             </div>
           </div>

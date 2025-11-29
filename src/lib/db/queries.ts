@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { projects, users, organizations, hourRegistrations, userOrganizations } from "@/db/schema";
-import { eq, desc, sql, inArray } from "drizzle-orm";
+import { eq, desc, sql, inArray, gte, lte, and } from "drizzle-orm";
 import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
 export function isAdmin(email: string): boolean {
@@ -510,4 +510,213 @@ export async function deleteProject(projectId: string) {
   await db
     .delete(projects)
     .where(eq(projects.id, projectId));
+}
+
+export async function getDashboardStats() {
+  // Get total revenue (sum of all project subtotals)
+  const totalRevenueResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as("total"),
+    })
+    .from(projects);
+
+  const totalRevenue = parseFloat(totalRevenueResult[0]?.total || "0");
+
+  // Get revenue this month
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const revenueThisMonthResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as("total"),
+    })
+    .from(projects)
+    .where(gte(projects.createdAt, startOfMonth));
+
+  const revenueThisMonth = parseFloat(revenueThisMonthResult[0]?.total || "0");
+
+  // Get revenue last month
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const revenueLastMonthResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as("total"),
+    })
+    .from(projects)
+    .where(
+      and(
+        gte(projects.createdAt, startOfLastMonth),
+        lte(projects.createdAt, endOfLastMonth)
+      )
+    );
+
+  const revenueLastMonth = parseFloat(revenueLastMonthResult[0]?.total || "0");
+
+  // Get total hours
+  const totalHoursResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as("total"),
+    })
+    .from(hourRegistrations);
+
+  const totalHours = parseFloat(totalHoursResult[0]?.total || "0");
+
+  // Get hours this month
+  const hoursThisMonthResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as("total"),
+    })
+    .from(hourRegistrations)
+    .where(gte(hourRegistrations.date, startOfMonth));
+
+  const hoursThisMonth = parseFloat(hoursThisMonthResult[0]?.total || "0");
+
+  // Get hours last month
+  const hoursLastMonthResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as("total"),
+    })
+    .from(hourRegistrations)
+    .where(
+      and(
+        gte(hourRegistrations.date, startOfLastMonth),
+        lte(hourRegistrations.date, endOfLastMonth)
+      )
+    );
+
+  const hoursLastMonth = parseFloat(hoursLastMonthResult[0]?.total || "0");
+
+  // Get project counts
+  const totalProjects = await db.select().from(projects);
+  const activeProjects = totalProjects.filter((p) => p.status === "active");
+  const completedProjects = totalProjects.filter((p) => p.status === "completed");
+
+  // Get organization and user counts
+  const allOrganizations = await db.select().from(organizations);
+  const allUsers = await db.select().from(users);
+
+  // Calculate percentage changes
+  const revenueChange =
+    revenueLastMonth > 0
+      ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100
+      : revenueThisMonth > 0
+        ? 100
+        : 0;
+
+  const hoursChange =
+    hoursLastMonth > 0
+      ? ((hoursThisMonth - hoursLastMonth) / hoursLastMonth) * 100
+      : hoursThisMonth > 0
+        ? 100
+        : 0;
+
+  // Get revenue over time (last 30 days)
+  const startDate = new Date(now);
+  startDate.setDate(startDate.getDate() - 30);
+  
+  const revenueOverTime = await db
+    .select({
+      date: projects.createdAt,
+      revenue: projects.subtotal,
+    })
+    .from(projects)
+    .where(gte(projects.createdAt, startDate))
+    .orderBy(projects.createdAt);
+
+  // Group revenue by date
+  const revenueByDate: { [key: string]: number } = {};
+  revenueOverTime.forEach((row) => {
+    const dateStr = new Date(row.date).toISOString().split("T")[0];
+    revenueByDate[dateStr] = (revenueByDate[dateStr] || 0) + parseFloat(row.revenue);
+  });
+
+  // Generate revenue chart data for last 30 days
+  const revenueChartData: { date: string; revenue: number }[] = [];
+  for (let i = 0; i <= 30; i++) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+    const dateStr = date.toISOString().split("T")[0];
+    revenueChartData.push({
+      date: dateStr,
+      revenue: revenueByDate[dateStr] || 0,
+    });
+  }
+
+  // Get hours over time (last 30 days)
+  const hoursOverTime = await db
+    .select({
+      date: hourRegistrations.date,
+      hours: hourRegistrations.hours,
+    })
+    .from(hourRegistrations)
+    .where(gte(hourRegistrations.date, startDate))
+    .orderBy(hourRegistrations.date);
+
+  // Group hours by date
+  const hoursByDate: { [key: string]: number } = {};
+  hoursOverTime.forEach((row) => {
+    const dateStr = new Date(row.date).toISOString().split("T")[0];
+    hoursByDate[dateStr] = (hoursByDate[dateStr] || 0) + parseFloat(row.hours);
+  });
+
+  // Generate hours chart data for last 30 days
+  const hoursChartData: { date: string; hours: number }[] = [];
+  for (let i = 0; i <= 30; i++) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+    const dateStr = date.toISOString().split("T")[0];
+    hoursChartData.push({
+      date: dateStr,
+      hours: hoursByDate[dateStr] || 0,
+    });
+  }
+
+  // Get projects by stage for chart
+  const projectsByStage = await db
+    .select({
+      stage: projects.stage,
+    })
+    .from(projects);
+
+  // Define all possible stages
+  const allStages = ["kick_off", "pay_first", "deliver", "revise", "pay_final", "completed"];
+  
+  // Count projects by stage
+  const stageCounts: { [key: string]: number } = {};
+  allStages.forEach((stage) => {
+    stageCounts[stage] = 0;
+  });
+  
+  projectsByStage.forEach((row) => {
+    if (stageCounts[row.stage] !== undefined) {
+      stageCounts[row.stage] = (stageCounts[row.stage] || 0) + 1;
+    }
+  });
+
+  const projectsChartData = allStages.map((stage) => ({
+    stage: stage.charAt(0).toUpperCase() + stage.slice(1).replace(/_/g, " "),
+    count: stageCounts[stage] || 0,
+  }));
+
+  return {
+    revenue: {
+      total: totalRevenue,
+      thisMonth: revenueThisMonth,
+      lastMonth: revenueLastMonth,
+      change: revenueChange,
+      chartData: revenueChartData,
+    },
+    hours: {
+      total: totalHours,
+      thisMonth: hoursThisMonth,
+      lastMonth: hoursLastMonth,
+      change: hoursChange,
+      chartData: hoursChartData,
+    },
+    projects: {
+      total: totalProjects.length,
+      active: activeProjects.length,
+      completed: completedProjects.length,
+      chartData: projectsChartData,
+    },
+  };
 }

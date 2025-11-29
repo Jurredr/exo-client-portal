@@ -95,3 +95,20 @@ export const userOrganizations = pgTable("user_organizations", {
 }, (table) => ({
   pk: primaryKey({ columns: [table.userId, table.organizationId] }),
 }));
+
+export const invoices = pgTable("invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
+  amount: text("amount").notNull(), // Stored as text to preserve formatting
+  status: text("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
+  type: text("type").notNull().default("manual"), // auto, manual
+  description: text("description"), // For manual invoices
+  dueDate: timestamp("due_date"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

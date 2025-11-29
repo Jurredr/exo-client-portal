@@ -7,6 +7,7 @@ import {
   IconBuilding,
   IconUsers,
   IconFolder,
+  IconFileInvoice,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -241,6 +242,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: "/dashboard/hours",
       icon: IconClock,
       isActive: pathname === "/dashboard/hours",
+    },
+    {
+      title: "Invoices",
+      url: "/dashboard/invoices",
+      icon: IconFileInvoice,
+      isActive: pathname === "/dashboard/invoices",
     },
   ];
 

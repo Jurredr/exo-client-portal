@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { projects, users, organizations, hourRegistrations, userOrganizations } from "@/db/schema";
+import { projects, users, organizations, hourRegistrations, userOrganizations, invoices } from "@/db/schema";
 import { eq, desc, sql, inArray, gte, lte, and } from "drizzle-orm";
 import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
@@ -719,4 +719,124 @@ export async function getDashboardStats() {
       chartData: projectsChartData,
     },
   };
+}
+
+export async function getAllInvoices() {
+  return await db
+    .select({
+      invoice: invoices,
+      project: projects,
+      organization: organizations,
+    })
+    .from(invoices)
+    .leftJoin(projects, eq(invoices.projectId, projects.id))
+    .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
+    .orderBy(desc(invoices.createdAt));
+}
+
+export async function getInvoiceById(invoiceId: string) {
+  const result = await db
+    .select({
+      invoice: invoices,
+      project: projects,
+      organization: organizations,
+    })
+    .from(invoices)
+    .leftJoin(projects, eq(invoices.projectId, projects.id))
+    .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
+    .where(eq(invoices.id, invoiceId))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function getNextInvoiceNumber(): Promise<string> {
+  // Get the latest invoice number
+  const latestInvoice = await db
+    .select({ invoiceNumber: invoices.invoiceNumber })
+    .from(invoices)
+    .orderBy(desc(invoices.createdAt))
+    .limit(1);
+
+  if (latestInvoice.length === 0) {
+    // First invoice
+    const year = new Date().getFullYear();
+    return `INV-${year}-001`;
+  }
+
+  // Extract number from latest invoice (format: INV-YYYY-NNN)
+  const latestNumber = latestInvoice[0].invoiceNumber;
+  const match = latestNumber.match(/INV-(\d{4})-(\d+)/);
+  
+  if (!match) {
+    // If format doesn't match, start fresh
+    const year = new Date().getFullYear();
+    return `INV-${year}-001`;
+  }
+
+  const latestYear = parseInt(match[1]);
+  const latestNum = parseInt(match[2]);
+  const currentYear = new Date().getFullYear();
+
+  if (latestYear === currentYear) {
+    // Same year, increment number
+    const nextNum = latestNum + 1;
+    return `INV-${currentYear}-${String(nextNum).padStart(3, "0")}`;
+  } else {
+    // New year, start from 001
+    return `INV-${currentYear}-001`;
+  }
+}
+
+export async function createInvoice(data: {
+  invoiceNumber: string;
+  projectId?: string | null;
+  organizationId: string;
+  amount: string;
+  status?: string;
+  type?: string;
+  description?: string | null;
+  dueDate?: Date | null;
+}) {
+  const [invoice] = await db
+    .insert(invoices)
+    .values({
+      invoiceNumber: data.invoiceNumber,
+      projectId: data.projectId || null,
+      organizationId: data.organizationId,
+      amount: data.amount,
+      status: data.status || "draft",
+      type: data.type || "manual",
+      description: data.description || null,
+      dueDate: data.dueDate || null,
+    })
+    .returning();
+
+  return invoice;
+}
+
+export async function updateInvoice(
+  invoiceId: string,
+  data: Partial<{
+    status: string;
+    amount: string;
+    description: string | null;
+    dueDate: Date | null;
+    paidAt: Date | null;
+  }>
+) {
+  const [invoice] = await db
+    .update(invoices)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(invoices.id, invoiceId))
+    .returning();
+
+  return invoice;
+}
+
+export async function deleteInvoice(invoiceId: string) {
+  await db.delete(invoices).where(eq(invoices.id, invoiceId));
 }

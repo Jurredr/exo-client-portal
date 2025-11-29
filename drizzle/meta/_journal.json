@@ -50,6 +50,13 @@
       "when": 1764324715148,
       "tag": "0006_quiet_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1764449048103,
+      "tag": "0007_wealthy_guardsmen",
+      "breakpoints": true
     }
   ]
 }

@@ -6,8 +6,14 @@ import {
   updateProject,
   getTotalHoursByProject,
   deleteProject,
+  getProjectById,
+  createInvoice,
+  getNextInvoiceNumber,
+  isAdmin,
+  getAllInvoices,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
+import { calculatePaymentAmount } from "@/lib/utils/currency";
 
 export async function GET() {
   try {
@@ -135,6 +141,11 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // Get the current project to check if stage changed
+    const currentProject = await getProjectById(id);
+    const oldStage = currentProject?.stage;
+    const newStage = updateData.stage;
+
     const project = await updateProject(id, {
       ...(updateData.title && { title: updateData.title }),
       ...(updateData.description !== undefined && {
@@ -146,6 +157,43 @@ export async function PATCH(request: Request) {
       ...(updateData.deadline && { deadline: new Date(updateData.deadline) }),
       ...(updateData.subtotal && { subtotal: updateData.subtotal }),
     });
+
+    // Auto-generate invoice when project reaches payment stages
+    if (newStage && oldStage !== newStage && (newStage === "pay_first" || newStage === "pay_final")) {
+      try {
+        // Check if invoice already exists for this project and stage
+        const allInvoices = await getAllInvoices();
+        const existingInvoice = allInvoices.find(
+          (inv) =>
+            inv.invoice.projectId === project.id &&
+            inv.invoice.type === "auto" &&
+            inv.invoice.description?.includes(newStage === "pay_first" ? "First" : "Final")
+        );
+
+        if (!existingInvoice) {
+          const paymentAmount = calculatePaymentAmount(project.subtotal, newStage);
+          if (paymentAmount && project.organizationId) {
+            const invoiceNumber = await getNextInvoiceNumber();
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 30); // 30 days from now
+
+            await createInvoice({
+              invoiceNumber,
+              projectId: project.id,
+              organizationId: project.organizationId,
+              amount: paymentAmount,
+              status: "sent",
+              type: "auto",
+              description: `Payment for ${project.title} - ${newStage === "pay_first" ? "First" : "Final"} payment`,
+              dueDate,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error auto-generating invoice:", error);
+        // Don't fail the project update if invoice generation fails
+      }
+    }
 
     return NextResponse.json(project);
   } catch (error) {

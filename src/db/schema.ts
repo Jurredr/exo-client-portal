@@ -62,10 +62,12 @@ export const legalDocuments = pgTable("legal_documents", {
     .references(() => projects.id)
     .notNull(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // 'agreement', 'nda', 'invoice', etc.
+  type: text("type").notNull(), // 'agreement', 'nda', 'contract', etc.
   fileUrl: text("file_url"),
   signed: boolean("signed").default(false).notNull(),
   signedAt: timestamp("signed_at"),
+  signature: text("signature"), // Base64 encoded signature image
+  signedBy: uuid("signed_by").references(() => users.id), // User who signed
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

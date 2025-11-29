@@ -57,6 +57,13 @@
       "when": 1764449048103,
       "tag": "0007_wealthy_guardsmen",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1764450706963,
+      "tag": "0008_bent_ben_parker",
+      "breakpoints": true
     }
   ]
 }

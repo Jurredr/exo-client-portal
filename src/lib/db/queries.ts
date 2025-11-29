@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { projects, users, organizations, hourRegistrations, userOrganizations, invoices } from "@/db/schema";
+import { projects, users, organizations, hourRegistrations, userOrganizations, invoices, legalDocuments } from "@/db/schema";
 import { eq, desc, sql, inArray, gte, lte, and } from "drizzle-orm";
 import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
@@ -839,4 +839,85 @@ export async function updateInvoice(
 
 export async function deleteInvoice(invoiceId: string) {
   await db.delete(invoices).where(eq(invoices.id, invoiceId));
+}
+
+// Contract queries (using legal_documents table with type='contract')
+export async function getAllContracts() {
+  return await db
+    .select({
+      contract: legalDocuments,
+      project: projects,
+      organization: organizations,
+      signedByUser: users,
+    })
+    .from(legalDocuments)
+    .innerJoin(projects, eq(legalDocuments.projectId, projects.id))
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .leftJoin(users, eq(legalDocuments.signedBy, users.id))
+    .where(eq(legalDocuments.type, "contract"))
+    .orderBy(desc(legalDocuments.createdAt));
+}
+
+export async function getContractById(contractId: string) {
+  const result = await db
+    .select({
+      contract: legalDocuments,
+      project: projects,
+      organization: organizations,
+      signedByUser: users,
+    })
+    .from(legalDocuments)
+    .innerJoin(projects, eq(legalDocuments.projectId, projects.id))
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .leftJoin(users, eq(legalDocuments.signedBy, users.id))
+    .where(and(
+      eq(legalDocuments.id, contractId),
+      eq(legalDocuments.type, "contract")
+    ))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function createContract(data: {
+  projectId: string;
+  name: string;
+  fileUrl?: string | null;
+}) {
+  const [contract] = await db
+    .insert(legalDocuments)
+    .values({
+      projectId: data.projectId,
+      name: data.name,
+      type: "contract",
+      fileUrl: data.fileUrl || null,
+      signed: false,
+    })
+    .returning();
+
+  return contract;
+}
+
+export async function updateContract(
+  contractId: string,
+  data: Partial<{
+    name: string;
+    fileUrl: string | null;
+    signed: boolean;
+    signedAt: Date | null;
+    signature: string | null;
+    signedBy: string | null;
+  }>
+) {
+  const [contract] = await db
+    .update(legalDocuments)
+    .set(data)
+    .where(eq(legalDocuments.id, contractId))
+    .returning();
+
+  return contract;
+}
+
+export async function deleteContract(contractId: string) {
+  await db.delete(legalDocuments).where(eq(legalDocuments.id, contractId));
 }

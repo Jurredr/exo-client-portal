@@ -38,6 +38,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
   const [organizationId, setOrganizationId] = useState<string>("");
   const [projectId, setProjectId] = useState<string>("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<"USD" | "EUR">("EUR");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("draft");
   const [dueDate, setDueDate] = useState("");
@@ -107,6 +108,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
           organizationId,
           projectId: projectId || null,
           amount: amount.trim(),
+          currency,
           description: description.trim() || null,
           status,
           type: "manual",
@@ -123,6 +125,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
       setOrganizationId("");
       setProjectId("");
       setAmount("");
+      setCurrency("EUR");
       setDescription("");
       setStatus("draft");
       setDueDate("");
@@ -178,18 +181,32 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="invoice-amount" className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4" />
-          Amount *
-        </Label>
-        <Input
-          id="invoice-amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="€5000.00"
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="invoice-amount" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Amount *
+          </Label>
+          <Input
+            id="invoice-amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="5000.00"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="invoice-currency">Currency *</Label>
+          <Select value={currency} onValueChange={(value) => setCurrency(value as "USD" | "EUR")}>
+            <SelectTrigger id="invoice-currency" className="w-full">
+              <SelectValue placeholder="Select currency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="USD">USD ($)</SelectItem>
+              <SelectItem value="EUR">EUR (€)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="invoice-description">Description</Label>

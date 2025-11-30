@@ -25,9 +25,10 @@ export default function ProjectDetails({
   project,
   organizationName,
 }: ProjectDetailsProps) {
-  const vat = calculateVAT(project.subtotal);
-  const total = calculateTotal(project.subtotal);
-  const paymentAmount = calculatePaymentAmount(project.subtotal, project.stage);
+  const currency = project.currency || "EUR";
+  const vat = calculateVAT(project.subtotal, currency);
+  const total = calculateTotal(project.subtotal, currency);
+  const paymentAmount = calculatePaymentAmount(project.subtotal, project.stage, currency);
   const progress = getStageProgress(project.stage);
 
   return (
@@ -231,7 +232,7 @@ export default function ProjectDetails({
                     Subtotal
                   </p>
                   <p className="font-semibold text-[20px] text-[#1f1f1f] tracking-[-0.5px]">
-                    {formatCurrency(parseNumeric(project.subtotal))}
+                    {formatCurrency(parseNumeric(project.subtotal), currency)}
                   </p>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b-2 border-[#d1d1d1]">

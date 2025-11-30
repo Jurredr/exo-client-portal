@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       userId: dbUser.id,
       description: description.trim(),
       amount,
-      currency: currency || "USD",
+      currency: currency || "EUR",
       date: expenseDate,
       category: category?.trim() || null,
       vendor: vendor?.trim() || null,

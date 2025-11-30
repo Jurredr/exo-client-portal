@@ -77,12 +77,12 @@ const formatDate = (dateString: string | null) => {
   });
 };
 
-const formatAmount = (amount: string, currency: string = "USD") => {
+const formatAmount = (amount: string, currency: string = "EUR") => {
   const num = parseFloat(amount);
   if (isNaN(num)) return amount;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: currency || "USD",
+    currency: currency || "EUR",
   }).format(num);
 };
 

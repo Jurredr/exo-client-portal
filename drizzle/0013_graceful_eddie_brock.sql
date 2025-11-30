@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "currency" text DEFAULT 'USD' NOT NULL;

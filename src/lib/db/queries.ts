@@ -419,6 +419,7 @@ export async function createProject(data: {
   startDate?: Date | null;
   deadline?: Date | null;
   subtotal?: string | null;
+  currency?: string;
   type?: "client" | "labs";
   organizationId: string;
 }) {
@@ -432,6 +433,7 @@ export async function createProject(data: {
       startDate: data.startDate || null,
       deadline: data.deadline || null,
       subtotal: data.subtotal || null,
+      currency: data.currency || "EUR",
       type: data.type || "client",
       organizationId: data.organizationId,
     })
@@ -485,6 +487,7 @@ export async function updateProject(
     startDate: Date | null;
     deadline: Date | null;
     subtotal: string | null;
+    currency: string;
     type: "client" | "labs";
   }>
 ) {
@@ -823,6 +826,7 @@ export async function createInvoice(data: {
   projectId?: string | null;
   organizationId: string;
   amount: string;
+  currency?: string;
   status?: string;
   type?: string;
   description?: string | null;
@@ -835,6 +839,7 @@ export async function createInvoice(data: {
       projectId: data.projectId || null,
       organizationId: data.organizationId,
       amount: data.amount,
+      currency: data.currency || "EUR",
       status: data.status || "draft",
       type: data.type || "manual",
       description: data.description || null,
@@ -971,7 +976,7 @@ export async function createExpense(data: {
       userId: data.userId,
       description: data.description,
       amount: data.amount,
-      currency: data.currency || "USD",
+      currency: data.currency || "EUR",
       date: data.date || new Date(),
       category: data.category || null,
       vendor: data.vendor || null,

@@ -27,6 +27,7 @@ export const projects = pgTable("projects", {
   startDate: timestamp("start_date"),
   deadline: timestamp("deadline"),
   subtotal: text("subtotal"), // Nullable for EXO Labs projects
+  currency: text("currency").notNull().default("EUR"), // USD, EUR
   type: text("type").notNull().default("client"), // client, labs
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
@@ -108,6 +109,7 @@ export const invoices = pgTable("invoices", {
     .references(() => organizations.id)
     .notNull(),
   amount: text("amount").notNull(), // Stored as text to preserve formatting
+  currency: text("currency").notNull().default("EUR"), // USD, EUR
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
   type: text("type").notNull().default("manual"), // auto, manual
   description: text("description"), // For manual invoices
@@ -124,7 +126,7 @@ export const expenses = pgTable("expenses", {
     .notNull(),
   description: text("description").notNull(),
   amount: text("amount").notNull(), // Stored as text to preserve formatting
-  currency: text("currency").notNull().default("USD"), // USD, EUR
+  currency: text("currency").notNull().default("EUR"), // USD, EUR
   date: timestamp("date").defaultNow().notNull(),
   category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
   vendor: text("vendor"), // Where the expense was made (store, company, etc.)

@@ -37,6 +37,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   const [projectType, setProjectType] = useState<"client" | "labs">("client");
   const [organizationId, setOrganizationId] = useState<string>("");
   const [subtotal, setSubtotal] = useState("");
+  const [currency, setCurrency] = useState<"USD" | "EUR">("EUR");
   const [status, setStatus] = useState("active");
   const [stage, setStage] = useState(getDefaultStage("client"));
   const [startDate, setStartDate] = useState("");
@@ -112,6 +113,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           organizationId,
           type: projectType,
           subtotal: projectType === "labs" ? null : subtotal.trim(),
+          currency,
           status,
           stage,
           startDate: startDate || null,
@@ -130,6 +132,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       setProjectType("client");
       setOrganizationId("");
       setSubtotal("");
+      setCurrency("EUR");
       setStatus("active");
       setStage(getDefaultStage("client"));
       setStartDate("");

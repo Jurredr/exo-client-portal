@@ -51,6 +51,7 @@ interface InvoiceData {
     id: string;
     invoiceNumber: string;
     amount: string;
+    currency: string;
     status: string;
     type: string;
     description: string | null;
@@ -186,9 +187,15 @@ export function InvoicesTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <div className="font-medium">{row.original.invoice.amount}</div>
-        ),
+        cell: ({ row }) => {
+          const { amount, currency } = row.original.invoice;
+          const symbol = currency === "USD" ? "$" : "€";
+          // If amount already has a symbol, use it as is, otherwise prepend the currency symbol
+          const displayAmount = amount.startsWith("$") || amount.startsWith("€") 
+            ? amount 
+            : `${symbol}${amount}`;
+          return <div className="font-medium">{displayAmount}</div>;
+        },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
           const a = parseFloat(rowA.original.invoice.amount.replace(/[€,]/g, "")) || 0;

@@ -7,6 +7,7 @@ interface InvoiceData {
     id: string;
     invoiceNumber: string;
     amount: string;
+    currency: string;
     status: string;
     type: string;
     description: string | null;
@@ -18,6 +19,7 @@ interface InvoiceData {
     id: string;
     title: string;
     subtotal: string;
+    currency: string;
   } | null;
   organization: {
     id: string;
@@ -46,6 +48,7 @@ export async function generateInvoicePDF(
     doc.on("error", reject);
 
     const { invoice, project, organization } = invoiceData;
+    const currency = invoice.currency || project?.currency || "EUR";
 
     // Header
     doc.fontSize(24).text("INVOICE", { align: "right" });
@@ -110,10 +113,10 @@ export async function generateInvoicePDF(
     doc.moveTo(400, totalsY).lineTo(550, totalsY).stroke();
     doc.moveDown(0.5);
     doc.fontSize(10).text("Subtotal:", 400, doc.y);
-    doc.text(formatCurrency(subtotal), 450, doc.y, { align: "right" });
+    doc.text(formatCurrency(subtotal, currency), 450, doc.y, { align: "right" });
     doc.moveDown(0.5);
     doc.text(`VAT (${VAT_PERCENTAGE}%):`, 400, doc.y);
-    doc.text(formatCurrency(vat), 450, doc.y, { align: "right" });
+    doc.text(formatCurrency(vat, currency), 450, doc.y, { align: "right" });
     doc.moveDown(0.5);
     doc.moveTo(400, doc.y).lineTo(550, doc.y).stroke();
     doc.moveDown(0.5);

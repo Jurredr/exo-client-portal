@@ -28,6 +28,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { cn } from "@/lib/utils";
@@ -65,6 +72,7 @@ interface ProjectData {
     startDate: string | null;
     deadline: string | null;
     subtotal: string | null;
+    currency: string;
     type: string;
     organizationId: string;
     createdAt: string;
@@ -143,6 +151,7 @@ export function ProjectsTable() {
   );
   const [editStatus, setEditStatus] = useState<string>("");
   const [editStage, setEditStage] = useState<string>("");
+  const [editCurrency, setEditCurrency] = useState<"USD" | "EUR">("EUR");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteProject, setDeleteProject] = useState<ProjectData | null>(null);
@@ -281,11 +290,16 @@ export function ProjectsTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {row.original.project.subtotal ? `$${row.original.project.subtotal}` : "-"}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const { subtotal, currency } = row.original.project;
+          if (!subtotal) return <div className="text-muted-foreground">-</div>;
+          const symbol = currency === "USD" ? "$" : "€";
+          return (
+            <div className="text-muted-foreground">
+              {symbol}{subtotal}
+            </div>
+          );
+        },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
           const a = parseFloat(rowA.original.project.subtotal || "0") || 0;
@@ -417,6 +431,7 @@ export function ProjectsTable() {
     setSelectedProject(project);
     setEditStatus(project.project.status);
     setEditStage(project.project.stage);
+    setEditCurrency((project.project.currency as "USD" | "EUR") || "EUR");
     setIsEditOpen(true);
   };
 
@@ -448,6 +463,7 @@ export function ProjectsTable() {
           stage,
           type: projectType,
           subtotal: projectType === "labs" ? null : (subtotal || null),
+          currency: editCurrency,
           startDate: startDate || null,
           deadline: projectType === "labs" ? null : (deadline || null),
         }),
@@ -568,15 +584,29 @@ export function ProjectsTable() {
           </div>
         </div>
         {selectedProject?.project.type !== "labs" && (
-          <div className="flex flex-col gap-3">
-            <Label htmlFor="edit-subtotal">Subtotal</Label>
-            <Input
-              id="edit-subtotal"
-              name="subtotal"
-              type="text"
-              defaultValue={selectedProject?.project.subtotal || ""}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="edit-subtotal">Subtotal</Label>
+              <Input
+                id="edit-subtotal"
+                name="subtotal"
+                type="text"
+                defaultValue={selectedProject?.project.subtotal || ""}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="edit-currency">Currency</Label>
+              <Select value={editCurrency} onValueChange={(value) => setEditCurrency(value as "USD" | "EUR")}>
+                <SelectTrigger id="edit-currency" className="w-full">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                  <SelectItem value="EUR">EUR (€)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
         <div className="grid grid-cols-2 gap-4">

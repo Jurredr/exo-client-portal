@@ -6,31 +6,34 @@ export function parseNumeric(value: string | null | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
-export function formatCurrency(amount: number): string {
-  return `€${amount.toLocaleString("en-US", {
+export function formatCurrency(amount: number, currency: string = "EUR"): string {
+  const symbol = currency === "USD" ? "$" : "€";
+  return `${symbol}${amount.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })}`;
 }
 
-export function calculateVAT(subtotal: string | null | undefined): string {
+export function calculateVAT(subtotal: string | null | undefined, currency: string = "EUR"): string {
   const subtotalValue = parseNumeric(subtotal);
   const vat = subtotalValue * (VAT_PERCENTAGE / 100);
-  return formatCurrency(vat);
+  return formatCurrency(vat, currency);
 }
 
-export function calculateTotal(subtotal: string | null | undefined): string {
+export function calculateTotal(subtotal: string | null | undefined, currency: string = "EUR"): string {
   const subtotalValue = parseNumeric(subtotal);
   const vat = subtotalValue * (VAT_PERCENTAGE / 100);
   const total = subtotalValue + vat;
-  return formatCurrency(total);
+  return formatCurrency(total, currency);
 }
 
 export function calculatePaymentAmount(
   subtotal: string | null | undefined,
-  stage: string | null | undefined
+  stage: string | null | undefined,
+  currency: string = "EUR"
 ): string | null {
-  if (!subtotal) return "€0";
+  const symbol = currency === "USD" ? "$" : "€";
+  if (!subtotal) return `${symbol}0`;
   const subtotalValue = parseNumeric(subtotal);
   const total = subtotalValue * (1 + VAT_PERCENTAGE / 100);
 
@@ -38,16 +41,16 @@ export function calculatePaymentAmount(
   switch (stage) {
     case "pay_first":
       // First payment is 50% of total
-      return formatCurrency(total * 0.5);
+      return formatCurrency(total * 0.5, currency);
     case "pay_final":
       // Final payment is 50% of total
-      return formatCurrency(total * 0.5);
+      return formatCurrency(total * 0.5, currency);
     case "completed":
       // Payment is complete, return null to indicate special handling
       return null;
     default:
       // For other stages, show 0
-      return "€0";
+      return `${symbol}0`;
   }
 }
 

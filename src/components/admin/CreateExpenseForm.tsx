@@ -50,7 +50,7 @@ export function CreateExpenseForm({
 }) {
   const [description, setDescription] = useState(expense?.description || "");
   const [amount, setAmount] = useState(expense?.amount || "");
-  const [currency, setCurrency] = useState<"USD" | "EUR">((expense?.currency as "USD" | "EUR") || "USD");
+  const [currency, setCurrency] = useState<"USD" | "EUR">((expense?.currency as "USD" | "EUR") || "EUR");
   const [date, setDate] = useState(expense?.date ? new Date(expense.date).toISOString().split("T")[0] : "");
   const [category, setCategory] = useState<string>(expense?.category || "");
   const [vendor, setVendor] = useState<string>(expense?.vendor || "");
@@ -167,7 +167,7 @@ export function CreateExpenseForm({
       if (!expense) {
         setDescription("");
         setAmount("");
-        setCurrency("USD");
+        setCurrency("EUR");
         setDate("");
         setCategory("");
         setVendor("");

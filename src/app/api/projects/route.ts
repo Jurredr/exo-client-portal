@@ -72,6 +72,7 @@ export async function POST(request: Request) {
       startDate,
       deadline,
       subtotal,
+      currency,
       type,
       organizationId,
     } = body;
@@ -119,6 +120,7 @@ export async function POST(request: Request) {
       startDate: startDate ? new Date(startDate) : null,
       deadline: deadline ? new Date(deadline) : null,
       subtotal: projectType === "labs" ? null : (subtotal || null),
+      currency: currency || "EUR",
       type: projectType,
       organizationId,
     });
@@ -190,6 +192,7 @@ export async function PATCH(request: Request) {
       ...(updateData.startDate !== undefined && { startDate: updateData.startDate ? new Date(updateData.startDate) : null }),
       ...(updateData.deadline !== undefined && { deadline: updateData.deadline ? new Date(updateData.deadline) : null }),
       ...(updateData.subtotal !== undefined && { subtotal: projectType === "labs" ? null : updateData.subtotal }),
+      ...(updateData.currency && { currency: updateData.currency }),
       ...(updateData.type && { type: projectType }),
     });
 
@@ -206,7 +209,7 @@ export async function PATCH(request: Request) {
         );
 
         if (!existingInvoice && project.subtotal) {
-          const paymentAmount = calculatePaymentAmount(project.subtotal, newStage);
+          const paymentAmount = calculatePaymentAmount(project.subtotal, newStage, project.currency || "EUR");
           if (paymentAmount && project.organizationId) {
             const invoiceNumber = await getNextInvoiceNumber();
             const dueDate = new Date();
@@ -217,6 +220,7 @@ export async function PATCH(request: Request) {
               projectId: project.id,
               organizationId: project.organizationId,
               amount: paymentAmount,
+              currency: project.currency || "EUR",
               status: "sent",
               type: "auto",
               description: `Payment for ${project.title} - ${newStage === "pay_first" ? "First" : "Final"} payment`,

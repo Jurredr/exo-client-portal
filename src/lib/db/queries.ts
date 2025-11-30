@@ -1,5 +1,14 @@
 import { db } from "@/db";
-import { projects, users, organizations, hourRegistrations, userOrganizations, invoices, legalDocuments, expenses } from "@/db/schema";
+import {
+  projects,
+  users,
+  organizations,
+  hourRegistrations,
+  userOrganizations,
+  invoices,
+  legalDocuments,
+  expenses,
+} from "@/db/schema";
 import { eq, desc, sql, inArray, gte, lte, and } from "drizzle-orm";
 import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
@@ -7,19 +16,21 @@ export function isAdmin(email: string): boolean {
   return email.endsWith(ADMIN_EMAIL_DOMAIN);
 }
 
-export async function isUserInEXOOrganization(userEmail: string): Promise<boolean> {
+export async function isUserInEXOOrganization(
+  userEmail: string
+): Promise<boolean> {
   const user = await getUserByEmail(userEmail);
   if (!user) {
     return false;
   }
-  
+
   const exoOrg = await getOrCreateEXOOrganization();
-  
+
   // Check primary organization (backward compatibility)
   if (user.organizationId === exoOrg.id) {
     return true;
   }
-  
+
   // Check junction table
   const userOrg = await db
     .select()
@@ -28,7 +39,7 @@ export async function isUserInEXOOrganization(userEmail: string): Promise<boolea
       sql`${userOrganizations.userId} = ${user.id} AND ${userOrganizations.organizationId} = ${exoOrg.id}`
     )
     .limit(1);
-  
+
   return userOrg.length > 0;
 }
 
@@ -174,7 +185,12 @@ export async function createHourRegistration(
   hours: number,
   projectId?: string | null,
   date?: Date,
-  category: "client" | "administration" | "brainstorming" | "research" | "labs" = "client"
+  category:
+    | "client"
+    | "administration"
+    | "brainstorming"
+    | "research"
+    | "labs" = "client"
 ) {
   const [registration] = await db
     .insert(hourRegistrations)
@@ -219,6 +235,38 @@ export async function getHourRegistrationsByProject(projectId: string) {
     .from(hourRegistrations)
     .where(eq(hourRegistrations.projectId, projectId))
     .orderBy(desc(hourRegistrations.date));
+}
+
+export async function updateHourRegistration(
+  registrationId: string,
+  data: {
+    description?: string;
+    hours?: number;
+    projectId?: string | null;
+    date?: Date;
+    category?:
+      | "client"
+      | "administration"
+      | "brainstorming"
+      | "research"
+      | "labs";
+  }
+) {
+  const updateData: any = {};
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.hours !== undefined) updateData.hours = data.hours.toString();
+  if (data.projectId !== undefined) updateData.projectId = data.projectId;
+  if (data.date !== undefined) updateData.date = data.date;
+  if (data.category !== undefined) updateData.category = data.category;
+  updateData.updatedAt = new Date();
+
+  const [registration] = await db
+    .update(hourRegistrations)
+    .set(updateData)
+    .where(eq(hourRegistrations.id, registrationId))
+    .returning();
+
+  return registration;
 }
 
 export async function deleteHourRegistration(registrationId: string) {
@@ -296,8 +344,9 @@ export async function createUser(
   image?: string | null
 ) {
   // Create user with first organization as primary (for backward compatibility)
-  const primaryOrgId = organizationIds && organizationIds.length > 0 ? organizationIds[0] : null;
-  
+  const primaryOrgId =
+    organizationIds && organizationIds.length > 0 ? organizationIds[0] : null;
+
   const [newUser] = await db
     .insert(users)
     .values({
@@ -345,7 +394,7 @@ export async function updateUser(
           organizationId: orgId,
         }))
       );
-      
+
       // Update primary organizationId for backward compatibility
       data.organizationId = data.organizationIds[0];
     } else {
@@ -360,7 +409,9 @@ export async function updateUser(
     updatedAt: Date;
   }> = {
     ...(data.name !== undefined && { name: data.name }),
-    ...(data.organizationId !== undefined && { organizationId: data.organizationId }),
+    ...(data.organizationId !== undefined && {
+      organizationId: data.organizationId,
+    }),
     ...(data.image !== undefined && { image: data.image }),
     updatedAt: new Date(),
   };
@@ -392,10 +443,14 @@ export async function getAllUsers() {
       organization: organizations,
     })
     .from(userOrganizations)
-    .innerJoin(organizations, eq(userOrganizations.organizationId, organizations.id));
+    .innerJoin(
+      organizations,
+      eq(userOrganizations.organizationId, organizations.id)
+    );
 
   // Group organizations by user ID
-  const orgsByUserId: Record<string, typeof organizations.$inferSelect[]> = {};
+  const orgsByUserId: Record<string, (typeof organizations.$inferSelect)[]> =
+    {};
   allUserOrgs.forEach((row) => {
     if (!orgsByUserId[row.userId]) {
       orgsByUserId[row.userId] = [];
@@ -528,28 +583,24 @@ export async function getTotalHoursByProject() {
 }
 
 export async function deleteOrganization(organizationId: string) {
-  await db
-    .delete(organizations)
-    .where(eq(organizations.id, organizationId));
+  await db.delete(organizations).where(eq(organizations.id, organizationId));
 }
 
 export async function deleteUser(userId: string) {
-  await db
-    .delete(users)
-    .where(eq(users.id, userId));
+  await db.delete(users).where(eq(users.id, userId));
 }
 
 export async function deleteProject(projectId: string) {
-  await db
-    .delete(projects)
-    .where(eq(projects.id, projectId));
+  await db.delete(projects).where(eq(projects.id, projectId));
 }
 
 export async function getDashboardStats() {
   // Get total revenue (sum of all project subtotals)
   const totalRevenueResult = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as("total"),
+      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as(
+        "total"
+      ),
     })
     .from(projects);
 
@@ -560,7 +611,9 @@ export async function getDashboardStats() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const revenueThisMonthResult = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as("total"),
+      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as(
+        "total"
+      ),
     })
     .from(projects)
     .where(gte(projects.createdAt, startOfMonth));
@@ -569,10 +622,20 @@ export async function getDashboardStats() {
 
   // Get revenue last month
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const endOfLastMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    0,
+    23,
+    59,
+    59,
+    999
+  );
   const revenueLastMonthResult = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as("total"),
+      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as(
+        "total"
+      ),
     })
     .from(projects)
     .where(
@@ -587,7 +650,10 @@ export async function getDashboardStats() {
   // Get total hours
   const totalHoursResult = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as("total"),
+      total:
+        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
+          "total"
+        ),
     })
     .from(hourRegistrations);
 
@@ -596,7 +662,10 @@ export async function getDashboardStats() {
   // Get hours this month
   const hoursThisMonthResult = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as("total"),
+      total:
+        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
+          "total"
+        ),
     })
     .from(hourRegistrations)
     .where(gte(hourRegistrations.date, startOfMonth));
@@ -606,7 +675,10 @@ export async function getDashboardStats() {
   // Get hours last month
   const hoursLastMonthResult = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as("total"),
+      total:
+        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
+          "total"
+        ),
     })
     .from(hourRegistrations)
     .where(
@@ -621,7 +693,9 @@ export async function getDashboardStats() {
   // Get project counts
   const totalProjects = await db.select().from(projects);
   const activeProjects = totalProjects.filter((p) => p.status === "active");
-  const completedProjects = totalProjects.filter((p) => p.status === "completed");
+  const completedProjects = totalProjects.filter(
+    (p) => p.status === "completed"
+  );
 
   // Get organization and user counts
   const allOrganizations = await db.select().from(organizations);
@@ -645,7 +719,7 @@ export async function getDashboardStats() {
   // Get revenue over time (last 30 days)
   const startDate = new Date(now);
   startDate.setDate(startDate.getDate() - 30);
-  
+
   const revenueOverTime = await db
     .select({
       date: projects.createdAt,
@@ -659,7 +733,8 @@ export async function getDashboardStats() {
   const revenueByDate: { [key: string]: number } = {};
   revenueOverTime.forEach((row) => {
     const dateStr = new Date(row.date).toISOString().split("T")[0];
-    revenueByDate[dateStr] = (revenueByDate[dateStr] || 0) + parseFloat(row.revenue);
+    revenueByDate[dateStr] =
+      (revenueByDate[dateStr] || 0) + parseFloat(row.revenue);
   });
 
   // Generate revenue chart data for last 30 days
@@ -711,14 +786,21 @@ export async function getDashboardStats() {
     .from(projects);
 
   // Define all possible stages
-  const allStages = ["kick_off", "pay_first", "deliver", "revise", "pay_final", "completed"];
-  
+  const allStages = [
+    "kick_off",
+    "pay_first",
+    "deliver",
+    "revise",
+    "pay_final",
+    "completed",
+  ];
+
   // Count projects by stage
   const stageCounts: { [key: string]: number } = {};
   allStages.forEach((stage) => {
     stageCounts[stage] = 0;
   });
-  
+
   projectsByStage.forEach((row) => {
     if (stageCounts[row.stage] !== undefined) {
       stageCounts[row.stage] = (stageCounts[row.stage] || 0) + 1;
@@ -800,7 +882,7 @@ export async function getNextInvoiceNumber(): Promise<string> {
   // Extract number from latest invoice (format: INV-YYYY-NNN)
   const latestNumber = latestInvoice[0].invoiceNumber;
   const match = latestNumber.match(/INV-(\d{4})-(\d+)/);
-  
+
   if (!match) {
     // If format doesn't match, start fresh
     const year = new Date().getFullYear();
@@ -905,10 +987,12 @@ export async function getContractById(contractId: string) {
     .innerJoin(projects, eq(legalDocuments.projectId, projects.id))
     .innerJoin(organizations, eq(projects.organizationId, organizations.id))
     .leftJoin(users, eq(legalDocuments.signedBy, users.id))
-    .where(and(
-      eq(legalDocuments.id, contractId),
-      eq(legalDocuments.type, "contract")
-    ))
+    .where(
+      and(
+        eq(legalDocuments.id, contractId),
+        eq(legalDocuments.type, "contract")
+      )
+    )
     .limit(1);
 
   return result[0] || null;

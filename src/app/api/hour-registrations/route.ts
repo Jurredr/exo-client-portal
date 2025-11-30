@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { createHourRegistration, getUserByEmail, getHourRegistrationsByUser, deleteHourRegistration } from "@/lib/db/queries";
+import { createHourRegistration, getUserByEmail, getHourRegistrationsByUser, deleteHourRegistration, updateHourRegistration } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -82,6 +82,87 @@ export async function POST(request: Request) {
     return NextResponse.json(registration, { status: 201 });
   } catch (error) {
     console.error("Error creating hour registration:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await getUserByEmail(user.email);
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const { id, description, hours, projectId, date, category } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Registration ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify the registration belongs to the user
+    const registrations = await getHourRegistrationsByUser(dbUser.id);
+    const registration = registrations.find((r) => r.id === id);
+
+    if (!registration) {
+      return NextResponse.json(
+        { error: "Registration not found or unauthorized" },
+        { status: 404 }
+      );
+    }
+
+    // Validate category if provided
+    let validCategory = registration.category;
+    if (category) {
+      const validCategories = ["client", "administration", "brainstorming", "research", "labs"];
+      validCategory = validCategories.includes(category) ? category : registration.category;
+    }
+
+    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    const finalProjectId = category && nonProjectCategories.includes(validCategory) ? null : (projectId || registration.projectId);
+    
+    if (nonProjectCategories.includes(validCategory) && finalProjectId) {
+      return NextResponse.json(
+        { error: `${validCategory.charAt(0).toUpperCase() + validCategory.slice(1)} work should not be associated with a project` },
+        { status: 400 }
+      );
+    }
+
+    const updateData: any = {};
+    if (description !== undefined) updateData.description = description;
+    if (hours !== undefined) {
+      if (typeof hours !== "number" || hours <= 0) {
+        return NextResponse.json(
+          { error: "Invalid hours: must be a positive number" },
+          { status: 400 }
+        );
+      }
+      updateData.hours = hours;
+    }
+    if (finalProjectId !== undefined) updateData.projectId = finalProjectId;
+    if (date !== undefined) updateData.date = new Date(date);
+    if (category !== undefined) updateData.category = validCategory;
+
+    const updated = await updateHourRegistration(id, updateData);
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Error updating hour registration:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

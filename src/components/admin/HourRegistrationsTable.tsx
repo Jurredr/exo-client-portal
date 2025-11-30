@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconDotsVertical } from "@tabler/icons-react";
-import { Plus, ArrowUpDown } from "lucide-react";
+import { Plus, ArrowUpDown, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { EnhancedDataTable } from "@/components/enhanced-data-table";
 
@@ -44,6 +44,7 @@ interface HourRegistration {
   projectId: string | null;
   description: string;
   hours: string;
+  category: string;
   date: string;
   createdAt: string;
   updatedAt: string;
@@ -93,7 +94,10 @@ const getInitials = (name: string | null, email: string) => {
   return email[0].toUpperCase();
 };
 
-const createColumns = (onDelete: (id: string) => Promise<void>): ColumnDef<HourRegistration>[] => [
+const createColumns = (
+  onDelete: (id: string) => Promise<void>,
+  onEdit: (registration: HourRegistration) => void
+): ColumnDef<HourRegistration>[] => [
   {
     accessorKey: "date",
     id: "date",
@@ -300,6 +304,11 @@ const createColumns = (onDelete: (id: string) => Promise<void>): ColumnDef<HourR
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-32">
+            <DropdownMenuItem onClick={() => onEdit(row.original)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleDelete}>
               Delete
             </DropdownMenuItem>
@@ -322,6 +331,8 @@ export function HourRegistrationsTable() {
   const [allProjects, setAllProjects] = useState<Array<Project & { type?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingRegistration, setEditingRegistration] = useState<HourRegistration | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manualEntry, setManualEntry] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -498,7 +509,94 @@ export function HourRegistrationsTable() {
     }
   };
 
-  const columns = useMemo(() => createColumns(handleDelete), [handleDelete]);
+  const handleEdit = (registration: HourRegistration) => {
+    setEditingRegistration(registration);
+    // Convert hours to hours and minutes
+    const totalHours = parseFloat(registration.hours);
+    const hours = Math.floor(totalHours);
+    const minutes = Math.round((totalHours - hours) * 60);
+    
+    setManualEntry({
+      date: new Date(registration.date).toISOString().split("T")[0],
+      hours: hours.toString(),
+      minutes: minutes.toString(),
+      description: registration.description,
+      category: (registration.category || "client") as "client" | "administration" | "brainstorming" | "research" | "labs",
+      projectId: registration.projectId || undefined,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRegistration) return;
+
+    const hoursNum = parseInt(manualEntry.hours) || 0;
+    const minutesNum = parseInt(manualEntry.minutes) || 0;
+
+    if (hoursNum === 0 && minutesNum === 0) {
+      toast.error("Please enter at least 1 hour or minute");
+      return;
+    }
+
+    if (!manualEntry.description.trim()) {
+      toast.error("Description is required");
+      return;
+    }
+
+    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    if (nonProjectCategories.includes(manualEntry.category) && manualEntry.projectId) {
+      toast.error(`${manualEntry.category.charAt(0).toUpperCase() + manualEntry.category.slice(1)} work should not be associated with a project`);
+      return;
+    }
+
+    // Convert hours and minutes to decimal hours
+    const totalHours = hoursNum + minutesNum / 60;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/hour-registrations", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: editingRegistration.id,
+          description: manualEntry.description.trim(),
+          hours: totalHours,
+          projectId: manualEntry.projectId && manualEntry.projectId !== "none" ? manualEntry.projectId : null,
+          date: manualEntry.date,
+          category: manualEntry.category,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update hour registration");
+      }
+
+      toast.success("Hour registration updated successfully");
+      setIsEditOpen(false);
+      setEditingRegistration(null);
+      setManualEntry({
+        date: new Date().toISOString().split("T")[0],
+        hours: "",
+        minutes: "",
+        description: "",
+        category: "client",
+        projectId: undefined,
+      });
+      fetchRegistrations();
+      window.dispatchEvent(new Event("hour-registration-saved"));
+    } catch (error) {
+      console.error("Error updating hour registration:", error);
+      toast.error("Failed to update hour registration");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const columns = useMemo(() => createColumns(handleDelete, handleEdit), [handleDelete, handleEdit]);
 
   const projectFilterOptions = useMemo(() => {
     return projects.map((project) => ({ label: project.title, value: project.id }));
@@ -686,6 +784,154 @@ export function HourRegistrationsTable() {
           </Dialog>
         }
       />
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Hour Registration</DialogTitle>
+            <DialogDescription>
+              Update the hour registration details
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdate} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Date *</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                value={manualEntry.date}
+                onChange={(e) =>
+                  setManualEntry({ ...manualEntry, date: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Work Category *</Label>
+              <Select
+                value={manualEntry.category}
+                onValueChange={(value) =>
+                  setManualEntry({
+                    ...manualEntry,
+                    category: value as "client" | "administration" | "brainstorming" | "research" | "labs",
+                  })
+                }
+              >
+                <SelectTrigger id="edit-category" className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client Work</SelectItem>
+                  <SelectItem value="administration">Administration</SelectItem>
+                  <SelectItem value="brainstorming">Brainstorming</SelectItem>
+                  <SelectItem value="research">Research</SelectItem>
+                  <SelectItem value="labs">EXO Labs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(manualEntry.category === "client" || manualEntry.category === "labs") && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-project">Project {manualEntry.category === "client" ? "(Optional)" : ""}</Label>
+                <Select
+                  value={manualEntry.projectId || "none"}
+                  onValueChange={(value) =>
+                    setManualEntry({
+                      ...manualEntry,
+                      projectId: value === "none" ? undefined : value,
+                    })
+                  }
+                >
+                  <SelectTrigger id="edit-project" className="w-full">
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-hours">Hours</Label>
+                <Input
+                  id="edit-hours"
+                  type="number"
+                  min="0"
+                  value={manualEntry.hours}
+                  onChange={(e) =>
+                    setManualEntry({ ...manualEntry, hours: e.target.value })
+                  }
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-minutes">Minutes</Label>
+                <Input
+                  id="edit-minutes"
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={manualEntry.minutes}
+                  onChange={(e) =>
+                    setManualEntry({ ...manualEntry, minutes: e.target.value })
+                  }
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description *</Label>
+              <Textarea
+                id="edit-description"
+                placeholder={
+                  manualEntry.category === "administration"
+                    ? "Describe the administrative work you did..."
+                    : manualEntry.category === "brainstorming"
+                    ? "Describe your brainstorming session..."
+                    : manualEntry.category === "research"
+                    ? "Describe the research you conducted..."
+                    : "Describe the work you did..."
+                }
+                value={manualEntry.description}
+                onChange={(e) =>
+                  setManualEntry({ ...manualEntry, description: e.target.value })
+                }
+                rows={4}
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setEditingRegistration(null);
+                  setManualEntry({
+                    date: new Date().toISOString().split("T")[0],
+                    hours: "",
+                    minutes: "",
+                    description: "",
+                    category: "client",
+                    projectId: undefined,
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Updating..." : "Update Entry"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

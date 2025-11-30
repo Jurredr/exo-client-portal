@@ -67,8 +67,9 @@ export function HourStatsCards() {
 
   const calculateStats = () => {
     const now = new Date();
+    // Calculate last 7 days (not start of week)
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setDate(now.getDate() - 6); // Last 7 days (including today)
     startOfWeek.setHours(0, 0, 0, 0);
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

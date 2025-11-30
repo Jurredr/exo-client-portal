@@ -241,25 +241,6 @@ export function ExpensesTable() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {row.original.expense.invoiceUrl && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    const url = row.original.expense.invoiceUrl!;
-                    if (url.startsWith("data:")) {
-                      const link = document.createElement("a");
-                      link.href = url;
-                      link.download = row.original.expense.invoiceFileName || "invoice";
-                      link.click();
-                    } else {
-                      window.open(url, "_blank");
-                    }
-                  }}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Invoice
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
                 onClick={(e) => {

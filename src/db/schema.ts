@@ -26,7 +26,8 @@ export const projects = pgTable("projects", {
   stage: text("stage").notNull().default("kick_off"), // kick_off, pay_first, deliver, revise, pay_final, completed
   startDate: timestamp("start_date"),
   deadline: timestamp("deadline"),
-  subtotal: text("subtotal").notNull(),
+  subtotal: text("subtotal"), // Nullable for EXO Labs projects
+  type: text("type").notNull().default("client"), // client, labs
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
     .notNull(),
@@ -80,6 +81,7 @@ export const hourRegistrations = pgTable("hour_registrations", {
     .references(() => projects.id),
   description: text("description").notNull(),
   hours: decimal("hours", { precision: 10, scale: 2 }).notNull(), // Stored as decimal for precision
+  category: text("category").notNull().default("client"), // client, administration, brainstorming, research, labs
   date: timestamp("date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
-import { NavMain } from "@/components/nav-main";
+import { NavMain, type NavGroup } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
@@ -215,46 +215,66 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const navMain = [
     {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: IconDashboard,
-      isActive: pathname === "/dashboard",
+      label: "Overview",
+      items: [
+        {
+          title: "Dashboard",
+          url: "/dashboard",
+          icon: IconDashboard,
+          isActive: pathname === "/dashboard",
+        },
+      ],
     },
     {
-      title: "Clients",
-      url: "/dashboard/users",
-      icon: IconUsers,
-      isActive: pathname === "/dashboard/users",
+      label: "Work",
+      items: [
+        {
+          title: "Projects",
+          url: "/dashboard/projects",
+          icon: IconFolder,
+          isActive: pathname === "/dashboard/projects",
+        },
+        {
+          title: "Hour Registration",
+          url: "/dashboard/hours",
+          icon: IconClock,
+          isActive: pathname === "/dashboard/hours",
+        },
+      ],
     },
     {
-      title: "Projects",
-      url: "/dashboard/projects",
-      icon: IconFolder,
-      isActive: pathname === "/dashboard/projects",
+      label: "Clients",
+      items: [
+        {
+          title: "Organizations",
+          url: "/dashboard/organizations",
+          icon: IconBuilding,
+          isActive: pathname === "/dashboard/organizations",
+        },
+        {
+          title: "Users",
+          url: "/dashboard/users",
+          icon: IconUsers,
+          isActive: pathname === "/dashboard/users",
+        },
+      ],
     },
     {
-      title: "Organizations",
-      url: "/dashboard/organizations",
-      icon: IconBuilding,
-      isActive: pathname === "/dashboard/organizations",
-    },
-    {
-      title: "Hour Registration",
-      url: "/dashboard/hours",
-      icon: IconClock,
-      isActive: pathname === "/dashboard/hours",
-    },
-    {
-      title: "Invoices",
-      url: "/dashboard/invoices",
-      icon: IconFileInvoice,
-      isActive: pathname === "/dashboard/invoices",
-    },
-    {
-      title: "Contracts",
-      url: "/dashboard/contracts",
-      icon: IconFileText,
-      isActive: pathname === "/dashboard/contracts",
+      label: "Business",
+      items: [
+        {
+          title: "Invoices",
+          url: "/dashboard/invoices",
+          icon: IconFileInvoice,
+          isActive: pathname === "/dashboard/invoices",
+        },
+        {
+          title: "Contracts",
+          url: "/dashboard/contracts",
+          icon: IconFileText,
+          isActive: pathname === "/dashboard/contracts",
+        },
+      ],
     },
   ];
 
@@ -306,7 +326,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
+        <NavMain groups={navMain as NavGroup[]} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser

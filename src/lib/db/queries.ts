@@ -173,7 +173,8 @@ export async function createHourRegistration(
   description: string,
   hours: number,
   projectId?: string | null,
-  date?: Date
+  date?: Date,
+  category: "client" | "administration" | "brainstorming" | "research" | "labs" = "client"
 ) {
   const [registration] = await db
     .insert(hourRegistrations)
@@ -182,6 +183,7 @@ export async function createHourRegistration(
       projectId: projectId || null,
       description,
       hours: hours.toString(),
+      category,
       date: date || new Date(),
     })
     .returning();
@@ -197,6 +199,7 @@ export async function getHourRegistrationsByUser(userId: string) {
       projectId: hourRegistrations.projectId,
       description: hourRegistrations.description,
       hours: hourRegistrations.hours,
+      category: hourRegistrations.category,
       date: hourRegistrations.date,
       createdAt: hourRegistrations.createdAt,
       updatedAt: hourRegistrations.updatedAt,
@@ -415,7 +418,8 @@ export async function createProject(data: {
   stage?: string;
   startDate?: Date | null;
   deadline?: Date | null;
-  subtotal: string;
+  subtotal?: string | null;
+  type?: "client" | "labs";
   organizationId: string;
 }) {
   const [project] = await db
@@ -427,7 +431,8 @@ export async function createProject(data: {
       stage: data.stage || "kick_off",
       startDate: data.startDate || null,
       deadline: data.deadline || null,
-      subtotal: data.subtotal,
+      subtotal: data.subtotal || null,
+      type: data.type || "client",
       organizationId: data.organizationId,
     })
     .returning();
@@ -446,6 +451,30 @@ export async function getAllProjects() {
     .orderBy(desc(projects.createdAt));
 }
 
+export async function getClientProjects() {
+  return await db
+    .select({
+      project: projects,
+      organization: organizations,
+    })
+    .from(projects)
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .where(eq(projects.type, "client"))
+    .orderBy(desc(projects.createdAt));
+}
+
+export async function getEXOLabsProjects() {
+  return await db
+    .select({
+      project: projects,
+      organization: organizations,
+    })
+    .from(projects)
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .where(eq(projects.type, "labs"))
+    .orderBy(desc(projects.createdAt));
+}
+
 export async function updateProject(
   projectId: string,
   data: Partial<{
@@ -455,7 +484,8 @@ export async function updateProject(
     stage: string;
     startDate: Date | null;
     deadline: Date | null;
-    subtotal: string;
+    subtotal: string | null;
+    type: "client" | "labs";
   }>
 ) {
   const [project] = await db

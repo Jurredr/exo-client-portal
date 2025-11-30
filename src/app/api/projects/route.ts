@@ -11,9 +11,11 @@ import {
   getNextInvoiceNumber,
   isAdmin,
   getAllInvoices,
+  getOrCreateEXOOrganization,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { calculatePaymentAmount } from "@/lib/utils/currency";
+import { getDefaultStage } from "@/lib/constants/stages";
 
 export async function GET() {
   try {
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
       startDate,
       deadline,
       subtotal,
+      type,
       organizationId,
     } = body;
 
@@ -80,9 +83,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!subtotal || typeof subtotal !== "string") {
+    const projectType = type === "labs" ? "labs" : "client";
+
+    // For client projects, subtotal is required
+    if (projectType === "client" && (!subtotal || typeof subtotal !== "string")) {
       return NextResponse.json(
-        { error: "Subtotal is required" },
+        { error: "Subtotal is required for client projects" },
         { status: 400 }
       );
     }
@@ -94,14 +100,26 @@ export async function POST(request: Request) {
       );
     }
 
+    // For EXO Labs projects, ensure they're under EXO organization
+    if (projectType === "labs") {
+      const exoOrg = await getOrCreateEXOOrganization();
+      if (organizationId !== exoOrg.id) {
+        return NextResponse.json(
+          { error: "EXO Labs projects must be under EXO organization" },
+          { status: 400 }
+        );
+      }
+    }
+
     const project = await createProject({
       title: title.trim(),
       description: description?.trim() || null,
       status: status || "active",
-      stage: stage || "kick_off",
+      stage: stage || getDefaultStage(projectType),
       startDate: startDate ? new Date(startDate) : null,
       deadline: deadline ? new Date(deadline) : null,
-      subtotal,
+      subtotal: projectType === "labs" ? null : (subtotal || null),
+      type: projectType,
       organizationId,
     });
 
@@ -143,8 +161,24 @@ export async function PATCH(request: Request) {
 
     // Get the current project to check if stage changed
     const currentProject = await getProjectById(id);
-    const oldStage = currentProject?.stage;
+    if (!currentProject) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      );
+    }
+
+    const oldStage = currentProject.stage;
     const newStage = updateData.stage;
+    const projectType = updateData.type === "labs" ? "labs" : (currentProject.type || "client");
+
+    // Validate subtotal: required for client projects, not for labs
+    if (projectType === "client" && updateData.subtotal === null) {
+      return NextResponse.json(
+        { error: "Subtotal is required for client projects" },
+        { status: 400 }
+      );
+    }
 
     const project = await updateProject(id, {
       ...(updateData.title && { title: updateData.title }),
@@ -153,13 +187,14 @@ export async function PATCH(request: Request) {
       }),
       ...(updateData.status && { status: updateData.status }),
       ...(updateData.stage && { stage: updateData.stage }),
-      ...(updateData.startDate && { startDate: new Date(updateData.startDate) }),
-      ...(updateData.deadline && { deadline: new Date(updateData.deadline) }),
-      ...(updateData.subtotal && { subtotal: updateData.subtotal }),
+      ...(updateData.startDate !== undefined && { startDate: updateData.startDate ? new Date(updateData.startDate) : null }),
+      ...(updateData.deadline !== undefined && { deadline: updateData.deadline ? new Date(updateData.deadline) : null }),
+      ...(updateData.subtotal !== undefined && { subtotal: projectType === "labs" ? null : updateData.subtotal }),
+      ...(updateData.type && { type: projectType }),
     });
 
-    // Auto-generate invoice when project reaches payment stages
-    if (newStage && oldStage !== newStage && (newStage === "pay_first" || newStage === "pay_final")) {
+    // Auto-generate invoice when client project reaches payment stages (not for labs)
+    if (projectType === "client" && newStage && oldStage !== newStage && (newStage === "pay_first" || newStage === "pay_final")) {
       try {
         // Check if invoice already exists for this project and stage
         const allInvoices = await getAllInvoices();
@@ -170,7 +205,7 @@ export async function PATCH(request: Request) {
             inv.invoice.description?.includes(newStage === "pay_first" ? "First" : "Final")
         );
 
-        if (!existingInvoice) {
+        if (!existingInvoice && project.subtotal) {
           const paymentAmount = calculatePaymentAmount(project.subtotal, newStage);
           if (paymentAmount && project.organizationId) {
             const invoiceNumber = await getNextInvoiceNumber();

@@ -46,11 +46,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { description, hours, projectId, date } = body;
+    const { description, hours, projectId, date, category } = body;
 
     if (!description || typeof hours !== "number" || hours <= 0) {
       return NextResponse.json(
         { error: "Invalid input: description and hours are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate category
+    const validCategories = ["client", "administration", "brainstorming", "research", "labs"];
+    const validCategory = validCategories.includes(category) ? category : "client";
+    
+    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    if (nonProjectCategories.includes(validCategory) && projectId) {
+      return NextResponse.json(
+        { error: `${validCategory.charAt(0).toUpperCase() + validCategory.slice(1)} work should not be associated with a project` },
         { status: 400 }
       );
     }
@@ -62,7 +75,8 @@ export async function POST(request: Request) {
       description,
       hours,
       projectId || null,
-      registrationDate
+      registrationDate,
+      validCategory
     );
 
     return NextResponse.json(registration, { status: 201 });

@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { cn } from "@/lib/utils";
+import { CLIENT_PROJECT_STAGES, LABS_PROJECT_STAGES, formatStage as formatStageHelper, getStageColor as getStageColorHelper } from "@/lib/constants/stages";
 import {
   FolderPlus,
   DollarSign,
@@ -63,7 +64,8 @@ interface ProjectData {
     stage: string;
     startDate: string | null;
     deadline: string | null;
-    subtotal: string;
+    subtotal: string | null;
+    type: string;
     organizationId: string;
     createdAt: string;
     updatedAt: string;
@@ -75,14 +77,8 @@ interface ProjectData {
   totalHours?: number;
 }
 
-const PROJECT_STAGES: StatusOption[] = [
-  { value: "kick_off", label: "Kick Off", state: "bg-blue-500" },
-  { value: "pay_first", label: "Pay First", state: "bg-yellow-500" },
-  { value: "deliver", label: "Deliver", state: "bg-purple-500" },
-  { value: "revise", label: "Revise", state: "bg-orange-500" },
-  { value: "pay_final", label: "Pay Final", state: "bg-cyan-500" },
-  { value: "completed", label: "Completed", state: "bg-green-500" },
-];
+// Keep for backward compatibility, but use the new helpers
+const PROJECT_STAGES = CLIENT_PROJECT_STAGES;
 
 const PROJECT_STATUSES: StatusOption[] = [
   { value: "active", label: "Active", state: "bg-green-500" },
@@ -92,14 +88,8 @@ const PROJECT_STATUSES: StatusOption[] = [
 ];
 
 // Format stage value to readable label
-const formatStage = (stage: string) => {
-  const stageConfig = PROJECT_STAGES.find((s) => s.value === stage);
-  return stageConfig
-    ? stageConfig.label
-    : stage
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
+const formatStage = (stage: string, projectType?: "client" | "labs") => {
+  return formatStageHelper(stage, projectType);
 };
 
 // Format status value to readable label
@@ -116,10 +106,9 @@ const getStatusColor = (status: string) => {
   return statusConfig ? statusConfig.state : "bg-gray-500";
 };
 
-// Get stage indicator color from PROJECT_STAGES
-const getStageColor = (stage: string) => {
-  const stageConfig = PROJECT_STAGES.find((s) => s.value === stage);
-  return stageConfig ? stageConfig.state : "bg-gray-500";
+// Get stage indicator color
+const getStageColor = (stage: string, projectType?: "client" | "labs") => {
+  return getStageColorHelper(stage, projectType);
 };
 
 // Format hours (as decimal) to "xhrs ymin" format
@@ -159,6 +148,10 @@ export function ProjectsTable() {
   const [deleteProject, setDeleteProject] = useState<ProjectData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  // Separate projects into client and labs
+  const clientProjects = projects.filter((p) => p.project.type === "client" || !p.project.type);
+  const labsProjects = projects.filter((p) => p.project.type === "labs");
 
   const columns: ColumnDef<ProjectData>[] = useMemo(
     () => [
@@ -258,12 +251,13 @@ export function ProjectsTable() {
         },
         cell: ({ row }) => {
           const stage = row.original.project.stage;
+          const projectType = row.original.project.type === "labs" ? "labs" : "client";
           return (
             <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
               <span
-                className={cn("size-1.5 rounded-full", getStageColor(stage))}
+                className={cn("size-1.5 rounded-full", getStageColor(stage, projectType))}
               />
-              {formatStage(stage)}
+              {formatStage(stage, projectType)}
             </Badge>
           );
         },
@@ -289,13 +283,13 @@ export function ProjectsTable() {
         },
         cell: ({ row }) => (
           <div className="text-muted-foreground">
-            ${row.original.project.subtotal}
+            {row.original.project.subtotal ? `$${row.original.project.subtotal}` : "-"}
           </div>
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          const a = parseFloat(rowA.original.project.subtotal) || 0;
-          const b = parseFloat(rowB.original.project.subtotal) || 0;
+          const a = parseFloat(rowA.original.project.subtotal || "0") || 0;
+          const b = parseFloat(rowB.original.project.subtotal || "0") || 0;
           return a - b;
         },
       },
@@ -438,6 +432,7 @@ export function ProjectsTable() {
     const subtotal = formData.get("subtotal") as string;
     const startDate = formData.get("startDate") as string;
     const deadline = formData.get("deadline") as string;
+    const projectType = selectedProject.project.type;
 
     try {
       const response = await fetch("/api/projects", {
@@ -451,9 +446,10 @@ export function ProjectsTable() {
           description: description || null,
           status,
           stage,
-          subtotal,
+          type: projectType,
+          subtotal: projectType === "labs" ? null : (subtotal || null),
           startDate: startDate || null,
-          deadline: deadline || null,
+          deadline: projectType === "labs" ? null : (deadline || null),
         }),
       });
 
@@ -564,23 +560,25 @@ export function ProjectsTable() {
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-stage">Stage</Label>
             <StatusCombobox
-              options={PROJECT_STAGES}
+              options={selectedProject?.project.type === "labs" ? LABS_PROJECT_STAGES : CLIENT_PROJECT_STAGES}
               value={editStage}
               onValueChange={setEditStage}
               placeholder="Select stage..."
             />
           </div>
         </div>
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-subtotal">Subtotal</Label>
-          <Input
-            id="edit-subtotal"
-            name="subtotal"
-            type="text"
-            defaultValue={selectedProject?.project.subtotal}
-            required
-          />
-        </div>
+        {selectedProject?.project.type !== "labs" && (
+          <div className="flex flex-col gap-3">
+            <Label htmlFor="edit-subtotal">Subtotal</Label>
+            <Input
+              id="edit-subtotal"
+              name="subtotal"
+              type="text"
+              defaultValue={selectedProject?.project.subtotal || ""}
+              required
+            />
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-start-date">Start Date</Label>
@@ -597,21 +595,23 @@ export function ProjectsTable() {
               }
             />
           </div>
-          <div className="flex flex-col gap-3">
-            <Label htmlFor="edit-deadline">Deadline</Label>
-            <Input
-              id="edit-deadline"
-              name="deadline"
-              type="date"
-              defaultValue={
-                selectedProject?.project.deadline
-                  ? new Date(selectedProject.project.deadline)
-                      .toISOString()
-                      .split("T")[0]
-                  : ""
-              }
-            />
-          </div>
+          {selectedProject?.project.type !== "labs" && (
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="edit-deadline">Deadline</Label>
+              <Input
+                id="edit-deadline"
+                name="deadline"
+                type="date"
+                defaultValue={
+                  selectedProject?.project.deadline
+                    ? new Date(selectedProject.project.deadline)
+                        .toISOString()
+                        .split("T")[0]
+                    : ""
+                }
+              />
+            </div>
+          )}
         </div>
       </form>
       <DrawerFooter>
@@ -625,8 +625,14 @@ export function ProjectsTable() {
     </>
   );
 
+  // Columns for labs projects (without subtotal)
+  const labsColumns: ColumnDef<ProjectData>[] = useMemo(
+    () => columns.filter((col) => col.id !== "subtotal"),
+    []
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-semibold">All Projects</h2>
         <p className="text-muted-foreground">
@@ -636,7 +642,7 @@ export function ProjectsTable() {
 
       <EnhancedDataTable
         columns={columns}
-        data={projects}
+        data={clientProjects}
         searchPlaceholder="Search projects by title or organization..."
         searchFn={(row, query) => {
           const title = row.project.title.toLowerCase();
@@ -651,13 +657,13 @@ export function ProjectsTable() {
           },
           stage: {
             label: "Stage",
-            options: PROJECT_STAGES.map((s) => ({ label: s.label, value: s.value })),
+            options: CLIENT_PROJECT_STAGES.map((s) => ({ label: s.label, value: s.value })),
             getValue: (row) => row.project.stage,
           },
         }}
         initialSorting={[{ id: "title", desc: false }]}
         onRowClick={handleRowClick}
-        emptyMessage="No projects found."
+        emptyMessage="No client projects found."
         isLoading={loading}
         toolbar={
           isMobile ? (
@@ -701,6 +707,41 @@ export function ProjectsTable() {
           )
         }
       />
+
+      <div className="mt-8">
+        <div className="mb-4">
+          <h2 className="text-2xl font-semibold">EXO Labs Projects</h2>
+          <p className="text-muted-foreground">
+            Internal EXO Labs products and initiatives
+          </p>
+        </div>
+
+        <EnhancedDataTable
+          columns={labsColumns}
+          data={labsProjects}
+          searchPlaceholder="Search EXO Labs projects..."
+          searchFn={(row, query) => {
+            const title = row.project.title.toLowerCase();
+            return title.includes(query);
+          }}
+          filterConfig={{
+            status: {
+              label: "Status",
+              options: PROJECT_STATUSES.map((s) => ({ label: s.label, value: s.value })),
+              getValue: (row) => row.project.status,
+            },
+            stage: {
+              label: "Stage",
+            options: LABS_PROJECT_STAGES.map((s) => ({ label: s.label, value: s.value })),
+            getValue: (row) => row.project.stage,
+          },
+        }}
+        initialSorting={[{ id: "title", desc: false }]}
+        onRowClick={handleRowClick}
+        emptyMessage="No EXO Labs projects found."
+        isLoading={loading}
+        />
+      </div>
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -775,23 +816,25 @@ export function ProjectsTable() {
                     <div className="space-y-2">
                       <Label htmlFor="edit-stage">Stage</Label>
                       <StatusCombobox
-                        options={PROJECT_STAGES}
+                        options={selectedProject.project.type === "labs" ? LABS_PROJECT_STAGES : CLIENT_PROJECT_STAGES}
                         value={editStage}
                         onValueChange={setEditStage}
                         placeholder="Select stage..."
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-subtotal">Subtotal</Label>
-                    <Input
-                      id="edit-subtotal"
-                      name="subtotal"
-                      type="text"
-                      defaultValue={selectedProject.project.subtotal}
-                      required
-                    />
-                  </div>
+                  {selectedProject.project.type !== "labs" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-subtotal">Subtotal</Label>
+                      <Input
+                        id="edit-subtotal"
+                        name="subtotal"
+                        type="text"
+                        defaultValue={selectedProject.project.subtotal || ""}
+                        required
+                      />
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit-start-date">Start Date</Label>
@@ -808,21 +851,23 @@ export function ProjectsTable() {
                         }
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-deadline">Deadline</Label>
-                      <Input
-                        id="edit-deadline"
-                        name="deadline"
-                        type="date"
-                        defaultValue={
-                          selectedProject.project.deadline
-                            ? new Date(selectedProject.project.deadline)
-                                .toISOString()
-                                .split("T")[0]
-                            : ""
-                        }
-                      />
-                    </div>
+                    {selectedProject.project.type !== "labs" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-deadline">Deadline</Label>
+                        <Input
+                          id="edit-deadline"
+                          name="deadline"
+                          type="date"
+                          defaultValue={
+                            selectedProject.project.deadline
+                              ? new Date(selectedProject.project.deadline)
+                                  .toISOString()
+                                  .split("T")[0]
+                              : ""
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button

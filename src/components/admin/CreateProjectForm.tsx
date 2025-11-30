@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { FolderPlus, DollarSign, Calendar } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
+import { getProjectStages, getDefaultStage } from "@/lib/constants/stages";
 
 interface Organization {
   id: string;
@@ -22,15 +23,6 @@ interface Organization {
   createdAt: Date;
   updatedAt: Date;
 }
-
-const PROJECT_STAGES: StatusOption[] = [
-  { value: "kick_off", label: "Kick Off", state: "bg-blue-500" },
-  { value: "pay_first", label: "Pay First", state: "bg-yellow-500" },
-  { value: "deliver", label: "Deliver", state: "bg-purple-500" },
-  { value: "revise", label: "Revise", state: "bg-orange-500" },
-  { value: "pay_final", label: "Pay Final", state: "bg-cyan-500" },
-  { value: "completed", label: "Completed", state: "bg-green-500" },
-];
 
 const PROJECT_STATUSES: StatusOption[] = [
   { value: "active", label: "Active", state: "bg-green-500" },
@@ -42,13 +34,15 @@ const PROJECT_STATUSES: StatusOption[] = [
 export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [projectType, setProjectType] = useState<"client" | "labs">("client");
   const [organizationId, setOrganizationId] = useState<string>("");
   const [subtotal, setSubtotal] = useState("");
   const [status, setStatus] = useState("active");
-  const [stage, setStage] = useState("kick_off");
+  const [stage, setStage] = useState(getDefaultStage("client"));
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [exoOrgId, setExoOrgId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
 
@@ -59,6 +53,11 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         if (response.ok) {
           const data = await response.json();
           setOrganizations(data);
+          // Find EXO organization
+          const exoOrg = data.find((org: Organization) => org.name === "EXO");
+          if (exoOrg) {
+            setExoOrgId(exoOrg.id);
+          }
         }
       } catch (error) {
         console.error("Error fetching organizations:", error);
@@ -70,6 +69,17 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
     fetchOrganizations();
   }, []);
 
+  // Auto-select EXO organization when EXO Labs is selected
+  useEffect(() => {
+    if (projectType === "labs" && exoOrgId) {
+      setOrganizationId(exoOrgId);
+      setStage(getDefaultStage("labs"));
+    } else if (projectType === "client" && organizationId === exoOrgId) {
+      setOrganizationId("");
+      setStage(getDefaultStage("client"));
+    }
+  }, [projectType, exoOrgId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -78,8 +88,9 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
-    if (!subtotal.trim()) {
-      toast.error("Subtotal is required");
+    // Subtotal is required for client projects, optional for EXO Labs
+    if (projectType === "client" && !subtotal.trim()) {
+      toast.error("Subtotal is required for client projects");
       return;
     }
 
@@ -99,11 +110,12 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           title: title.trim(),
           description: description.trim() || null,
           organizationId,
-          subtotal: subtotal.trim(),
+          type: projectType,
+          subtotal: projectType === "labs" ? null : subtotal.trim(),
           status,
           stage,
           startDate: startDate || null,
-          deadline: deadline || null,
+          deadline: projectType === "labs" ? null : (deadline || null),
         }),
       });
 
@@ -115,10 +127,11 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       toast.success("Project created successfully");
       setTitle("");
       setDescription("");
+      setProjectType("client");
       setOrganizationId("");
       setSubtotal("");
       setStatus("active");
-      setStage("kick_off");
+      setStage(getDefaultStage("client"));
       setStartDate("");
       setDeadline("");
       onSuccess?.();
@@ -134,12 +147,27 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
+        <Label htmlFor="project-type">Project Type *</Label>
+        <Select
+          value={projectType}
+          onValueChange={(value) => setProjectType(value as "client" | "labs")}
+        >
+          <SelectTrigger id="project-type" className="w-full">
+            <SelectValue placeholder="Select project type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="client">Client Project</SelectItem>
+            <SelectItem value="labs">EXO Labs</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="project-title">Project Title *</Label>
         <Input
           id="project-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Website Redesign"
+          placeholder={projectType === "labs" ? "EXO Website" : "Website Redesign"}
           required
         />
       </div>
@@ -158,7 +186,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         <Select
           value={organizationId}
           onValueChange={setOrganizationId}
-          disabled={isLoadingOrgs}
+          disabled={isLoadingOrgs || projectType === "labs"}
           required
         >
           <SelectTrigger id="project-org" className="w-full">
@@ -172,6 +200,11 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
             ))}
           </SelectContent>
         </Select>
+        {projectType === "labs" && (
+          <p className="text-xs text-muted-foreground">
+            EXO Labs projects are automatically assigned to EXO organization
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -186,26 +219,28 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         <div className="space-y-2">
           <Label htmlFor="project-stage">Stage</Label>
           <StatusCombobox
-            options={PROJECT_STAGES}
+            options={getProjectStages(projectType)}
             value={stage}
             onValueChange={setStage}
             placeholder="Select stage..."
           />
         </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="project-subtotal" className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4" />
-          Subtotal *
-        </Label>
-        <Input
-          id="project-subtotal"
-          value={subtotal}
-          onChange={(e) => setSubtotal(e.target.value)}
-          placeholder="5000.00"
-          required
-        />
-      </div>
+      {projectType === "client" && (
+        <div className="space-y-2">
+          <Label htmlFor="project-subtotal" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Subtotal *
+          </Label>
+          <Input
+            id="project-subtotal"
+            value={subtotal}
+            onChange={(e) => setSubtotal(e.target.value)}
+            placeholder="5000.00"
+            required
+          />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="project-start-date" className="flex items-center gap-2">
@@ -219,18 +254,20 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
             onChange={(e) => setStartDate(e.target.value)}
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="project-deadline" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Deadline
-          </Label>
-          <Input
-            id="project-deadline"
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-          />
-        </div>
+        {projectType === "client" && (
+          <div className="space-y-2">
+            <Label htmlFor="project-deadline" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Deadline
+            </Label>
+            <Input
+              id="project-deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+            />
+          </div>
+        )}
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
         <FolderPlus className="h-4 w-4 mr-2" />

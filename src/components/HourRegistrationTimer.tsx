@@ -33,8 +33,10 @@ export function HourRegistrationTimer() {
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<"client" | "administration" | "brainstorming" | "research" | "labs">("client");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Array<Project & { type?: string }>>([]);
   const [isSaving, setIsSaving] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -95,6 +97,13 @@ export function HourRegistrationTimer() {
       return;
     }
 
+    // Validate: non-project categories shouldn't have a project
+    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    if (nonProjectCategories.includes(category) && projectId) {
+      toast.error(`${category.charAt(0).toUpperCase() + category.slice(1)} work should not be associated with a project`);
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Use rounded minutes for saving
@@ -108,7 +117,8 @@ export function HourRegistrationTimer() {
         body: JSON.stringify({
           description: description.trim(),
           hours,
-          projectId: projectId && projectId !== "none" ? projectId : null,
+          category,
+          projectId: (category === "client" || category === "labs") && projectId && projectId !== "none" ? projectId : null,
         }),
       });
 
@@ -123,6 +133,7 @@ export function HourRegistrationTimer() {
       setElapsedSeconds(0);
       startTimeRef.current = null;
       setDescription("");
+      setCategory("client");
       setProjectId(undefined);
       setShowDescriptionDialog(false);
 
@@ -148,11 +159,20 @@ export function HourRegistrationTimer() {
         const response = await fetch("/api/projects");
         if (response.ok) {
           const data = await response.json();
+          const projectsData = data.map((item: { project: Project & { type?: string } }) => ({
+            id: item.project.id,
+            title: item.project.title,
+            type: item.project.type || "client",
+          }));
+          setAllProjects(projectsData);
+          // Set initial projects (client projects)
           setProjects(
-            data.map((item: { project: Project }) => ({
-              id: item.project.id,
-              title: item.project.title,
-            }))
+            projectsData
+              .filter((p: Project & { type?: string }) => p.type === "client")
+              .map((p: Project & { type?: string }) => ({
+                id: p.id,
+                title: p.title,
+              }))
           );
         }
       } catch (error) {
@@ -161,6 +181,36 @@ export function HourRegistrationTimer() {
     };
     fetchProjects();
   }, []);
+
+  // Filter projects based on category
+  useEffect(() => {
+    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    if (nonProjectCategories.includes(category)) {
+      setProjects([]);
+      setProjectId(undefined);
+    } else if (category === "labs") {
+      setProjects(
+        allProjects
+          .filter((p) => p.type === "labs")
+          .map((p) => ({
+            id: p.id,
+            title: p.title,
+          }))
+      );
+      setProjectId(undefined);
+    } else {
+      // client
+      setProjects(
+        allProjects
+          .filter((p) => p.type === "client")
+          .map((p) => ({
+            id: p.id,
+            title: p.title,
+          }))
+      );
+      setProjectId(undefined);
+    }
+  }, [category, allProjects]);
 
   // Keyboard shortcuts (spacebar for start/pause, enter for submit, escape for cancel)
   useEffect(() => {
@@ -366,37 +416,65 @@ export function HourRegistrationTimer() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="category">Work Category *</Label>
+              <Select
+                value={category}
+                onValueChange={(value) => setCategory(value as "client" | "administration" | "brainstorming" | "research" | "labs")}
+              >
+                <SelectTrigger id="category" className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client Work</SelectItem>
+                  <SelectItem value="administration">Administration</SelectItem>
+                  <SelectItem value="brainstorming">Brainstorming</SelectItem>
+                  <SelectItem value="research">Research</SelectItem>
+                  <SelectItem value="labs">EXO Labs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(category === "client" || category === "labs") && (
+              <div className="space-y-2">
+                <Label htmlFor="project">Project {category === "client" ? "(Optional)" : ""}</Label>
+                <Select
+                  value={projectId || "none"}
+                  onValueChange={(value) =>
+                    setProjectId(value === "none" ? undefined : value)
+                  }
+                >
+                  <SelectTrigger id="project" className="w-full">
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
               <Label htmlFor="description">Description *</Label>
               <Textarea
                 id="description"
-                placeholder="Describe the work you did..."
+                placeholder={
+                  category === "administration"
+                    ? "Describe the administrative work you did..."
+                    : category === "brainstorming"
+                    ? "Describe your brainstorming session..."
+                    : category === "research"
+                    ? "Describe the research you conducted..."
+                    : "Describe the work you did..."
+                }
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 className="resize-none"
                 autoFocus
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="project">Project (Optional)</Label>
-              <Select
-                value={projectId || "none"}
-                onValueChange={(value) =>
-                  setProjectId(value === "none" ? undefined : value)
-                }
-              >
-                <SelectTrigger id="project" className="w-full">
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>

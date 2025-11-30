@@ -124,8 +124,10 @@ export const expenses = pgTable("expenses", {
     .notNull(),
   description: text("description").notNull(),
   amount: text("amount").notNull(), // Stored as text to preserve formatting
+  currency: text("currency").notNull().default("USD"), // USD, EUR
   date: timestamp("date").defaultNow().notNull(),
   category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
+  vendor: text("vendor"), // Where the expense was made (store, company, etc.)
   invoiceUrl: text("invoice_url"), // URL to uploaded invoice file
   invoiceFileName: text("invoice_file_name"), // Original filename
   invoiceFileType: text("invoice_file_type"), // MIME type

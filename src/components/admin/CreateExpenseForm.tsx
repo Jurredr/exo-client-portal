@@ -30,8 +30,10 @@ interface Expense {
   id: string;
   description: string;
   amount: string;
+  currency: string;
   date: string;
   category: string | null;
+  vendor: string | null;
   invoiceUrl: string | null;
   invoiceFileName: string | null;
   invoiceFileType: string | null;
@@ -48,8 +50,10 @@ export function CreateExpenseForm({
 }) {
   const [description, setDescription] = useState(expense?.description || "");
   const [amount, setAmount] = useState(expense?.amount || "");
+  const [currency, setCurrency] = useState<"USD" | "EUR">((expense?.currency as "USD" | "EUR") || "USD");
   const [date, setDate] = useState(expense?.date ? new Date(expense.date).toISOString().split("T")[0] : "");
   const [category, setCategory] = useState<string>(expense?.category || "");
+  const [vendor, setVendor] = useState<string>(expense?.vendor || "");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<string | null>(
     expense?.invoiceUrl && expense.invoiceUrl.startsWith("data:image/") ? expense.invoiceUrl : null
@@ -126,8 +130,10 @@ export function CreateExpenseForm({
             id: expense.id,
             description: description.trim(),
             amount: amount.trim(),
+            currency,
             date: date || null,
             category: category || null,
+            vendor: vendor.trim() || null,
             invoiceUrl,
             invoiceFileName,
             invoiceFileType,
@@ -135,8 +141,10 @@ export function CreateExpenseForm({
         : {
             description: description.trim(),
             amount: amount.trim(),
+            currency,
             date: date || null,
             category: category || null,
+            vendor: vendor.trim() || null,
             invoiceUrl,
             invoiceFileName,
             invoiceFileType,
@@ -159,8 +167,10 @@ export function CreateExpenseForm({
       if (!expense) {
         setDescription("");
         setAmount("");
+        setCurrency("USD");
         setDate("");
         setCategory("");
+        setVendor("");
         setInvoiceFile(null);
         setInvoicePreview(null);
       }
@@ -202,32 +212,55 @@ export function CreateExpenseForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="expense-date" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Date
-          </Label>
-          <Input
-            id="expense-date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <Label htmlFor="expense-currency">Currency *</Label>
+          <Select value={currency} onValueChange={(value) => setCurrency(value as "USD" | "EUR")}>
+            <SelectTrigger id="expense-currency" className="w-full">
+              <SelectValue placeholder="Select currency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="USD">USD ($)</SelectItem>
+              <SelectItem value="EUR">EUR (€)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="expense-category">Category</Label>
-        <Select value={category || undefined} onValueChange={(value) => setCategory(value || "")}>
-          <SelectTrigger id="expense-category" className="w-full">
-            <SelectValue placeholder="Select a category (optional)" />
-          </SelectTrigger>
-          <SelectContent>
-            {EXPENSE_CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {cat}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor="expense-date" className="flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          Date
+        </Label>
+        <Input
+          id="expense-date"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="expense-category">Category</Label>
+          <Select value={category || undefined} onValueChange={(value) => setCategory(value || "")}>
+            <SelectTrigger id="expense-category" className="w-full">
+              <SelectValue placeholder="Select a category (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {EXPENSE_CATEGORIES.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="expense-vendor">Vendor / Where</Label>
+          <Input
+            id="expense-vendor"
+            value={vendor}
+            onChange={(e) => setVendor(e.target.value)}
+            placeholder="Amazon, Office Depot, etc."
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="expense-invoice" className="flex items-center gap-2">

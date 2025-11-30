@@ -51,8 +51,10 @@ interface ExpenseData {
     id: string;
     description: string;
     amount: string;
+    currency: string;
     date: string;
     category: string | null;
+    vendor: string | null;
     invoiceUrl: string | null;
     invoiceFileName: string | null;
     invoiceFileType: string | null;
@@ -75,12 +77,12 @@ const formatDate = (dateString: string | null) => {
   });
 };
 
-const formatAmount = (amount: string) => {
+const formatAmount = (amount: string, currency: string = "USD") => {
   const num = parseFloat(amount);
   if (isNaN(num)) return amount;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: currency || "USD",
   }).format(num);
 };
 
@@ -137,7 +139,7 @@ export function ExpensesTable() {
           );
         },
         cell: ({ row }) => (
-          <div className="font-medium">{formatAmount(row.original.expense.amount)}</div>
+          <div className="font-medium">{formatAmount(row.original.expense.amount, row.original.expense.currency)}</div>
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
@@ -186,6 +188,36 @@ export function ExpensesTable() {
           );
         },
         enableSorting: false,
+      },
+      {
+        accessorKey: "expense.vendor",
+        id: "vendor",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-3 h-8"
+            >
+              Vendor
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const vendor = row.original.expense.vendor;
+          return vendor ? (
+            <div className="text-muted-foreground">{vendor}</div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          );
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const a = rowA.original.expense.vendor || "";
+          const b = rowB.original.expense.vendor || "";
+          return a.localeCompare(b);
+        },
       },
       {
         accessorKey: "user.name",
@@ -334,11 +366,12 @@ export function ExpensesTable() {
       <EnhancedDataTable
         columns={columns}
         data={expenses}
-        searchPlaceholder="Search expenses by description or category..."
+        searchPlaceholder="Search expenses by description, category, or vendor..."
         searchFn={(row, query) => {
           const description = row.expense.description.toLowerCase();
           const category = (row.expense.category || "").toLowerCase();
-          return description.includes(query) || category.includes(query);
+          const vendor = (row.expense.vendor || "").toLowerCase();
+          return description.includes(query) || category.includes(query) || vendor.includes(query);
         }}
         initialSorting={[{ id: "date", desc: true }]}
         emptyMessage="No expenses found."

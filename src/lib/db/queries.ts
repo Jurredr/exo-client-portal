@@ -957,8 +957,10 @@ export async function createExpense(data: {
   userId: string;
   description: string;
   amount: string;
+  currency?: string;
   date?: Date;
   category?: string | null;
+  vendor?: string | null;
   invoiceUrl?: string | null;
   invoiceFileName?: string | null;
   invoiceFileType?: string | null;
@@ -969,8 +971,10 @@ export async function createExpense(data: {
       userId: data.userId,
       description: data.description,
       amount: data.amount,
+      currency: data.currency || "USD",
       date: data.date || new Date(),
       category: data.category || null,
+      vendor: data.vendor || null,
       invoiceUrl: data.invoiceUrl || null,
       invoiceFileName: data.invoiceFileName || null,
       invoiceFileType: data.invoiceFileType || null,
@@ -1022,8 +1026,10 @@ export async function updateExpense(
   data: Partial<{
     description: string;
     amount: string;
+    currency: string;
     date: Date;
     category: string | null;
+    vendor: string | null;
     invoiceUrl: string | null;
     invoiceFileName: string | null;
     invoiceFileType: string | null;

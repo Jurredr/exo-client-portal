@@ -247,16 +247,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       label: "Clients",
       items: [
         {
-          title: "Organizations",
-          url: "/dashboard/organizations",
-          icon: IconBuilding,
-          isActive: pathname === "/dashboard/organizations",
-        },
-        {
           title: "Users",
           url: "/dashboard/users",
           icon: IconUsers,
           isActive: pathname === "/dashboard/users",
+        },
+        {
+          title: "Organizations",
+          url: "/dashboard/organizations",
+          icon: IconBuilding,
+          isActive: pathname === "/dashboard/organizations",
         },
       ],
     },

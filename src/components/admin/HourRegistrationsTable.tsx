@@ -319,6 +319,7 @@ interface Project {
 export function HourRegistrationsTable() {
   const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Array<Project & { type?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -327,6 +328,7 @@ export function HourRegistrationsTable() {
     hours: "",
     minutes: "",
     description: "",
+    category: "client" as "client" | "administration" | "brainstorming" | "research" | "labs",
     projectId: undefined as string | undefined,
   });
 
@@ -342,16 +344,55 @@ export function HourRegistrationsTable() {
     return () => window.removeEventListener("hour-registration-saved", handleRefresh);
   }, []);
 
+  // Filter projects based on category
+  useEffect(() => {
+    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    if (nonProjectCategories.includes(manualEntry.category)) {
+      setProjects([]);
+      setManualEntry(prev => ({ ...prev, projectId: undefined }));
+    } else if (manualEntry.category === "labs") {
+      setProjects(
+        allProjects
+          .filter((p) => p.type === "labs")
+          .map((p) => ({
+            id: p.id,
+            title: p.title,
+          }))
+      );
+      setManualEntry(prev => ({ ...prev, projectId: undefined }));
+    } else {
+      // client
+      setProjects(
+        allProjects
+          .filter((p) => p.type === "client")
+          .map((p) => ({
+            id: p.id,
+            title: p.title,
+          }))
+      );
+      setManualEntry(prev => ({ ...prev, projectId: undefined }));
+    }
+  }, [manualEntry.category, allProjects]);
+
   const fetchProjects = async () => {
     try {
       const response = await fetch("/api/projects");
       if (response.ok) {
         const data = await response.json();
+        const projectsData = data.map((item: { project: Project & { type?: string } }) => ({
+          id: item.project.id,
+          title: item.project.title,
+          type: item.project.type || "client",
+        }));
+        setAllProjects(projectsData);
+        // Set initial projects (client projects)
         setProjects(
-          data.map((item: { project: Project }) => ({
-            id: item.project.id,
-            title: item.project.title,
-          }))
+          projectsData
+            .filter((p: Project & { type?: string }) => p.type === "client")
+            .map((p: Project & { type?: string }) => ({
+              id: p.id,
+              title: p.title,
+            }))
         );
       }
     } catch (error) {
@@ -407,6 +448,13 @@ export function HourRegistrationsTable() {
       return;
     }
 
+    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    if (nonProjectCategories.includes(manualEntry.category) && manualEntry.projectId) {
+      toast.error(`${manualEntry.category.charAt(0).toUpperCase() + manualEntry.category.slice(1)} work should not be associated with a project`);
+      return;
+    }
+
     // Convert hours and minutes to decimal hours
     const totalHours = hoursNum + minutesNum / 60;
 
@@ -422,6 +470,7 @@ export function HourRegistrationsTable() {
           hours: totalHours,
           projectId: manualEntry.projectId && manualEntry.projectId !== "none" ? manualEntry.projectId : null,
           date: manualEntry.date,
+          category: manualEntry.category,
         }),
       });
 
@@ -436,6 +485,7 @@ export function HourRegistrationsTable() {
         hours: "",
         minutes: "",
         description: "",
+        category: "client",
         projectId: undefined,
       });
       fetchRegistrations();
@@ -520,6 +570,55 @@ export function HourRegistrationsTable() {
                     required
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="manual-category">Work Category *</Label>
+                  <Select
+                    value={manualEntry.category}
+                    onValueChange={(value) =>
+                      setManualEntry({
+                        ...manualEntry,
+                        category: value as "client" | "administration" | "brainstorming" | "research" | "labs",
+                      })
+                    }
+                  >
+                    <SelectTrigger id="manual-category" className="w-full">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">Client Work</SelectItem>
+                      <SelectItem value="administration">Administration</SelectItem>
+                      <SelectItem value="brainstorming">Brainstorming</SelectItem>
+                      <SelectItem value="research">Research</SelectItem>
+                      <SelectItem value="labs">EXO Labs</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(manualEntry.category === "client" || manualEntry.category === "labs") && (
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-project">Project {manualEntry.category === "client" ? "(Optional)" : ""}</Label>
+                    <Select
+                      value={manualEntry.projectId || "none"}
+                      onValueChange={(value) =>
+                        setManualEntry({
+                          ...manualEntry,
+                          projectId: value === "none" ? undefined : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="manual-project" className="w-full">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="manual-hours">Hours</Label>
@@ -553,7 +652,15 @@ export function HourRegistrationsTable() {
                   <Label htmlFor="manual-description">Description *</Label>
                   <Textarea
                     id="manual-description"
-                    placeholder="Describe the work..."
+                    placeholder={
+                      manualEntry.category === "administration"
+                        ? "Describe the administrative work you did..."
+                        : manualEntry.category === "brainstorming"
+                        ? "Describe your brainstorming session..."
+                        : manualEntry.category === "research"
+                        ? "Describe the research you conducted..."
+                        : "Describe the work you did..."
+                    }
                     value={manualEntry.description}
                     onChange={(e) =>
                       setManualEntry({ ...manualEntry, description: e.target.value })
@@ -561,30 +668,6 @@ export function HourRegistrationsTable() {
                     rows={4}
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="manual-project">Project (Optional)</Label>
-                  <Select
-                    value={manualEntry.projectId || "none"}
-                    onValueChange={(value) =>
-                      setManualEntry({
-                        ...manualEntry,
-                        projectId: value === "none" ? undefined : value,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="manual-project" className="w-full">
-                      <SelectValue placeholder="Select a project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <DialogFooter>
                   <Button

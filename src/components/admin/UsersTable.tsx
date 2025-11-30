@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  ColumnDef,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +26,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { UserPlus, Mail, User, Upload, X, Trash2, Pencil, MoreVertical, ArrowUpDown } from "lucide-react";
+import {
+  UserPlus,
+  Mail,
+  User,
+  Upload,
+  X,
+  Trash2,
+  Pencil,
+  MoreVertical,
+  ArrowUpDown,
+} from "lucide-react";
 import { CreateUserForm } from "./CreateUserForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { createClient } from "@/lib/supabase/client";
@@ -66,10 +74,14 @@ interface UserData {
 
 export function UsersTable() {
   const [users, setUsers] = useState<UserData[]>([]);
-  const [organizations, setOrganizations] = useState<{ id: string; name: string; image?: string | null }[]>([]);
+  const [organizations, setOrganizations] = useState<
+    { id: string; name: string; image?: string | null }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
-  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
+    string[]
+  >([]);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
@@ -97,7 +109,10 @@ export function UsersTable() {
           };
           return (
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user.image || undefined} alt={user.name || user.email} />
+              <AvatarImage
+                src={user.image || undefined}
+                alt={user.name || user.email}
+              />
               <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
             </Avatar>
           );
@@ -112,7 +127,9 @@ export function UsersTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Email
@@ -125,7 +142,9 @@ export function UsersTable() {
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.user.email.localeCompare(rowB.original.user.email);
+          return rowA.original.user.email.localeCompare(
+            rowB.original.user.email
+          );
         },
       },
       {
@@ -135,7 +154,9 @@ export function UsersTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Name
@@ -162,7 +183,9 @@ export function UsersTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Organization
@@ -171,7 +194,9 @@ export function UsersTable() {
           );
         },
         cell: ({ row }) => {
-          const orgs = row.original.organizations || (row.original.organization ? [row.original.organization] : []);
+          const orgs =
+            row.original.organizations ||
+            (row.original.organization ? [row.original.organization] : []);
           if (orgs.length === 0) {
             return <div className="text-muted-foreground">—</div>;
           }
@@ -199,7 +224,9 @@ export function UsersTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Created
@@ -209,7 +236,11 @@ export function UsersTable() {
         },
         cell: ({ row }) => {
           const date = new Date(row.original.user.createdAt);
-          return <div className="text-muted-foreground">{date.toLocaleDateString()}</div>;
+          return (
+            <div className="text-muted-foreground">
+              {date.toLocaleDateString()}
+            </div>
+          );
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
@@ -340,11 +371,13 @@ export function UsersTable() {
       setImagePreview(null);
       setImageBase64(null);
     }
-    
+
     // Set selected organization IDs when editing
     if (selectedUser) {
-      const orgs = selectedUser.organizations || (selectedUser.organization ? [selectedUser.organization] : []);
-      setSelectedOrganizationIds(orgs.map(org => org.id));
+      const orgs =
+        selectedUser.organizations ||
+        (selectedUser.organization ? [selectedUser.organization] : []);
+      setSelectedOrganizationIds(orgs.map((org) => org.id));
     } else {
       setSelectedOrganizationIds([]);
     }
@@ -391,7 +424,8 @@ export function UsersTable() {
         body: JSON.stringify({
           id: selectedUser.user.id,
           name: name.trim() || null,
-          organizationIds: selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
+          organizationIds:
+            selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
           image: imageBase64 || selectedUser.user.image || null,
         }),
       });
@@ -406,7 +440,7 @@ export function UsersTable() {
       setImagePreview(null);
       setImageBase64(null);
       fetchUsers();
-      
+
       // Refresh sidebar user data
       window.dispatchEvent(new Event("user-updated"));
     } catch (error) {
@@ -446,11 +480,13 @@ export function UsersTable() {
     <>
       <DrawerHeader className="gap-1">
         <DrawerTitle>Edit User</DrawerTitle>
-        <DrawerDescription>
-          Update user details
-        </DrawerDescription>
+        <DrawerDescription>Update user details</DrawerDescription>
       </DrawerHeader>
-      <form id="edit-form" onSubmit={handleUpdate} className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
+      <form
+        id="edit-form"
+        onSubmit={handleUpdate}
+        className="flex flex-col gap-4 overflow-y-auto px-4 text-sm"
+      >
         <div className="flex flex-col gap-3">
           <Label htmlFor="edit-email">Email</Label>
           <Input
@@ -523,7 +559,9 @@ export function UsersTable() {
         </div>
       </form>
       <DrawerFooter>
-        <Button type="submit" form="edit-form">Save Changes</Button>
+        <Button type="submit" form="edit-form">
+          Save Changes
+        </Button>
         <DrawerClose asChild>
           <Button variant="outline">Cancel</Button>
         </DrawerClose>
@@ -534,10 +572,8 @@ export function UsersTable() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-semibold">Client Accounts</h2>
-        <p className="text-muted-foreground">
-          Manage client user accounts
-        </p>
+        <h2 className="text-2xl font-semibold">Users</h2>
+        <p className="text-muted-foreground">Manage user accounts</p>
       </div>
 
       <EnhancedDataTable
@@ -554,12 +590,17 @@ export function UsersTable() {
             ? {
                 organization: {
                   label: "Organization",
-                  options: [{ label: "None", value: "none" }, ...organizationFilterOptions],
+                  options: [
+                    { label: "None", value: "none" },
+                    ...organizationFilterOptions,
+                  ],
                   getValue: (row) => {
-                    const orgs = row.organizations || (row.organization ? [row.organization] : []);
+                    const orgs =
+                      row.organizations ||
+                      (row.organization ? [row.organization] : []);
                     if (orgs.length === 0) return "none";
                     // Return all organization IDs for filtering
-                    return orgs.map(org => org.id).join(",");
+                    return orgs.map((org) => org.id).join(",");
                   },
                 },
               }
@@ -614,9 +655,7 @@ export function UsersTable() {
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DrawerContent>
-            {selectedUser && <EditContent />}
-          </DrawerContent>
+          <DrawerContent>{selectedUser && <EditContent />}</DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -625,11 +664,13 @@ export function UsersTable() {
               <>
                 <DialogHeader>
                   <DialogTitle>Edit User</DialogTitle>
-                  <DialogDescription>
-                    Update user details
-                  </DialogDescription>
+                  <DialogDescription>Update user details</DialogDescription>
                 </DialogHeader>
-                <form id="edit-form" onSubmit={handleUpdate} className="space-y-4">
+                <form
+                  id="edit-form"
+                  onSubmit={handleUpdate}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label htmlFor="edit-email">Email</Label>
                     <Input
@@ -734,4 +775,3 @@ export function UsersTable() {
     </div>
   );
 }
-

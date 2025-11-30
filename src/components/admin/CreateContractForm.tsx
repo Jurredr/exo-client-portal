@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
+import { FileText, Upload, X } from "lucide-react";
 
 interface Project {
   id: string;
@@ -22,7 +22,7 @@ interface Project {
 export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
   const [projectId, setProjectId] = useState<string>("");
   const [name, setName] = useState("");
-  const [fileUrl, setFileUrl] = useState("");
+  const [contractFile, setContractFile] = useState<File | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -60,6 +60,20 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setIsSubmitting(true);
     try {
+      let fileUrl: string | null = null;
+
+      // Convert PDF file to base64 if provided
+      if (contractFile) {
+        const reader = new FileReader();
+        fileUrl = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(contractFile);
+        });
+      }
+
       const response = await fetch("/api/contracts", {
         method: "POST",
         headers: {
@@ -68,7 +82,7 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
         body: JSON.stringify({
           projectId,
           name: name.trim(),
-          fileUrl: fileUrl.trim() || null,
+          fileUrl,
         }),
       });
 
@@ -80,7 +94,7 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
       toast.success("Contract created successfully");
       setProjectId("");
       setName("");
-      setFileUrl("");
+      setContractFile(null);
       onSuccess?.();
     } catch (error) {
       toast.error(
@@ -124,14 +138,50 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="contract-file-url">File URL (Optional)</Label>
-        <Input
-          id="contract-file-url"
-          value={fileUrl}
-          onChange={(e) => setFileUrl(e.target.value)}
-          placeholder="https://example.com/contract.pdf"
-          type="url"
-        />
+        <Label htmlFor="contract-file" className="flex items-center gap-2">
+          <Upload className="h-4 w-4" />
+          Contract PDF (Optional)
+        </Label>
+        <div className="space-y-2">
+          <Input
+            id="contract-file"
+            type="file"
+            accept=".pdf"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                if (file.type !== "application/pdf") {
+                  toast.error("Please upload a PDF file");
+                  return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                  toast.error("File size must be less than 10MB");
+                  return;
+                }
+                setContractFile(file);
+              }
+            }}
+            className="cursor-pointer"
+          />
+          {contractFile && (
+            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+              <FileText className="h-4 w-4" />
+              <span className="text-sm flex-1">{contractFile.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setContractFile(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Max 10MB. PDF files only.
+          </p>
+        </div>
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
         <FileText className="h-4 w-4 mr-2" />

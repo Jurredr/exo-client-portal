@@ -4,7 +4,6 @@ import { isUserInEXOOrganization } from "@/lib/db/queries";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ProjectsTable } from "@/components/admin/ProjectsTable";
 import { ProjectStatsCards } from "@/components/admin/ProjectStatsCards";
-import { ProjectHoursChart } from "@/components/admin/ProjectHoursChart";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
@@ -47,7 +46,6 @@ export default async function ProjectsPage() {
                 </div>
                 <div className="space-y-6">
                   <ProjectStatsCards />
-                  <ProjectHoursChart />
                   <ProjectsTable />
                 </div>
               </div>

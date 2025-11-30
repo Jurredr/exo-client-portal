@@ -116,3 +116,19 @@ export const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const expenses = pgTable("expenses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+  description: text("description").notNull(),
+  amount: text("amount").notNull(), // Stored as text to preserve formatting
+  date: timestamp("date").defaultNow().notNull(),
+  category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
+  invoiceUrl: text("invoice_url"), // URL to uploaded invoice file
+  invoiceFileName: text("invoice_file_name"), // Original filename
+  invoiceFileType: text("invoice_file_type"), // MIME type
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

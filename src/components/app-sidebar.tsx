@@ -9,6 +9,7 @@ import {
   IconFolder,
   IconFileInvoice,
   IconFileText,
+  IconReceipt,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -267,6 +268,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: "/dashboard/invoices",
           icon: IconFileInvoice,
           isActive: pathname === "/dashboard/invoices",
+        },
+        {
+          title: "Expenses",
+          url: "/dashboard/expenses",
+          icon: IconReceipt,
+          isActive: pathname === "/dashboard/expenses",
         },
         {
           title: "Contracts",

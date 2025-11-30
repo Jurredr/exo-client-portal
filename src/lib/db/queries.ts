@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { projects, users, organizations, hourRegistrations, userOrganizations, invoices, legalDocuments } from "@/db/schema";
+import { projects, users, organizations, hourRegistrations, userOrganizations, invoices, legalDocuments, expenses } from "@/db/schema";
 import { eq, desc, sql, inArray, gte, lte, and } from "drizzle-orm";
 import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
@@ -950,4 +950,97 @@ export async function updateContract(
 
 export async function deleteContract(contractId: string) {
   await db.delete(legalDocuments).where(eq(legalDocuments.id, contractId));
+}
+
+// Expense queries
+export async function createExpense(data: {
+  userId: string;
+  description: string;
+  amount: string;
+  date?: Date;
+  category?: string | null;
+  invoiceUrl?: string | null;
+  invoiceFileName?: string | null;
+  invoiceFileType?: string | null;
+}) {
+  const [expense] = await db
+    .insert(expenses)
+    .values({
+      userId: data.userId,
+      description: data.description,
+      amount: data.amount,
+      date: data.date || new Date(),
+      category: data.category || null,
+      invoiceUrl: data.invoiceUrl || null,
+      invoiceFileName: data.invoiceFileName || null,
+      invoiceFileType: data.invoiceFileType || null,
+    })
+    .returning();
+
+  return expense;
+}
+
+export async function getAllExpenses() {
+  return await db
+    .select({
+      expense: expenses,
+      user: users,
+    })
+    .from(expenses)
+    .innerJoin(users, eq(expenses.userId, users.id))
+    .orderBy(desc(expenses.date));
+}
+
+export async function getExpensesByUser(userId: string) {
+  return await db
+    .select({
+      expense: expenses,
+      user: users,
+    })
+    .from(expenses)
+    .innerJoin(users, eq(expenses.userId, users.id))
+    .where(eq(expenses.userId, userId))
+    .orderBy(desc(expenses.date));
+}
+
+export async function getExpenseById(expenseId: string) {
+  const result = await db
+    .select({
+      expense: expenses,
+      user: users,
+    })
+    .from(expenses)
+    .innerJoin(users, eq(expenses.userId, users.id))
+    .where(eq(expenses.id, expenseId))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function updateExpense(
+  expenseId: string,
+  data: Partial<{
+    description: string;
+    amount: string;
+    date: Date;
+    category: string | null;
+    invoiceUrl: string | null;
+    invoiceFileName: string | null;
+    invoiceFileType: string | null;
+  }>
+) {
+  const [expense] = await db
+    .update(expenses)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(expenses.id, expenseId))
+    .returning();
+
+  return expense;
+}
+
+export async function deleteExpense(expenseId: string) {
+  await db.delete(expenses).where(eq(expenses.id, expenseId));
 }

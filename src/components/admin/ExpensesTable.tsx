@@ -33,6 +33,7 @@ import {
   ArrowUpDown,
   MoreVertical,
   FileText,
+  Pencil,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { EnhancedDataTable } from "@/components/enhanced-data-table";
@@ -89,6 +90,8 @@ export function ExpensesTable() {
   const [deleteExpense, setDeleteExpense] = useState<ExpenseData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseData | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<ExpenseData>[] = useMemo(
@@ -242,6 +245,17 @@ export function ExpensesTable() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedExpense(row.original);
+                  setIsEditOpen(true);
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 variant="destructive"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -371,6 +385,60 @@ export function ExpensesTable() {
           )
         }
       />
+
+      {isMobile ? (
+        <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Edit Expense</DrawerTitle>
+              <DrawerDescription>
+                Update expense details
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4">
+              {selectedExpense && (
+                <CreateExpenseForm
+                  expense={selectedExpense.expense}
+                  onSuccess={() => {
+                    setIsEditOpen(false);
+                    setSelectedExpense(null);
+                    fetchExpenses();
+                  }}
+                  onCancel={() => {
+                    setIsEditOpen(false);
+                    setSelectedExpense(null);
+                  }}
+                />
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Expense</DialogTitle>
+              <DialogDescription>
+                Update expense details
+              </DialogDescription>
+            </DialogHeader>
+            {selectedExpense && (
+              <CreateExpenseForm
+                expense={selectedExpense.expense}
+                onSuccess={() => {
+                  setIsEditOpen(false);
+                  setSelectedExpense(null);
+                  fetchExpenses();
+                }}
+                onCancel={() => {
+                  setIsEditOpen(false);
+                  setSelectedExpense(null);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
       <DeleteConfirmationDialog
         open={isDeleteOpen}

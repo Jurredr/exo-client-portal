@@ -26,13 +26,35 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ];
 
-export function CreateExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
-  const [category, setCategory] = useState<string>("");
+interface Expense {
+  id: string;
+  description: string;
+  amount: string;
+  date: string;
+  category: string | null;
+  invoiceUrl: string | null;
+  invoiceFileName: string | null;
+  invoiceFileType: string | null;
+}
+
+export function CreateExpenseForm({ 
+  onSuccess,
+  expense,
+  onCancel,
+}: { 
+  onSuccess?: () => void;
+  expense?: Expense;
+  onCancel?: () => void;
+}) {
+  const [description, setDescription] = useState(expense?.description || "");
+  const [amount, setAmount] = useState(expense?.amount || "");
+  const [date, setDate] = useState(expense?.date ? new Date(expense.date).toISOString().split("T")[0] : "");
+  const [category, setCategory] = useState<string>(expense?.category || "");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
-  const [invoicePreview, setInvoicePreview] = useState<string | null>(null);
+  const [invoicePreview, setInvoicePreview] = useState<string | null>(
+    expense?.invoiceUrl && expense.invoiceUrl.startsWith("data:image/") ? expense.invoiceUrl : null
+  );
+  const [removeInvoice, setRemoveInvoice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,6 +65,7 @@ export function CreateExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
       setInvoiceFile(file);
+      setRemoveInvoice(false); // Reset remove flag when new file is selected
       
       // Create preview for images
       if (file.type.startsWith("image/")) {
@@ -76,7 +99,7 @@ export function CreateExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
       let invoiceFileName: string | null = null;
       let invoiceFileType: string | null = null;
 
-      // Convert file to base64 if provided
+      // If a new file is provided, use it
       if (invoiceFile) {
         const reader = new FileReader();
         invoiceUrl = await new Promise<string>((resolve, reject) => {
@@ -88,40 +111,63 @@ export function CreateExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
         });
         invoiceFileName = invoiceFile.name;
         invoiceFileType = invoiceFile.type;
+      } else if (expense?.invoiceUrl && !removeInvoice) {
+        // Keep existing invoice if no new file and user didn't remove it
+        invoiceUrl = expense.invoiceUrl;
+        invoiceFileName = expense.invoiceFileName;
+        invoiceFileType = expense.invoiceFileType;
       }
+      // If removeInvoice is true, invoiceUrl will be null (removed)
 
-      const response = await fetch("/api/expenses", {
-        method: "POST",
+      const url = expense ? `/api/expenses` : `/api/expenses`;
+      const method = expense ? "PATCH" : "POST";
+      const body = expense
+        ? {
+            id: expense.id,
+            description: description.trim(),
+            amount: amount.trim(),
+            date: date || null,
+            category: category || null,
+            invoiceUrl,
+            invoiceFileName,
+            invoiceFileType,
+          }
+        : {
+            description: description.trim(),
+            amount: amount.trim(),
+            date: date || null,
+            category: category || null,
+            invoiceUrl,
+            invoiceFileName,
+            invoiceFileType,
+          };
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          description: description.trim(),
-          amount: amount.trim(),
-          date: date || null,
-          category: category || null,
-          invoiceUrl,
-          invoiceFileName,
-          invoiceFileType,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create expense");
+        throw new Error(error.error || `Failed to ${expense ? "update" : "create"} expense`);
       }
 
-      toast.success("Expense created successfully");
-      setDescription("");
-      setAmount("");
-      setDate("");
-      setCategory("");
-      setInvoiceFile(null);
-      setInvoicePreview(null);
+      toast.success(`Expense ${expense ? "updated" : "created"} successfully`);
+      if (!expense) {
+        setDescription("");
+        setAmount("");
+        setDate("");
+        setCategory("");
+        setInvoiceFile(null);
+        setInvoicePreview(null);
+      }
       onSuccess?.();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to create expense"
+        error instanceof Error ? error.message : `Failed to ${expense ? "update" : "create"} expense`
       );
     } finally {
       setIsSubmitting(false);
@@ -196,6 +242,25 @@ export function CreateExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
             onChange={handleFileChange}
             className="cursor-pointer"
           />
+          {expense?.invoiceUrl && !invoiceFile && !removeInvoice && (
+            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+              <FileText className="h-4 w-4" />
+              <span className="text-sm flex-1">
+                {expense.invoiceFileName || "Existing invoice"}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  setRemoveInvoice(true);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           {invoiceFile && (
             <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
               <FileText className="h-4 w-4" />
@@ -214,7 +279,7 @@ export function CreateExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
               </Button>
             </div>
           )}
-          {invoicePreview && (
+          {invoicePreview && invoiceFile && (
             <div className="mt-2">
               <img
                 src={invoicePreview}
@@ -228,9 +293,16 @@ export function CreateExpenseForm({ onSuccess }: { onSuccess?: () => void }) {
           </p>
         </div>
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        {isSubmitting ? "Creating..." : "Create Expense"}
-      </Button>
+      <div className="flex gap-2">
+        {expense && onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" disabled={isSubmitting} className={expense && onCancel ? "flex-1" : "w-full"}>
+          {isSubmitting ? (expense ? "Updating..." : "Creating...") : (expense ? "Update Expense" : "Create Expense")}
+        </Button>
+      </div>
     </form>
   );
 }

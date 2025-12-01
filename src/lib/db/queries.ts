@@ -595,32 +595,8 @@ export async function deleteProject(projectId: string) {
 }
 
 export async function getDashboardStats() {
-  // Get total revenue (sum of all project subtotals)
-  const totalRevenueResult = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as(
-        "total"
-      ),
-    })
-    .from(projects);
-
-  const totalRevenue = parseFloat(totalRevenueResult[0]?.total || "0");
-
-  // Get revenue this month
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const revenueThisMonthResult = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as(
-        "total"
-      ),
-    })
-    .from(projects)
-    .where(gte(projects.createdAt, startOfMonth));
-
-  const revenueThisMonth = parseFloat(revenueThisMonthResult[0]?.total || "0");
-
-  // Get revenue last month
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const endOfLastMonth = new Date(
     now.getFullYear(),
@@ -631,17 +607,56 @@ export async function getDashboardStats() {
     59,
     999
   );
-  const revenueLastMonthResult = await db
+
+  // Get total revenue (sum of all paid invoices)
+  const totalRevenueResult = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${projects.subtotal}::numeric), 0)`.as(
+      total: sql<string>`COALESCE(SUM(${invoices.amount}::numeric), 0)`.as(
         "total"
       ),
     })
-    .from(projects)
+    .from(invoices)
     .where(
       and(
-        gte(projects.createdAt, startOfLastMonth),
-        lte(projects.createdAt, endOfLastMonth)
+        eq(invoices.status, "paid"),
+        sql`${invoices.paidAt} IS NOT NULL`
+      )
+    );
+
+  const totalRevenue = parseFloat(totalRevenueResult[0]?.total || "0");
+
+  // Get revenue this month (invoices paid this month)
+  const revenueThisMonthResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${invoices.amount}::numeric), 0)`.as(
+        "total"
+      ),
+    })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.status, "paid"),
+        sql`${invoices.paidAt} IS NOT NULL`,
+        gte(invoices.paidAt, startOfMonth)
+      )
+    );
+
+  const revenueThisMonth = parseFloat(revenueThisMonthResult[0]?.total || "0");
+
+  // Get revenue last month (invoices paid last month)
+  const revenueLastMonthResult = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${invoices.amount}::numeric), 0)`.as(
+        "total"
+      ),
+    })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.status, "paid"),
+        sql`${invoices.paidAt} IS NOT NULL`,
+        gte(invoices.paidAt, startOfLastMonth),
+        lte(invoices.paidAt, endOfLastMonth)
       )
     );
 
@@ -716,25 +731,35 @@ export async function getDashboardStats() {
         ? 100
         : 0;
 
-  // Get revenue over time (last 30 days)
+  // Get revenue over time (last 30 days) - based on when invoices were paid
   const startDate = new Date(now);
   startDate.setDate(startDate.getDate() - 30);
 
   const revenueOverTime = await db
     .select({
-      date: projects.createdAt,
-      revenue: projects.subtotal,
+      date: invoices.paidAt,
+      revenue: invoices.amount,
+      currency: invoices.currency,
     })
-    .from(projects)
-    .where(gte(projects.createdAt, startDate))
-    .orderBy(projects.createdAt);
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.status, "paid"),
+        sql`${invoices.paidAt} IS NOT NULL`,
+        gte(invoices.paidAt, startDate)
+      )
+    )
+    .orderBy(invoices.paidAt);
 
   // Group revenue by date
   const revenueByDate: { [key: string]: number } = {};
   revenueOverTime.forEach((row) => {
-    const dateStr = new Date(row.date).toISOString().split("T")[0];
-    revenueByDate[dateStr] =
-      (revenueByDate[dateStr] || 0) + parseFloat(row.revenue);
+    if (row.date) {
+      const dateStr = new Date(row.date).toISOString().split("T")[0];
+      const amount = parseFloat(row.revenue);
+      // For now, we'll sum all currencies together (could be improved with currency conversion)
+      revenueByDate[dateStr] = (revenueByDate[dateStr] || 0) + amount;
+    }
   });
 
   // Generate revenue chart data for last 30 days

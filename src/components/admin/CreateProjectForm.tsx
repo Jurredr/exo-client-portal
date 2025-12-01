@@ -232,18 +232,35 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
       </div>
       {projectType === "client" && (
-        <div className="space-y-2">
-          <Label htmlFor="project-subtotal" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            Subtotal *
-          </Label>
-          <Input
-            id="project-subtotal"
-            value={subtotal}
-            onChange={(e) => setSubtotal(e.target.value)}
-            placeholder="5000.00"
-            required
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="project-subtotal" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Subtotal *
+            </Label>
+            <Input
+              id="project-subtotal"
+              value={subtotal}
+              onChange={(e) => setSubtotal(e.target.value)}
+              placeholder="5000.00"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="project-currency">Currency *</Label>
+            <Select
+              value={currency}
+              onValueChange={(value) => setCurrency(value as "USD" | "EUR")}
+            >
+              <SelectTrigger id="project-currency" className="w-full">
+                <SelectValue placeholder="Select currency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USD">USD ($)</SelectItem>
+                <SelectItem value="EUR">EUR (€)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
       <div className="grid grid-cols-2 gap-4">

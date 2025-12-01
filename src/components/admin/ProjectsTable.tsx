@@ -468,6 +468,21 @@ export function ProjectsTable() {
     setIsEditOpen(true);
   };
 
+  // Sync edit form values when selected project changes
+  useEffect(() => {
+    if (selectedProject) {
+      setEditStatus(selectedProject.project.status);
+      setEditStage(selectedProject.project.stage);
+      // Handle currency - default to EUR if not set (for older projects)
+      const projectCurrency = selectedProject.project.currency;
+      setEditCurrency(
+        projectCurrency === "USD" || projectCurrency === "EUR"
+          ? (projectCurrency as "USD" | "EUR")
+          : "EUR"
+      );
+    }
+  }, [selectedProject]);
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProject) return;
@@ -600,6 +615,7 @@ export function ProjectsTable() {
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-status">Status</Label>
             <StatusCombobox
+              key={`status-${selectedProject?.project.id}-${editStatus}`}
               options={PROJECT_STATUSES}
               value={editStatus}
               onValueChange={setEditStatus}
@@ -609,6 +625,7 @@ export function ProjectsTable() {
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-stage">Stage</Label>
             <StatusCombobox
+              key={`stage-${selectedProject?.project.id}-${editStage}`}
               options={
                 selectedProject?.project.type === "labs"
                   ? LABS_PROJECT_STAGES
@@ -620,7 +637,7 @@ export function ProjectsTable() {
             />
           </div>
         </div>
-        {selectedProject?.project.type !== "labs" && (
+        {(selectedProject?.project.type === "client" || !selectedProject?.project.type) && (
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-3">
               <Label htmlFor="edit-subtotal">Subtotal</Label>
@@ -667,7 +684,7 @@ export function ProjectsTable() {
               }
             />
           </div>
-          {selectedProject?.project.type !== "labs" && (
+          {(selectedProject?.project.type === "client" || !selectedProject?.project.type) && (
             <div className="flex flex-col gap-3">
               <Label htmlFor="edit-deadline">Deadline</Label>
               <Input
@@ -911,16 +928,35 @@ export function ProjectsTable() {
                       />
                     </div>
                   </div>
-                  {selectedProject.project.type !== "labs" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-subtotal">Subtotal</Label>
-                      <Input
-                        id="edit-subtotal"
-                        name="subtotal"
-                        type="text"
-                        defaultValue={selectedProject.project.subtotal || ""}
-                        required
-                      />
+                  {(selectedProject.project.type === "client" || !selectedProject.project.type) && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-subtotal">Subtotal</Label>
+                        <Input
+                          id="edit-subtotal"
+                          name="subtotal"
+                          type="text"
+                          defaultValue={selectedProject.project.subtotal || ""}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-currency">Currency</Label>
+                        <Select
+                          value={editCurrency}
+                          onValueChange={(value) =>
+                            setEditCurrency(value as "USD" | "EUR")
+                          }
+                        >
+                          <SelectTrigger id="edit-currency" className="w-full">
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">USD ($)</SelectItem>
+                            <SelectItem value="EUR">EUR (€)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-4">
@@ -939,7 +975,7 @@ export function ProjectsTable() {
                         }
                       />
                     </div>
-                    {selectedProject.project.type !== "labs" && (
+                    {(selectedProject.project.type === "client" || !selectedProject.project.type) && (
                       <div className="space-y-2">
                         <Label htmlFor="edit-deadline">Deadline</Label>
                         <Input

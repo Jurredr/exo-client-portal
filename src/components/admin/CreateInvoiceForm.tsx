@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { FileText, DollarSign, Calendar, Upload, X } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
+import { calculatePaymentAmount } from "@/lib/utils/currency";
 
 interface Organization {
   id: string;
@@ -26,6 +27,8 @@ interface Project {
   id: string;
   title: string;
   organizationId: string;
+  subtotal: string | null;
+  currency: string;
 }
 
 interface Invoice {
@@ -83,6 +86,10 @@ export function CreateInvoiceForm({
   const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
     invoice?.invoiceNumber || ""
   );
+  const [paymentStage, setPaymentStage] = useState<"first" | "final" | "custom">(
+    "custom"
+  );
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -128,6 +135,8 @@ export function CreateInvoiceForm({
               id: p.project.id,
               title: p.project.title,
               organizationId: p.project.organizationId,
+              subtotal: p.project.subtotal,
+              currency: p.project.currency,
             }));
           setProjects(filteredProjects);
         }
@@ -140,6 +149,33 @@ export function CreateInvoiceForm({
 
     fetchProjects();
   }, [organizationId]);
+
+  // Auto-calculate amount when project and payment stage change
+  useEffect(() => {
+    if (selectedProject && paymentStage !== "custom" && selectedProject.subtotal) {
+      const calculatedAmount = calculatePaymentAmount(
+        selectedProject.subtotal,
+        paymentStage === "first" ? "pay_first" : "pay_final",
+        selectedProject.currency
+      );
+      if (calculatedAmount) {
+        // Remove currency symbol and formatting for storage
+        // formatCurrency returns something like "€1,000" or "$1,000"
+        const amountValue = calculatedAmount
+          .replace(/[€$,\s]/g, "")
+          .replace(/\s/g, "");
+        setAmount(amountValue);
+        setCurrency(selectedProject.currency as "USD" | "EUR");
+        
+        // Auto-update description only if it's empty or matches the pattern
+        // (to avoid overwriting user-entered descriptions)
+        if (!description || description.includes("Payment for")) {
+          const stageText = paymentStage === "first" ? "First" : "Final";
+          setDescription(`Payment for ${selectedProject.title} - ${stageText} payment`);
+        }
+      }
+    }
+  }, [selectedProject, paymentStage]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -253,6 +289,8 @@ export function CreateInvoiceForm({
         setDueDate("");
         setPdfFile(null);
         setInvoiceNumberOverride("");
+        setPaymentStage("custom");
+        setSelectedProject(null);
       }
       onSuccess?.();
     } catch (error) {
@@ -310,7 +348,23 @@ export function CreateInvoiceForm({
         <Label htmlFor="invoice-project">Project (Optional)</Label>
         <Select
           value={projectId || "none"}
-          onValueChange={(value) => setProjectId(value === "none" ? "" : value)}
+          onValueChange={(value) => {
+            if (value === "none") {
+              setProjectId("");
+              setSelectedProject(null);
+              setPaymentStage("custom");
+            } else {
+              setProjectId(value);
+              const project = projects.find((p) => p.id === value);
+              setSelectedProject(project || null);
+              // Reset to custom if project doesn't have subtotal
+              if (project && project.subtotal) {
+                setPaymentStage("first"); // Default to first payment
+              } else {
+                setPaymentStage("custom");
+              }
+            }
+          }}
           disabled={isLoadingProjects || !organizationId}
         >
           <SelectTrigger id="invoice-project" className="w-full">
@@ -338,6 +392,29 @@ export function CreateInvoiceForm({
           </SelectContent>
         </Select>
       </div>
+      {selectedProject && selectedProject.subtotal && (
+        <div className="space-y-2">
+          <Label htmlFor="invoice-payment-stage">Payment Stage</Label>
+          <Select
+            value={paymentStage}
+            onValueChange={(value) =>
+              setPaymentStage(value as "first" | "final" | "custom")
+            }
+          >
+            <SelectTrigger id="invoice-payment-stage" className="w-full">
+              <SelectValue placeholder="Select payment stage" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="first">First Payment (50%)</SelectItem>
+              <SelectItem value="final">Final Payment (50%)</SelectItem>
+              <SelectItem value="custom">Custom Amount</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Auto-calculates 50% of total (including VAT) based on project subtotal
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="invoice-amount" className="flex items-center gap-2">
@@ -347,10 +424,21 @@ export function CreateInvoiceForm({
           <Input
             id="invoice-amount"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => {
+              setAmount(e.target.value);
+              // If user manually edits amount, switch to custom mode
+              if (paymentStage !== "custom" && selectedProject) {
+                setPaymentStage("custom");
+              }
+            }}
             placeholder="5000.00"
             required
           />
+          {selectedProject && paymentStage !== "custom" && (
+            <p className="text-xs text-muted-foreground">
+              Auto-calculated from project subtotal. Edit manually to override.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="invoice-currency">Currency *</Label>

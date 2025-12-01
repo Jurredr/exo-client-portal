@@ -966,11 +966,17 @@ export async function createInvoice(data: {
 export async function updateInvoice(
   invoiceId: string,
   data: Partial<{
+    organizationId: string;
+    projectId: string | null;
     status: string;
     amount: string;
+    currency: string;
     description: string | null;
     dueDate: Date | null;
     paidAt: Date | null;
+    pdfUrl: string | null;
+    pdfFileName: string | null;
+    pdfFileType: string | null;
   }>
 ) {
   const [invoice] = await db

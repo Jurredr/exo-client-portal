@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { FileText, DollarSign, Calendar, Upload, X } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
+import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
 interface Organization {
   id: string;
@@ -24,6 +25,22 @@ interface Organization {
 interface Project {
   id: string;
   title: string;
+  organizationId: string;
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  organizationId: string;
+  projectId: string | null;
+  amount: string;
+  currency: string;
+  status: string;
+  description: string | null;
+  dueDate: string | null;
+  pdfUrl: string | null;
+  pdfFileName: string | null;
+  pdfFileType: string | null;
 }
 
 const INVOICE_STATUSES: StatusOption[] = [
@@ -34,20 +51,38 @@ const INVOICE_STATUSES: StatusOption[] = [
   { value: "cancelled", label: "Cancelled", state: "bg-gray-400" },
 ];
 
-export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [organizationId, setOrganizationId] = useState<string>("");
-  const [projectId, setProjectId] = useState<string>("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<"USD" | "EUR">("EUR");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState("draft");
-  const [dueDate, setDueDate] = useState("");
+export function CreateInvoiceForm({
+  onSuccess,
+  invoice,
+  onCancel,
+}: {
+  onSuccess?: () => void;
+  invoice?: Invoice;
+  onCancel?: () => void;
+}) {
+  const [organizationId, setOrganizationId] = useState<string>(
+    invoice?.organizationId || ""
+  );
+  const [projectId, setProjectId] = useState<string>(invoice?.projectId || "");
+  const [amount, setAmount] = useState(invoice?.amount || "");
+  const [currency, setCurrency] = useState<"USD" | "EUR">(
+    (invoice?.currency as "USD" | "EUR") || "EUR"
+  );
+  const [description, setDescription] = useState(invoice?.description || "");
+  const [status, setStatus] = useState(invoice?.status || "draft");
+  const [dueDate, setDueDate] = useState(
+    invoice?.dueDate ? new Date(invoice.dueDate).toISOString().split("T")[0] : ""
+  );
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [removePdf, setRemovePdf] = useState(false);
+  const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
+    invoice?.invoiceNumber || ""
+  );
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -55,7 +90,11 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
         const response = await fetch("/api/organizations");
         if (response.ok) {
           const data = await response.json();
-          setOrganizations(data);
+          // Filter out EXO organization
+          const filteredData = data.filter(
+            (org: Organization) => org.name !== EXO_ORGANIZATION_NAME
+          );
+          setOrganizations(filteredData);
         }
       } catch (error) {
         console.error("Error fetching organizations:", error);
@@ -69,13 +108,28 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     const fetchProjects = async () => {
+      if (!organizationId) {
+        setProjects([]);
+        setIsLoadingProjects(false);
+        return;
+      }
+
+      setIsLoadingProjects(true);
       try {
         const response = await fetch("/api/projects");
         if (response.ok) {
           const data = await response.json();
-          setProjects(
-            data.map((p: any) => ({ id: p.project.id, title: p.project.title }))
-          );
+          // Filter projects by selected organization
+          const filteredProjects = data
+            .filter(
+              (p: any) => p.project.organizationId === organizationId
+            )
+            .map((p: any) => ({
+              id: p.project.id,
+              title: p.project.title,
+              organizationId: p.project.organizationId,
+            }));
+          setProjects(filteredProjects);
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -85,7 +139,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
     };
 
     fetchProjects();
-  }, []);
+  }, [organizationId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,6 +153,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
       setPdfFile(file);
+      setRemovePdf(false); // Reset remove flag when new file is selected
     }
   };
 
@@ -121,7 +176,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
       let pdfFileName: string | null = null;
       let pdfFileType: string | null = null;
 
-      // If a PDF file is provided, convert it to base64
+      // If a new PDF file is provided, use it
       if (pdfFile) {
         const reader = new FileReader();
         pdfUrl = await new Promise<string>((resolve, reject) => {
@@ -133,46 +188,78 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
         });
         pdfFileName = pdfFile.name;
         pdfFileType = pdfFile.type;
+      } else if (invoice?.pdfUrl && !removePdf) {
+        // Keep existing PDF if no new file and user didn't remove it
+        pdfUrl = invoice.pdfUrl;
+        pdfFileName = invoice.pdfFileName;
+        pdfFileType = invoice.pdfFileType;
       }
+      // If removePdf is true, pdfUrl will be null (removed)
 
-      const response = await fetch("/api/invoices", {
-        method: "POST",
+      const url = "/api/invoices";
+      const method = invoice ? "PATCH" : "POST";
+      const body = invoice
+        ? {
+            id: invoice.id,
+            organizationId,
+            projectId: projectId || null,
+            amount: amount.trim(),
+            currency,
+            description: description.trim() || null,
+            status,
+            dueDate: dueDate || null,
+            pdfUrl,
+            pdfFileName,
+            pdfFileType,
+          }
+        : {
+            organizationId,
+            projectId: projectId || null,
+            amount: amount.trim(),
+            currency,
+            description: description.trim() || null,
+            status,
+            type: "manual",
+            dueDate: dueDate || null,
+            pdfUrl,
+            pdfFileName,
+            pdfFileType,
+            invoiceNumber: invoiceNumberOverride.trim() || null,
+          };
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          organizationId,
-          projectId: projectId || null,
-          amount: amount.trim(),
-          currency,
-          description: description.trim() || null,
-          status,
-          type: "manual",
-          dueDate: dueDate || null,
-          pdfUrl,
-          pdfFileName,
-          pdfFileType,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create invoice");
+        throw new Error(
+          error.error || `Failed to ${invoice ? "update" : "create"} invoice`
+        );
       }
 
-      toast.success("Invoice created successfully");
-      setOrganizationId("");
-      setProjectId("");
-      setAmount("");
-      setCurrency("EUR");
-      setDescription("");
-      setStatus("draft");
-      setDueDate("");
-      setPdfFile(null);
+      toast.success(`Invoice ${invoice ? "updated" : "created"} successfully`);
+      if (!invoice) {
+        setOrganizationId("");
+        setProjectId("");
+        setAmount("");
+        setCurrency("EUR");
+        setDescription("");
+        setStatus("draft");
+        setDueDate("");
+        setPdfFile(null);
+        setInvoiceNumberOverride("");
+      }
       onSuccess?.();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to create invoice"
+        error instanceof Error
+          ? error.message
+          : `Failed to ${invoice ? "update" : "create"} invoice`
       );
     } finally {
       setIsSubmitting(false);
@@ -181,11 +268,29 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {!invoice && (
+        <div className="space-y-2">
+          <Label htmlFor="invoice-number">Invoice Number (Optional)</Label>
+          <Input
+            id="invoice-number"
+            value={invoiceNumberOverride}
+            onChange={(e) => setInvoiceNumberOverride(e.target.value)}
+            placeholder="Leave empty to auto-generate (e.g., INV-2025-0001)"
+          />
+          <p className="text-xs text-muted-foreground">
+            Leave empty to auto-generate. Format: INV-YYYY-NNNN
+          </p>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="invoice-org">Organization *</Label>
         <Select
           value={organizationId}
-          onValueChange={setOrganizationId}
+          onValueChange={(value) => {
+            setOrganizationId(value);
+            // Clear project selection when organization changes
+            setProjectId("");
+          }}
           disabled={isLoadingOrgs}
           required
         >
@@ -206,18 +311,30 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
         <Select
           value={projectId || "none"}
           onValueChange={(value) => setProjectId(value === "none" ? "" : value)}
-          disabled={isLoadingProjects}
+          disabled={isLoadingProjects || !organizationId}
         >
           <SelectTrigger id="invoice-project" className="w-full">
-            <SelectValue placeholder="Select a project (optional)" />
+            <SelectValue
+              placeholder={
+                organizationId
+                  ? "Select a project (optional)"
+                  : "Select an organization first"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">None</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.title}
+            {projects.length === 0 && organizationId ? (
+              <SelectItem value="no-projects" disabled>
+                No projects found for this organization
               </SelectItem>
-            ))}
+            ) : (
+              projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.title}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -297,6 +414,25 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
             onChange={handleFileChange}
             className="cursor-pointer"
           />
+          {invoice?.pdfUrl && !pdfFile && !removePdf && (
+            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+              <FileText className="h-4 w-4" />
+              <span className="text-sm flex-1">
+                {invoice.pdfFileName || "Existing PDF"}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  setRemovePdf(true);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           {pdfFile && (
             <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
               <FileText className="h-4 w-4" />
@@ -319,10 +455,32 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
           </p>
         </div>
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
-        <FileText className="h-4 w-4 mr-2" />
-        {isSubmitting ? "Creating..." : "Create Invoice"}
-      </Button>
+      <div className="flex gap-2">
+        {invoice && onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+        )}
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className={invoice && onCancel ? "flex-1" : "w-full"}
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          {isSubmitting
+            ? invoice
+              ? "Updating..."
+              : "Creating..."
+            : invoice
+              ? "Update Invoice"
+              : "Create Invoice"}
+        </Button>
+      </div>
     </form>
   );
 }

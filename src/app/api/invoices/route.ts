@@ -5,6 +5,8 @@ import {
   createInvoice,
   getNextInvoiceNumber,
   deleteInvoice,
+  updateInvoice,
+  getInvoiceById,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { calculatePaymentAmount } from "@/lib/utils/currency";
@@ -66,6 +68,7 @@ export async function POST(request: Request) {
       pdfUrl,
       pdfFileName,
       pdfFileType,
+      invoiceNumber: invoiceNumberOverride,
     } = body;
 
     if (!organizationId || typeof organizationId !== "string") {
@@ -82,25 +85,42 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate invoice number
-    const invoiceNumber = await getNextInvoiceNumber();
+    // Use provided invoice number or generate one
+    const invoiceNumber = invoiceNumberOverride
+      ? invoiceNumberOverride.trim()
+      : await getNextInvoiceNumber();
 
-    const invoice = await createInvoice({
-      invoiceNumber,
-      projectId: projectId || null,
-      organizationId,
-      amount,
-      currency: currency || "EUR",
-      status: status || "draft",
-      type: type || "manual",
-      description: description || null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      pdfUrl: pdfUrl || null,
-      pdfFileName: pdfFileName || null,
-      pdfFileType: pdfFileType || null,
-    });
+    try {
+      const invoice = await createInvoice({
+        invoiceNumber,
+        projectId: projectId || null,
+        organizationId,
+        amount,
+        currency: currency || "EUR",
+        status: status || "draft",
+        type: type || "manual",
+        description: description || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        pdfUrl: pdfUrl || null,
+        pdfFileName: pdfFileName || null,
+        pdfFileType: pdfFileType || null,
+      });
 
-    return NextResponse.json(invoice, { status: 201 });
+      return NextResponse.json(invoice, { status: 201 });
+    } catch (dbError: any) {
+      // Check if it's a unique constraint violation
+      if (
+        dbError?.code === "23505" ||
+        dbError?.message?.includes("unique") ||
+        dbError?.message?.includes("duplicate")
+      ) {
+        return NextResponse.json(
+          { error: `Invoice number "${invoiceNumber}" already exists` },
+          { status: 400 }
+        );
+      }
+      throw dbError;
+    }
   } catch (error) {
     console.error("Error creating invoice:", error);
     return NextResponse.json(
@@ -140,6 +160,78 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting invoice:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isInEXO = await isUserInEXOOrganization(user.email);
+    if (!isInEXO) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, ...updateData } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Invoice ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify the invoice exists
+    const existingInvoice = await getInvoiceById(id);
+    if (!existingInvoice) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    const invoice = await updateInvoice(id, {
+      ...(updateData.organizationId && {
+        organizationId: updateData.organizationId,
+      }),
+      ...(updateData.projectId !== undefined && {
+        projectId: updateData.projectId || null,
+      }),
+      ...(updateData.amount && { amount: updateData.amount }),
+      ...(updateData.currency && { currency: updateData.currency }),
+      ...(updateData.status && { status: updateData.status }),
+      ...(updateData.description !== undefined && {
+        description: updateData.description?.trim() || null,
+      }),
+      ...(updateData.dueDate !== undefined && {
+        dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null,
+      }),
+      ...(updateData.paidAt !== undefined && {
+        paidAt: updateData.paidAt ? new Date(updateData.paidAt) : null,
+      }),
+      ...(updateData.pdfUrl !== undefined && {
+        pdfUrl: updateData.pdfUrl || null,
+      }),
+      ...(updateData.pdfFileName !== undefined && {
+        pdfFileName: updateData.pdfFileName || null,
+      }),
+      ...(updateData.pdfFileType !== undefined && {
+        pdfFileType: updateData.pdfFileType || null,
+      }),
+    });
+
+    return NextResponse.json(invoice);
+  } catch (error) {
+    console.error("Error updating invoice:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

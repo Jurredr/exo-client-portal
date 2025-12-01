@@ -32,6 +32,7 @@ import {
   Plus,
   ArrowUpDown,
   MoreVertical,
+  Pencil,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { EnhancedDataTable } from "@/components/enhanced-data-table";
@@ -55,6 +56,9 @@ interface InvoiceData {
     description: string | null;
     dueDate: string | null;
     paidAt: string | null;
+    pdfUrl: string | null;
+    pdfFileName: string | null;
+    pdfFileType: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -103,6 +107,8 @@ export function InvoicesTable() {
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<InvoiceData>[] = useMemo(
@@ -295,7 +301,17 @@ export function InvoicesTable() {
                 }}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download
+                {row.original.invoice.pdfUrl ? "Download" : "Generate"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingInvoice(row.original);
+                  setIsEditOpen(true);
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -414,6 +430,17 @@ export function InvoicesTable() {
     fetchInvoices();
   };
 
+  const handleEditSuccess = () => {
+    setIsEditOpen(false);
+    setEditingInvoice(null);
+    fetchInvoices();
+  };
+
+  const handleEditCancel = () => {
+    setIsEditOpen(false);
+    setEditingInvoice(null);
+  };
+
   return (
     <div className="space-y-4">
       <EnhancedDataTable
@@ -506,6 +533,72 @@ export function InvoicesTable() {
         confirmationText={deleteInvoice?.invoice.invoiceNumber || ""}
         warningMessage="This will permanently delete the invoice. This action cannot be undone."
       />
+
+      {isMobile ? (
+        <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Edit Invoice</DrawerTitle>
+              <DrawerDescription>
+                Update invoice details
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4">
+              {editingInvoice && (
+                <CreateInvoiceForm
+                  invoice={{
+                    id: editingInvoice.invoice.id,
+                    invoiceNumber: editingInvoice.invoice.invoiceNumber,
+                    organizationId: editingInvoice.organization.id,
+                    projectId: editingInvoice.project?.id || null,
+                    amount: editingInvoice.invoice.amount,
+                    currency: editingInvoice.invoice.currency,
+                    status: editingInvoice.invoice.status,
+                    description: editingInvoice.invoice.description,
+                    dueDate: editingInvoice.invoice.dueDate,
+                    pdfUrl: editingInvoice.invoice.pdfUrl || null,
+                    pdfFileName: editingInvoice.invoice.pdfFileName || null,
+                    pdfFileType: editingInvoice.invoice.pdfFileType || null,
+                  }}
+                  onSuccess={handleEditSuccess}
+                  onCancel={handleEditCancel}
+                />
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Invoice</DialogTitle>
+              <DialogDescription>
+                Update invoice details
+              </DialogDescription>
+            </DialogHeader>
+            {editingInvoice && (
+              <CreateInvoiceForm
+                invoice={{
+                  id: editingInvoice.invoice.id,
+                  invoiceNumber: editingInvoice.invoice.invoiceNumber,
+                  organizationId: editingInvoice.organization.id,
+                  projectId: editingInvoice.project?.id || null,
+                  amount: editingInvoice.invoice.amount,
+                  currency: editingInvoice.invoice.currency,
+                  status: editingInvoice.invoice.status,
+                  description: editingInvoice.invoice.description,
+                  dueDate: editingInvoice.invoice.dueDate,
+                  pdfUrl: editingInvoice.invoice.pdfUrl || null,
+                  pdfFileName: editingInvoice.invoice.pdfFileName || null,
+                  pdfFileType: editingInvoice.invoice.pdfFileType || null,
+                }}
+                onSuccess={handleEditSuccess}
+                onCancel={handleEditCancel}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

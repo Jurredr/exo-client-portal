@@ -4,7 +4,6 @@ import {
   timestamp,
   uuid,
   boolean,
-  integer,
   decimal,
   primaryKey,
 } from "drizzle-orm/pg-core";

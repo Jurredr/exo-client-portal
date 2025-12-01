@@ -336,6 +336,26 @@ export function HourRegistrationTimer() {
     };
   }, [isRunning]);
 
+  // Prevent page reload/navigation when timer is running
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRunning) {
+        e.preventDefault();
+        // Modern browsers ignore custom messages and show their own
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    if (isRunning) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isRunning]);
+
   return (
     <>
       <div className="rounded-lg border bg-card p-6 shadow-sm">

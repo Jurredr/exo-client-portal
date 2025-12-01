@@ -265,7 +265,7 @@ export default function DashboardStats() {
                           year: "numeric",
                         });
                       }}
-                      valueFormatter={(value) => formatCurrency(Number(value))}
+                      formatter={(value) => formatCurrency(Number(value))}
                       indicator="dot"
                     />
                   }
@@ -403,7 +403,7 @@ export default function DashboardStats() {
                           year: "numeric",
                         });
                       }}
-                      valueFormatter={(value) => formatHours(Number(value))}
+                      formatter={(value) => formatHours(Number(value))}
                       indicator="dot"
                     />
                   }
@@ -475,7 +475,7 @@ export default function DashboardStats() {
                   cursor={false}
                   content={
                     <ChartTooltipContent
-                      valueFormatter={(value) => `${value} projects`}
+                      formatter={(value) => `${value} projects`}
                       indicator="dot"
                     />
                   }

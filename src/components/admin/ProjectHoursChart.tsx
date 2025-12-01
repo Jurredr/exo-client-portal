@@ -217,7 +217,7 @@ export function ProjectHoursChart() {
                 cursor={false}
                 content={
                   <ChartTooltipContent
-                    valueFormatter={(value) => formatHours(Number(value))}
+                    formatter={(value) => formatHours(Number(value))}
                     indicator="dot"
                   />
                 }

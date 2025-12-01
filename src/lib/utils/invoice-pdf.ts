@@ -18,7 +18,7 @@ interface InvoiceData {
   project: {
     id: string;
     title: string;
-    subtotal: string;
+    subtotal: string | null;
     currency: string;
   } | null;
   organization: {

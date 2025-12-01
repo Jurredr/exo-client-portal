@@ -249,7 +249,7 @@ export function HourChart() {
                       year: "numeric",
                     });
                   }}
-                  valueFormatter={(value) => formatHours(Number(value))}
+                  formatter={(value) => formatHours(Number(value))}
                   indicator="dot"
                 />
               }

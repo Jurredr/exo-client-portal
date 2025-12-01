@@ -128,6 +128,9 @@ export const invoices = pgTable("invoices", {
   description: text("description"), // For manual invoices
   dueDate: timestamp("due_date"),
   paidAt: timestamp("paid_at"),
+  pdfUrl: text("pdf_url"), // URL to uploaded invoice PDF file
+  pdfFileName: text("pdf_file_name"), // Original filename
+  pdfFileType: text("pdf_file_type"), // MIME type
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

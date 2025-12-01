@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, DollarSign, Calendar } from "lucide-react";
+import { FileText, DollarSign, Calendar, Upload, X } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 
 interface Organization {
@@ -47,6 +47,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -86,6 +87,21 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
     fetchProjects();
   }, []);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+      if (!file.type.includes("pdf")) {
+        toast.error("Only PDF files are allowed");
+        return;
+      }
+      setPdfFile(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -101,6 +117,24 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setIsSubmitting(true);
     try {
+      let pdfUrl: string | null = null;
+      let pdfFileName: string | null = null;
+      let pdfFileType: string | null = null;
+
+      // If a PDF file is provided, convert it to base64
+      if (pdfFile) {
+        const reader = new FileReader();
+        pdfUrl = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(pdfFile);
+        });
+        pdfFileName = pdfFile.name;
+        pdfFileType = pdfFile.type;
+      }
+
       const response = await fetch("/api/invoices", {
         method: "POST",
         headers: {
@@ -115,6 +149,9 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
           status,
           type: "manual",
           dueDate: dueDate || null,
+          pdfUrl,
+          pdfFileName,
+          pdfFileType,
         }),
       });
 
@@ -131,6 +168,7 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
       setDescription("");
       setStatus("draft");
       setDueDate("");
+      setPdfFile(null);
       onSuccess?.();
     } catch (error) {
       toast.error(
@@ -244,6 +282,41 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
           />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="invoice-pdf" className="flex items-center gap-2">
+          <Upload className="h-4 w-4" />
+          Invoice PDF (Optional)
+        </Label>
+        <div className="space-y-2">
+          <Input
+            id="invoice-pdf"
+            type="file"
+            accept=".pdf,application/pdf"
+            onChange={handleFileChange}
+            className="cursor-pointer"
+          />
+          {pdfFile && (
+            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+              <FileText className="h-4 w-4" />
+              <span className="text-sm flex-1">{pdfFile.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  setPdfFile(null);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Max 10MB. PDF files only.
+          </p>
         </div>
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">

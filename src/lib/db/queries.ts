@@ -901,17 +901,17 @@ export async function getNextInvoiceNumber(): Promise<string> {
   if (latestInvoice.length === 0) {
     // First invoice
     const year = new Date().getFullYear();
-    return `INV-${year}-001`;
+    return `INV-${year}-0001`;
   }
 
-  // Extract number from latest invoice (format: INV-YYYY-NNN)
+  // Extract number from latest invoice (format: INV-YYYY-NNNN)
   const latestNumber = latestInvoice[0].invoiceNumber;
   const match = latestNumber.match(/INV-(\d{4})-(\d+)/);
 
   if (!match) {
     // If format doesn't match, start fresh
     const year = new Date().getFullYear();
-    return `INV-${year}-001`;
+    return `INV-${year}-0001`;
   }
 
   const latestYear = parseInt(match[1]);
@@ -921,10 +921,10 @@ export async function getNextInvoiceNumber(): Promise<string> {
   if (latestYear === currentYear) {
     // Same year, increment number
     const nextNum = latestNum + 1;
-    return `INV-${currentYear}-${String(nextNum).padStart(3, "0")}`;
+    return `INV-${currentYear}-${String(nextNum).padStart(4, "0")}`;
   } else {
-    // New year, start from 001
-    return `INV-${currentYear}-001`;
+    // New year, start from 0001
+    return `INV-${currentYear}-0001`;
   }
 }
 
@@ -938,6 +938,9 @@ export async function createInvoice(data: {
   type?: string;
   description?: string | null;
   dueDate?: Date | null;
+  pdfUrl?: string | null;
+  pdfFileName?: string | null;
+  pdfFileType?: string | null;
 }) {
   const [invoice] = await db
     .insert(invoices)
@@ -951,6 +954,9 @@ export async function createInvoice(data: {
       type: data.type || "manual",
       description: data.description || null,
       dueDate: data.dueDate || null,
+      pdfUrl: data.pdfUrl || null,
+      pdfFileName: data.pdfFileName || null,
+      pdfFileType: data.pdfFileType || null,
     })
     .returning();
 

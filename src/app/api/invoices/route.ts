@@ -63,6 +63,9 @@ export async function POST(request: Request) {
       description,
       dueDate,
       autoGenerate,
+      pdfUrl,
+      pdfFileName,
+      pdfFileType,
     } = body;
 
     if (!organizationId || typeof organizationId !== "string") {
@@ -92,6 +95,9 @@ export async function POST(request: Request) {
       type: type || "manual",
       description: description || null,
       dueDate: dueDate ? new Date(dueDate) : null,
+      pdfUrl: pdfUrl || null,
+      pdfFileName: pdfFileName || null,
+      pdfFileType: pdfFileType || null,
     });
 
     return NextResponse.json(invoice, { status: 201 });

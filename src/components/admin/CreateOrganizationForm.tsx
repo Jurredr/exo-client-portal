@@ -52,7 +52,7 @@ export function CreateOrganizationForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       toast.error("Organization name is required");
       return;
@@ -65,7 +65,7 @@ export function CreateOrganizationForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           name: name.trim(),
           image: imageBase64 || null,
         }),
@@ -152,4 +152,3 @@ export function CreateOrganizationForm({
     </form>
   );
 }
-

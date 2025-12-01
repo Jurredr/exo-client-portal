@@ -72,7 +72,9 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
         const response = await fetch("/api/projects");
         if (response.ok) {
           const data = await response.json();
-          setProjects(data.map((p: any) => ({ id: p.project.id, title: p.project.title })));
+          setProjects(
+            data.map((p: any) => ({ id: p.project.id, title: p.project.title }))
+          );
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -197,7 +199,10 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="invoice-currency">Currency *</Label>
-          <Select value={currency} onValueChange={(value) => setCurrency(value as "USD" | "EUR")}>
+          <Select
+            value={currency}
+            onValueChange={(value) => setCurrency(value as "USD" | "EUR")}
+          >
             <SelectTrigger id="invoice-currency" className="w-full">
               <SelectValue placeholder="Select currency" />
             </SelectTrigger>
@@ -248,4 +253,3 @@ export function CreateInvoiceForm({ onSuccess }: { onSuccess?: () => void }) {
     </form>
   );
 }
-

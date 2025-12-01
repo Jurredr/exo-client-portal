@@ -33,7 +33,9 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
         const response = await fetch("/api/projects");
         if (response.ok) {
           const data = await response.json();
-          setProjects(data.map((p: any) => ({ id: p.project.id, title: p.project.title })));
+          setProjects(
+            data.map((p: any) => ({ id: p.project.id, title: p.project.title }))
+          );
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -190,5 +192,3 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
     </form>
   );
 }
-
-

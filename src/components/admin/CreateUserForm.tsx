@@ -20,7 +20,9 @@ interface Organization {
 export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
+    string[]
+  >([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
@@ -88,7 +90,8 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         body: JSON.stringify({
           email: email.trim(),
           name: name.trim() || null,
-          organizationIds: selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
+          organizationIds:
+            selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
           image: imageBase64 || null,
         }),
       });
@@ -202,4 +205,3 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
     </form>
   );
 }
-

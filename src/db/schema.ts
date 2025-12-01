@@ -1,4 +1,13 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, decimal, primaryKey } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  boolean,
+  integer,
+  decimal,
+  primaryKey,
+} from "drizzle-orm/pg-core";
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -78,8 +87,7 @@ export const hourRegistrations = pgTable("hour_registrations", {
   userId: uuid("user_id")
     .references(() => users.id)
     .notNull(),
-  projectId: uuid("project_id")
-    .references(() => projects.id),
+  projectId: uuid("project_id").references(() => projects.id),
   description: text("description").notNull(),
   hours: decimal("hours", { precision: 10, scale: 2 }).notNull(), // Stored as decimal for precision
   category: text("category").notNull().default("client"), // client, administration, brainstorming, research, labs
@@ -89,22 +97,28 @@ export const hourRegistrations = pgTable("hour_registrations", {
 });
 
 // Many-to-many relationship between users and organizations
-export const userOrganizations = pgTable("user_organizations", {
-  userId: uuid("user_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
-  organizationId: uuid("organization_id")
-    .references(() => organizations.id, { onDelete: "cascade" })
-    .notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.userId, table.organizationId] }),
-}));
+export const userOrganizations = pgTable(
+  "user_organizations",
+  {
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.organizationId] }),
+  })
+);
 
 export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
   invoiceNumber: text("invoice_number").notNull().unique(),
-  projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+  projectId: uuid("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
     .notNull(),

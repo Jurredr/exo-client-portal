@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  ColumnDef,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,7 +90,9 @@ export function ExpensesTable() {
   const [deleteExpense, setDeleteExpense] = useState<ExpenseData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedExpense, setSelectedExpense] = useState<ExpenseData | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseData | null>(
+    null
+  );
   const [isEditOpen, setIsEditOpen] = useState(false);
   const isMobile = useIsMobile();
 
@@ -105,7 +105,9 @@ export function ExpensesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Description
@@ -130,7 +132,9 @@ export function ExpensesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Amount
@@ -139,7 +143,12 @@ export function ExpensesTable() {
           );
         },
         cell: ({ row }) => (
-          <div className="font-medium">{formatAmount(row.original.expense.amount, row.original.expense.currency)}</div>
+          <div className="font-medium">
+            {formatAmount(
+              row.original.expense.amount,
+              row.original.expense.currency
+            )}
+          </div>
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
@@ -155,7 +164,9 @@ export function ExpensesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Date
@@ -196,7 +207,9 @@ export function ExpensesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Vendor
@@ -245,7 +258,8 @@ export function ExpensesTable() {
                   // Base64 data URL
                   const link = document.createElement("a");
                   link.href = url;
-                  link.download = row.original.expense.invoiceFileName || "invoice";
+                  link.download =
+                    row.original.expense.invoiceFileName || "invoice";
                   link.click();
                 } else {
                   window.open(url, "_blank");
@@ -371,7 +385,11 @@ export function ExpensesTable() {
           const description = row.expense.description.toLowerCase();
           const category = (row.expense.category || "").toLowerCase();
           const vendor = (row.expense.vendor || "").toLowerCase();
-          return description.includes(query) || category.includes(query) || vendor.includes(query);
+          return (
+            description.includes(query) ||
+            category.includes(query) ||
+            vendor.includes(query)
+          );
         }}
         initialSorting={[{ id: "date", desc: true }]}
         emptyMessage="No expenses found."
@@ -424,9 +442,7 @@ export function ExpensesTable() {
           <DrawerContent>
             <DrawerHeader>
               <DrawerTitle>Edit Expense</DrawerTitle>
-              <DrawerDescription>
-                Update expense details
-              </DrawerDescription>
+              <DrawerDescription>Update expense details</DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
               {selectedExpense && (
@@ -451,9 +467,7 @@ export function ExpensesTable() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Expense</DialogTitle>
-              <DialogDescription>
-                Update expense details
-              </DialogDescription>
+              <DialogDescription>Update expense details</DialogDescription>
             </DialogHeader>
             {selectedExpense && (
               <CreateExpenseForm
@@ -486,4 +500,3 @@ export function ExpensesTable() {
     </div>
   );
 }
-

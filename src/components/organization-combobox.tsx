@@ -107,7 +107,10 @@ export function OrganizationCombobox({
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+          align="start"
+        >
           <Command>
             <CommandInput placeholder="Search organizations..." />
             <CommandList>
@@ -150,4 +153,3 @@ export function OrganizationCombobox({
     </div>
   );
 }
-

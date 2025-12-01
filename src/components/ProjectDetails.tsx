@@ -28,7 +28,11 @@ export default function ProjectDetails({
   const currency = project.currency || "EUR";
   const vat = calculateVAT(project.subtotal, currency);
   const total = calculateTotal(project.subtotal, currency);
-  const paymentAmount = calculatePaymentAmount(project.subtotal, project.stage, currency);
+  const paymentAmount = calculatePaymentAmount(
+    project.subtotal,
+    project.stage,
+    currency
+  );
   const progress = getStageProgress(project.stage);
 
   return (

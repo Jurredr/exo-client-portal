@@ -23,10 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HourRegistration {
@@ -67,7 +64,8 @@ export function HourChart() {
       fetchRegistrations();
     };
     window.addEventListener("hour-registration-saved", handleRefresh);
-    return () => window.removeEventListener("hour-registration-saved", handleRefresh);
+    return () =>
+      window.removeEventListener("hour-registration-saved", handleRefresh);
   }, []);
 
   const fetchRegistrations = async () => {
@@ -124,11 +122,11 @@ export function HourChart() {
     const totalMinutes = Math.round(decimalHours * 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    
+
     if (hours === 0 && minutes === 0) {
       return "0min";
     }
-    
+
     const parts: string[] = [];
     if (hours > 0) {
       parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
@@ -136,7 +134,7 @@ export function HourChart() {
     if (minutes > 0) {
       parts.push(`${minutes}min`);
     }
-    
+
     return parts.join(" ");
   };
 
@@ -206,7 +204,10 @@ export function HourChart() {
         </CardAction>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+        <ChartContainer
+          config={chartConfig}
+          className="aspect-auto h-[250px] w-full"
+        >
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="fillHours" x1="0" y1="0" x2="0" y2="1">
@@ -266,4 +267,3 @@ export function HourChart() {
     </Card>
   );
 }
-

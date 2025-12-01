@@ -1,20 +1,16 @@
-"use client"
+"use client";
 
 import {
   IconDotsVertical,
   IconLogout,
   IconUserCircle,
   IconDashboard,
-} from "@tabler/icons-react"
-import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+} from "@tabler/icons-react";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,8 +19,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 export function ProjectUserMenu({
   user,
@@ -32,15 +28,15 @@ export function ProjectUserMenu({
   onAccountClick,
 }: {
   user: {
-    name: string
-    email: string
-    avatar?: string
-  }
-  showAdminLink?: boolean
-  onAccountClick?: () => void
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+  showAdminLink?: boolean;
+  onAccountClick?: () => void;
 }) {
-  const router = useRouter()
-  const pathname = usePathname()
+  const router = useRouter();
+  const pathname = usePathname();
 
   const getInitials = (name: string) => {
     return name
@@ -132,6 +128,5 @@ export function ProjectUserMenu({
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  )
+  );
 }
-

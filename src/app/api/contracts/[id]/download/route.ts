@@ -1,8 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  getContractById,
-  isUserInEXOOrganization,
-} from "@/lib/db/queries";
+import { getContractById, isUserInEXOOrganization } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -26,9 +23,12 @@ export async function GET(
 
     const { id } = await params;
     const contractData = await getContractById(id);
-    
+
     if (!contractData) {
-      return NextResponse.json({ error: "Contract not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Contract not found" },
+        { status: 404 }
+      );
     }
 
     // If contract has a file URL, redirect to it or return it
@@ -50,5 +50,3 @@ export async function GET(
     );
   }
 }
-
-

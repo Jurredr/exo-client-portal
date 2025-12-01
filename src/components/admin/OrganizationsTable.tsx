@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  ColumnDef,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +18,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, X, ArrowUpDown, MoreVertical } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  ArrowUpDown,
+  MoreVertical,
+} from "lucide-react";
 import { CreateOrganizationForm } from "./CreateOrganizationForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import {
@@ -92,7 +97,9 @@ export function OrganizationsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Name
@@ -100,7 +107,9 @@ export function OrganizationsTable() {
             </Button>
           );
         },
-        cell: ({ row }) => <div className="font-medium">{row.original.name}</div>,
+        cell: ({ row }) => (
+          <div className="font-medium">{row.original.name}</div>
+        ),
         enableSorting: true,
       },
       {
@@ -109,7 +118,9 @@ export function OrganizationsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Users
@@ -129,7 +140,9 @@ export function OrganizationsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Created
@@ -429,7 +442,9 @@ export function OrganizationsTable() {
               <DrawerContent>
                 <DrawerHeader>
                   <DrawerTitle>Create Organization</DrawerTitle>
-                  <DrawerDescription>Create a new organization</DrawerDescription>
+                  <DrawerDescription>
+                    Create a new organization
+                  </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4">
                   <CreateOrganizationForm onSuccess={handleCreateSuccess} />

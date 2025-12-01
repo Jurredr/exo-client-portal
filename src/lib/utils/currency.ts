@@ -6,7 +6,10 @@ export function parseNumeric(value: string | null | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
-export function formatCurrency(amount: number, currency: string = "EUR"): string {
+export function formatCurrency(
+  amount: number,
+  currency: string = "EUR"
+): string {
   const symbol = currency === "USD" ? "$" : "€";
   return `${symbol}${amount.toLocaleString("en-US", {
     minimumFractionDigits: 0,
@@ -14,13 +17,19 @@ export function formatCurrency(amount: number, currency: string = "EUR"): string
   })}`;
 }
 
-export function calculateVAT(subtotal: string | null | undefined, currency: string = "EUR"): string {
+export function calculateVAT(
+  subtotal: string | null | undefined,
+  currency: string = "EUR"
+): string {
   const subtotalValue = parseNumeric(subtotal);
   const vat = subtotalValue * (VAT_PERCENTAGE / 100);
   return formatCurrency(vat, currency);
 }
 
-export function calculateTotal(subtotal: string | null | undefined, currency: string = "EUR"): string {
+export function calculateTotal(
+  subtotal: string | null | undefined,
+  currency: string = "EUR"
+): string {
   const subtotalValue = parseNumeric(subtotal);
   const vat = subtotalValue * (VAT_PERCENTAGE / 100);
   const total = subtotalValue + vat;
@@ -53,4 +62,3 @@ export function calculatePaymentAmount(
       return `${symbol}0`;
   }
 }
-

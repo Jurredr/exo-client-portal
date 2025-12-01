@@ -4,9 +4,23 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { TrendingDown, TrendingUp, DollarSign, Clock, FolderKanban } from "lucide-react";
+import {
+  TrendingDown,
+  TrendingUp,
+  DollarSign,
+  Clock,
+  FolderKanban,
+} from "lucide-react";
 import { formatCurrency, parseNumeric } from "@/lib/utils/currency";
-import { Area, AreaChart, CartesianGrid, XAxis, Bar, BarChart, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  XAxis,
+  Bar,
+  BarChart,
+  YAxis,
+} from "recharts";
 import {
   ChartConfig,
   ChartContainer,
@@ -42,11 +56,11 @@ const formatHours = (decimalHours: number) => {
   const totalMinutes = Math.round(decimalHours * 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  
+
   if (hours === 0 && minutes === 0) {
     return "0min";
   }
-  
+
   const parts: string[] = [];
   if (hours > 0) {
     parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
@@ -54,7 +68,7 @@ const formatHours = (decimalHours: number) => {
   if (minutes > 0) {
     parts.push(`${minutes}min`);
   }
-  
+
   return parts.join(" ");
 };
 
@@ -118,7 +132,9 @@ export default function DashboardStats() {
                     Loading...
                   </dt>
                 </div>
-                <dd className="text-3xl font-semibold text-foreground mt-2">—</dd>
+                <dd className="text-3xl font-semibold text-foreground mt-2">
+                  —
+                </dd>
               </CardContent>
             </Card>
           ))}
@@ -154,7 +170,8 @@ export default function DashboardStats() {
                     <TrendingDown className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-red-500" />
                   )}
                   <span className="sr-only">
-                    {stats.revenue.change >= 0 ? "Increased" : "Decreased"} by{" "}
+                    {stats.revenue.change >= 0 ? "Increased" : "Decreased"}{" "}
+                    by{" "}
                   </span>
                   {formatChange(stats.revenue.change)}
                 </Badge>
@@ -186,7 +203,8 @@ export default function DashboardStats() {
                     <TrendingDown className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-red-500" />
                   )}
                   <span className="sr-only">
-                    {stats.revenue.change >= 0 ? "Increased" : "Decreased"} by{" "}
+                    {stats.revenue.change >= 0 ? "Increased" : "Decreased"}{" "}
+                    by{" "}
                   </span>
                   {formatChange(stats.revenue.change)}
                 </Badge>
@@ -202,7 +220,10 @@ export default function DashboardStats() {
             <CardTitle>Revenue Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={revenueChartConfig} className="aspect-auto h-[250px] w-full">
+            <ChartContainer
+              config={revenueChartConfig}
+              className="aspect-auto h-[250px] w-full"
+            >
               <AreaChart data={stats.revenue.chartData}>
                 <defs>
                   <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -287,7 +308,8 @@ export default function DashboardStats() {
                     <TrendingDown className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-red-500" />
                   )}
                   <span className="sr-only">
-                    {stats.hours.change >= 0 ? "Increased" : "Decreased"} by{" "}
+                    {stats.hours.change >= 0 ? "Increased" : "Decreased"}{" "}
+                    by{" "}
                   </span>
                   {formatChange(stats.hours.change)}
                 </Badge>
@@ -319,7 +341,8 @@ export default function DashboardStats() {
                     <TrendingDown className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-red-500" />
                   )}
                   <span className="sr-only">
-                    {stats.hours.change >= 0 ? "Increased" : "Decreased"} by{" "}
+                    {stats.hours.change >= 0 ? "Increased" : "Decreased"}{" "}
+                    by{" "}
                   </span>
                   {formatChange(stats.hours.change)}
                 </Badge>
@@ -335,7 +358,10 @@ export default function DashboardStats() {
             <CardTitle>Hours Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={hoursChartConfig} className="aspect-auto h-[250px] w-full">
+            <ChartContainer
+              config={hoursChartConfig}
+              className="aspect-auto h-[250px] w-full"
+            >
               <AreaChart data={stats.hours.chartData}>
                 <defs>
                   <linearGradient id="fillHours" x1="0" y1="0" x2="0" y2="1">
@@ -430,7 +456,10 @@ export default function DashboardStats() {
             <CardTitle>Projects by Stage</CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={projectsChartConfig} className="aspect-auto h-[250px] w-full">
+            <ChartContainer
+              config={projectsChartConfig}
+              className="aspect-auto h-[250px] w-full"
+            >
               <BarChart data={stats.projects.chartData}>
                 <CartesianGrid vertical={false} />
                 <XAxis

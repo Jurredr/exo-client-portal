@@ -23,22 +23,25 @@ export async function POST(
 
     const { id } = await params;
     const contractData = await getContractById(id);
-    
+
     if (!contractData) {
-      return NextResponse.json({ error: "Contract not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Contract not found" },
+        { status: 404 }
+      );
     }
 
     // Check if user can access this contract (must be in the project's organization)
     const isInEXO = await isUserInEXOOrganization(user.email);
     const dbUser = await getUserByEmail(user.email);
-    
+
     if (!dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // User must be in EXO or in the contract's organization
-    const canAccess = isInEXO || 
-      (dbUser.organizationId === contractData.organization.id);
+    const canAccess =
+      isInEXO || dbUser.organizationId === contractData.organization.id;
 
     if (!canAccess) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -79,5 +82,3 @@ export async function POST(
     );
   }
 }
-
-

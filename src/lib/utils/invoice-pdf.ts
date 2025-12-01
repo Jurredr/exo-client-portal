@@ -32,11 +32,11 @@ export async function generateInvoicePDF(
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     // Use built-in fonts to avoid filesystem issues
-    const doc = new PDFDocument({ 
-      margin: 50, 
+    const doc = new PDFDocument({
+      margin: 50,
       size: "A4",
       // Don't load external font files
-      autoFirstPage: true
+      autoFirstPage: true,
     });
     const buffers: Buffer[] = [];
 
@@ -53,7 +53,9 @@ export async function generateInvoicePDF(
     // Header
     doc.fontSize(24).text("INVOICE", { align: "right" });
     doc.moveDown(0.5);
-    doc.fontSize(12).text(`Invoice #${invoice.invoiceNumber}`, { align: "right" });
+    doc
+      .fontSize(12)
+      .text(`Invoice #${invoice.invoiceNumber}`, { align: "right" });
     doc.moveDown(2);
 
     // Company info (EXO)
@@ -68,7 +70,9 @@ export async function generateInvoicePDF(
     doc.moveDown(2);
 
     // Invoice details
-    const invoiceDate = new Date(invoice.createdAt as string).toLocaleDateString("en-US", {
+    const invoiceDate = new Date(
+      invoice.createdAt as string
+    ).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -93,11 +97,15 @@ export async function generateInvoicePDF(
     const startY = doc.y;
     doc.fontSize(11).text("Description", 50, startY);
     doc.text("Amount", 450, startY, { align: "right" });
-    doc.moveTo(50, startY + 15).lineTo(550, startY + 15).stroke();
+    doc
+      .moveTo(50, startY + 15)
+      .lineTo(550, startY + 15)
+      .stroke();
     doc.moveDown(1);
 
     // Invoice line item
-    const description = invoice.description || 
+    const description =
+      invoice.description ||
       (project ? `Project: ${project.title}` : "Invoice");
     doc.fontSize(10).text(description, 50, doc.y);
     doc.text(invoice.amount, 450, doc.y, { align: "right" });
@@ -113,7 +121,9 @@ export async function generateInvoicePDF(
     doc.moveTo(400, totalsY).lineTo(550, totalsY).stroke();
     doc.moveDown(0.5);
     doc.fontSize(10).text("Subtotal:", 400, doc.y);
-    doc.text(formatCurrency(subtotal, currency), 450, doc.y, { align: "right" });
+    doc.text(formatCurrency(subtotal, currency), 450, doc.y, {
+      align: "right",
+    });
     doc.moveDown(0.5);
     doc.text(`VAT (${VAT_PERCENTAGE}%):`, 400, doc.y);
     doc.text(formatCurrency(vat, currency), 450, doc.y, { align: "right" });
@@ -127,14 +137,11 @@ export async function generateInvoicePDF(
     // Footer
     doc.fontSize(8).fillColor("gray");
     const footerY = 750;
-    doc.text(
-      "Thank you for your business!",
-      50,
-      footerY,
-      { align: "center", width: 500 }
-    );
+    doc.text("Thank you for your business!", 50, footerY, {
+      align: "center",
+      width: 500,
+    });
 
     doc.end();
   });
 }
-

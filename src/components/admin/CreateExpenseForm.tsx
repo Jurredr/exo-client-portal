@@ -39,24 +39,30 @@ interface Expense {
   invoiceFileType: string | null;
 }
 
-export function CreateExpenseForm({ 
+export function CreateExpenseForm({
   onSuccess,
   expense,
   onCancel,
-}: { 
+}: {
   onSuccess?: () => void;
   expense?: Expense;
   onCancel?: () => void;
 }) {
   const [description, setDescription] = useState(expense?.description || "");
   const [amount, setAmount] = useState(expense?.amount || "");
-  const [currency, setCurrency] = useState<"USD" | "EUR">((expense?.currency as "USD" | "EUR") || "EUR");
-  const [date, setDate] = useState(expense?.date ? new Date(expense.date).toISOString().split("T")[0] : "");
+  const [currency, setCurrency] = useState<"USD" | "EUR">(
+    (expense?.currency as "USD" | "EUR") || "EUR"
+  );
+  const [date, setDate] = useState(
+    expense?.date ? new Date(expense.date).toISOString().split("T")[0] : ""
+  );
   const [category, setCategory] = useState<string>(expense?.category || "");
   const [vendor, setVendor] = useState<string>(expense?.vendor || "");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<string | null>(
-    expense?.invoiceUrl && expense.invoiceUrl.startsWith("data:image/") ? expense.invoiceUrl : null
+    expense?.invoiceUrl && expense.invoiceUrl.startsWith("data:image/")
+      ? expense.invoiceUrl
+      : null
   );
   const [removeInvoice, setRemoveInvoice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,7 +76,7 @@ export function CreateExpenseForm({
       }
       setInvoiceFile(file);
       setRemoveInvoice(false); // Reset remove flag when new file is selected
-      
+
       // Create preview for images
       if (file.type.startsWith("image/")) {
         const reader = new FileReader();
@@ -160,7 +166,9 @@ export function CreateExpenseForm({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || `Failed to ${expense ? "update" : "create"} expense`);
+        throw new Error(
+          error.error || `Failed to ${expense ? "update" : "create"} expense`
+        );
       }
 
       toast.success(`Expense ${expense ? "updated" : "created"} successfully`);
@@ -177,7 +185,9 @@ export function CreateExpenseForm({
       onSuccess?.();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : `Failed to ${expense ? "update" : "create"} expense`
+        error instanceof Error
+          ? error.message
+          : `Failed to ${expense ? "update" : "create"} expense`
       );
     } finally {
       setIsSubmitting(false);
@@ -213,7 +223,10 @@ export function CreateExpenseForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="expense-currency">Currency *</Label>
-          <Select value={currency} onValueChange={(value) => setCurrency(value as "USD" | "EUR")}>
+          <Select
+            value={currency}
+            onValueChange={(value) => setCurrency(value as "USD" | "EUR")}
+          >
             <SelectTrigger id="expense-currency" className="w-full">
               <SelectValue placeholder="Select currency" />
             </SelectTrigger>
@@ -239,7 +252,10 @@ export function CreateExpenseForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="expense-category">Category</Label>
-          <Select value={category || undefined} onValueChange={(value) => setCategory(value || "")}>
+          <Select
+            value={category || undefined}
+            onValueChange={(value) => setCategory(value || "")}
+          >
             <SelectTrigger id="expense-category" className="w-full">
               <SelectValue placeholder="Select a category (optional)" />
             </SelectTrigger>
@@ -328,15 +344,29 @@ export function CreateExpenseForm({
       </div>
       <div className="flex gap-2">
         {expense && onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="flex-1"
+          >
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={isSubmitting} className={expense && onCancel ? "flex-1" : "w-full"}>
-          {isSubmitting ? (expense ? "Updating..." : "Creating...") : (expense ? "Update Expense" : "Create Expense")}
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className={expense && onCancel ? "flex-1" : "w-full"}
+        >
+          {isSubmitting
+            ? expense
+              ? "Updating..."
+              : "Creating..."
+            : expense
+              ? "Update Expense"
+              : "Create Expense"}
         </Button>
       </div>
     </form>
   );
 }
-

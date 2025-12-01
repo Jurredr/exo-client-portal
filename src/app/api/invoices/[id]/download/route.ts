@@ -1,8 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  getInvoiceById,
-  isUserInEXOOrganization,
-} from "@/lib/db/queries";
+import { getInvoiceById, isUserInEXOOrganization } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { generateInvoicePDF } from "@/lib/utils/invoice-pdf";
 
@@ -28,7 +25,7 @@ export async function GET(
     // Await params in Next.js 16
     const resolvedParams = await params;
     const id = resolvedParams.id;
-    
+
     if (!id) {
       return NextResponse.json(
         { error: "Invoice ID is required" },
@@ -59,4 +56,3 @@ export async function GET(
     );
   }
 }
-

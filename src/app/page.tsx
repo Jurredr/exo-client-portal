@@ -39,7 +39,8 @@ export default async function Home() {
               No Organization Assigned
             </h1>
             <p className="text-white/80">
-              Please contact your administrator to assign you to an organization.
+              Please contact your administrator to assign you to an
+              organization.
             </p>
           </div>
         </div>
@@ -57,9 +58,7 @@ export default async function Home() {
       return (
         <div className="flex min-h-screen items-center justify-center bg-black">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-white mb-4">
-              No Projects
-            </h1>
+            <h1 className="text-4xl font-bold text-white mb-4">No Projects</h1>
             <p className="text-white/80">
               You don't have access to any projects yet.
             </p>

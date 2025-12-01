@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  ColumnDef,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,25 +82,29 @@ const formatDate = (dateString: string | null) => {
 export function ContractsTable() {
   const [contracts, setContracts] = useState<ContractData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleteContract, setDeleteContract] = useState<ContractData | null>(null);
+  const [deleteContract, setDeleteContract] = useState<ContractData | null>(
+    null
+  );
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const handleDownload = async (contract: ContractData) => {
     try {
-      const response = await fetch(`/api/contracts/${contract.contract.id}/download`);
+      const response = await fetch(
+        `/api/contracts/${contract.contract.id}/download`
+      );
       if (!response.ok) {
         throw new Error("Failed to download contract");
       }
-      
+
       // If it's a redirect, the browser will handle it
       if (response.redirected) {
         window.open(response.url, "_blank");
         toast.success("Contract opened");
         return;
       }
-      
+
       // Otherwise try to download as file
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -129,7 +131,9 @@ export function ContractsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Contract Name
@@ -154,7 +158,9 @@ export function ContractsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Project
@@ -181,7 +187,9 @@ export function ContractsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Organization
@@ -208,7 +216,9 @@ export function ContractsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Status
@@ -226,7 +236,10 @@ export function ContractsTable() {
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return (rowA.original.contract.signed ? 1 : 0) - (rowB.original.contract.signed ? 1 : 0);
+          return (
+            (rowA.original.contract.signed ? 1 : 0) -
+            (rowB.original.contract.signed ? 1 : 0)
+          );
         },
       },
       {
@@ -246,7 +259,9 @@ export function ContractsTable() {
         header: "Signed By",
         cell: ({ row }) => (
           <div className="text-muted-foreground">
-            {row.original.signedByUser?.name || row.original.signedByUser?.email || "—"}
+            {row.original.signedByUser?.name ||
+              row.original.signedByUser?.email ||
+              "—"}
           </div>
         ),
         enableSorting: false,
@@ -267,10 +282,7 @@ export function ContractsTable() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                asChild
-                onClick={(e) => e.stopPropagation()}
-              >
+              <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
                 <Link href={`/contract/${row.original.contract.id}`}>
                   <FileText className="mr-2 h-4 w-4" />
                   View & Sign
@@ -383,7 +395,7 @@ export function ContractsTable() {
               { label: "Signed", value: "signed" },
               { label: "Pending", value: "pending" },
             ],
-            getValue: (row) => row.contract.signed ? "signed" : "pending",
+            getValue: (row) => (row.contract.signed ? "signed" : "pending"),
           },
         }}
         initialSorting={[{ id: "name", desc: false }]}
@@ -445,4 +457,3 @@ export function ContractsTable() {
     </div>
   );
 }
-

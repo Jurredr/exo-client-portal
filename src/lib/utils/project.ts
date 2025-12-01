@@ -40,4 +40,3 @@ export function isStageActive(
 ): boolean {
   return (currentStage || "kick_off") === checkStage;
 }
-

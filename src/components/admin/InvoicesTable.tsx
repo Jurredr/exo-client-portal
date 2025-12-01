@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  ColumnDef,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -116,7 +114,9 @@ export function InvoicesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Invoice #
@@ -125,7 +125,9 @@ export function InvoicesTable() {
           );
         },
         cell: ({ row }) => (
-          <div className="font-medium">{row.original.invoice.invoiceNumber}</div>
+          <div className="font-medium">
+            {row.original.invoice.invoiceNumber}
+          </div>
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
@@ -141,7 +143,9 @@ export function InvoicesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Organization
@@ -179,7 +183,9 @@ export function InvoicesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Amount
@@ -191,15 +197,18 @@ export function InvoicesTable() {
           const { amount, currency } = row.original.invoice;
           const symbol = currency === "USD" ? "$" : "€";
           // If amount already has a symbol, use it as is, otherwise prepend the currency symbol
-          const displayAmount = amount.startsWith("$") || amount.startsWith("€") 
-            ? amount 
-            : `${symbol}${amount}`;
+          const displayAmount =
+            amount.startsWith("$") || amount.startsWith("€")
+              ? amount
+              : `${symbol}${amount}`;
           return <div className="font-medium">{displayAmount}</div>;
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          const a = parseFloat(rowA.original.invoice.amount.replace(/[€,]/g, "")) || 0;
-          const b = parseFloat(rowB.original.invoice.amount.replace(/[€,]/g, "")) || 0;
+          const a =
+            parseFloat(rowA.original.invoice.amount.replace(/[€,]/g, "")) || 0;
+          const b =
+            parseFloat(rowB.original.invoice.amount.replace(/[€,]/g, "")) || 0;
           return a - b;
         },
       },
@@ -210,7 +219,9 @@ export function InvoicesTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Status
@@ -221,7 +232,10 @@ export function InvoicesTable() {
         cell: ({ row }) => {
           const status = row.original.invoice.status;
           return (
-            <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
+            <Badge
+              variant="outline"
+              className="flex items-center gap-1.5 w-fit"
+            >
               <span
                 className={cn("size-1.5 rounded-full", getStatusColor(status))}
               />
@@ -331,13 +345,17 @@ export function InvoicesTable() {
 
   const handleDownload = async (invoice: InvoiceData) => {
     try {
-      const response = await fetch(`/api/invoices/${invoice.invoice.id}/download`);
+      const response = await fetch(
+        `/api/invoices/${invoice.invoice.id}/download`
+      );
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
         throw new Error(errorData.error || "Failed to download invoice");
       }
       const blob = await response.blob();
-      
+
       // Check if the blob is actually a PDF
       if (blob.type !== "application/pdf") {
         // If it's JSON, it's probably an error response
@@ -349,7 +367,7 @@ export function InvoicesTable() {
           throw new Error("Invalid response from server");
         }
       }
-      
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -491,4 +509,3 @@ export function InvoicesTable() {
     </div>
   );
 }
-

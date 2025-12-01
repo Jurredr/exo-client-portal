@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { createOrganization, getAllOrganizations, isUserInEXOOrganization, deleteOrganization, updateOrganization } from "@/lib/db/queries";
+import {
+  createOrganization,
+  getAllOrganizations,
+  isUserInEXOOrganization,
+  deleteOrganization,
+  updateOrganization,
+} from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -150,4 +156,3 @@ export async function PATCH(request: Request) {
     );
   }
 }
-

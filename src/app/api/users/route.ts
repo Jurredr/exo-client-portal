@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { createUser, getAllUsers, isUserInEXOOrganization, updateUser, deleteUser } from "@/lib/db/queries";
+import {
+  createUser,
+  getAllUsers,
+  isUserInEXOOrganization,
+  updateUser,
+  deleteUser,
+} from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -65,9 +71,13 @@ export async function POST(request: Request) {
     }
 
     // Support both organizationId (single, for backward compatibility) and organizationIds (array)
-    const orgIds = organizationIds 
-      ? (Array.isArray(organizationIds) ? organizationIds : [organizationIds])
-      : (organizationId ? [organizationId] : null);
+    const orgIds = organizationIds
+      ? Array.isArray(organizationIds)
+        ? organizationIds
+        : [organizationIds]
+      : organizationId
+        ? [organizationId]
+        : null;
 
     const newUser = await createUser(
       email.trim(),
@@ -114,11 +124,16 @@ export async function PATCH(request: Request) {
     // Support both organizationId (single, for backward compatibility) and organizationIds (array)
     let orgIds: string[] | null | undefined = undefined;
     if (organizationIds !== undefined) {
-      orgIds = Array.isArray(organizationIds) 
-        ? (organizationIds.length > 0 ? organizationIds : null)
-        : (organizationIds ? [organizationIds] : null);
+      orgIds = Array.isArray(organizationIds)
+        ? organizationIds.length > 0
+          ? organizationIds
+          : null
+        : organizationIds
+          ? [organizationIds]
+          : null;
     } else if (organizationId !== undefined) {
-      orgIds = organizationId && organizationId !== "none" ? [organizationId] : null;
+      orgIds =
+        organizationId && organizationId !== "none" ? [organizationId] : null;
     }
 
     const updatedUser = await updateUser(id, {
@@ -173,4 +188,3 @@ export async function DELETE(request: Request) {
     );
   }
 }
-

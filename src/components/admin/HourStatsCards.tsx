@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Clock, TrendingUp, Calendar, Target } from "lucide-react";
 
 interface HourRegistration {
@@ -27,7 +33,8 @@ export function HourStatsCards() {
       fetchRegistrations();
     };
     window.addEventListener("hour-registration-saved", handleRefresh);
-    return () => window.removeEventListener("hour-registration-saved", handleRefresh);
+    return () =>
+      window.removeEventListener("hour-registration-saved", handleRefresh);
   }, []);
 
   const fetchRegistrations = async () => {
@@ -49,11 +56,11 @@ export function HourStatsCards() {
     const totalMinutes = Math.round(decimalHours * 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    
+
     if (hours === 0 && minutes === 0) {
       return "0min";
     }
-    
+
     const parts: string[] = [];
     if (hours > 0) {
       parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
@@ -61,7 +68,7 @@ export function HourStatsCards() {
     if (minutes > 0) {
       parts.push(`${minutes}min`);
     }
-    
+
     return parts.join(" ");
   };
 
@@ -130,7 +137,9 @@ export function HourStatsCards() {
           <Target className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatHours(stats.thisYear)}</div>
+          <div className="text-2xl font-bold">
+            {formatHours(stats.thisYear)}
+          </div>
           <p className="text-xs text-muted-foreground">
             Since {new Date().getFullYear()}
           </p>
@@ -142,7 +151,9 @@ export function HourStatsCards() {
           <Calendar className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatHours(stats.thisMonth)}</div>
+          <div className="text-2xl font-bold">
+            {formatHours(stats.thisMonth)}
+          </div>
           <p className="text-xs text-muted-foreground">
             {new Date().toLocaleString("default", { month: "long" })}
           </p>
@@ -154,11 +165,12 @@ export function HourStatsCards() {
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatHours(stats.thisWeek)}</div>
+          <div className="text-2xl font-bold">
+            {formatHours(stats.thisWeek)}
+          </div>
           <p className="text-xs text-muted-foreground">Last 7 days</p>
         </CardContent>
       </Card>
     </div>
   );
 }
-

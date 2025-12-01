@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  ColumnDef,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +36,12 @@ import {
 import { toast } from "sonner";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { cn } from "@/lib/utils";
-import { CLIENT_PROJECT_STAGES, LABS_PROJECT_STAGES, formatStage as formatStageHelper, getStageColor as getStageColorHelper } from "@/lib/constants/stages";
+import {
+  CLIENT_PROJECT_STAGES,
+  LABS_PROJECT_STAGES,
+  formatStage as formatStageHelper,
+  getStageColor as getStageColorHelper,
+} from "@/lib/constants/stages";
 import {
   FolderPlus,
   DollarSign,
@@ -159,7 +162,9 @@ export function ProjectsTable() {
   const isMobile = useIsMobile();
 
   // Separate projects into client and labs
-  const clientProjects = projects.filter((p) => p.project.type === "client" || !p.project.type);
+  const clientProjects = projects.filter(
+    (p) => p.project.type === "client" || !p.project.type
+  );
   const labsProjects = projects.filter((p) => p.project.type === "labs");
 
   const columns: ColumnDef<ProjectData>[] = useMemo(
@@ -171,7 +176,9 @@ export function ProjectsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Title
@@ -184,7 +191,9 @@ export function ProjectsTable() {
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.project.title.localeCompare(rowB.original.project.title);
+          return rowA.original.project.title.localeCompare(
+            rowB.original.project.title
+          );
         },
       },
       {
@@ -194,7 +203,9 @@ export function ProjectsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Organization
@@ -209,7 +220,9 @@ export function ProjectsTable() {
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.organization.name.localeCompare(rowB.original.organization.name);
+          return rowA.original.organization.name.localeCompare(
+            rowB.original.organization.name
+          );
         },
       },
       {
@@ -219,7 +232,9 @@ export function ProjectsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Status
@@ -230,7 +245,10 @@ export function ProjectsTable() {
         cell: ({ row }) => {
           const status = row.original.project.status;
           return (
-            <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
+            <Badge
+              variant="outline"
+              className="flex items-center gap-1.5 w-fit"
+            >
               <span
                 className={cn("size-1.5 rounded-full", getStatusColor(status))}
               />
@@ -240,7 +258,9 @@ export function ProjectsTable() {
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.project.status.localeCompare(rowB.original.project.status);
+          return rowA.original.project.status.localeCompare(
+            rowB.original.project.status
+          );
         },
       },
       {
@@ -250,7 +270,9 @@ export function ProjectsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Stage
@@ -260,11 +282,18 @@ export function ProjectsTable() {
         },
         cell: ({ row }) => {
           const stage = row.original.project.stage;
-          const projectType = row.original.project.type === "labs" ? "labs" : "client";
+          const projectType =
+            row.original.project.type === "labs" ? "labs" : "client";
           return (
-            <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
+            <Badge
+              variant="outline"
+              className="flex items-center gap-1.5 w-fit"
+            >
               <span
-                className={cn("size-1.5 rounded-full", getStageColor(stage, projectType))}
+                className={cn(
+                  "size-1.5 rounded-full",
+                  getStageColor(stage, projectType)
+                )}
               />
               {formatStage(stage, projectType)}
             </Badge>
@@ -272,7 +301,9 @@ export function ProjectsTable() {
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.project.stage.localeCompare(rowB.original.project.stage);
+          return rowA.original.project.stage.localeCompare(
+            rowB.original.project.stage
+          );
         },
       },
       {
@@ -282,7 +313,9 @@ export function ProjectsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Subtotal
@@ -296,7 +329,8 @@ export function ProjectsTable() {
           const symbol = currency === "USD" ? "$" : "€";
           return (
             <div className="text-muted-foreground">
-              {symbol}{subtotal}
+              {symbol}
+              {subtotal}
             </div>
           );
         },
@@ -314,7 +348,9 @@ export function ProjectsTable() {
           return (
             <Button
               variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
               className="-ml-3 h-8"
             >
               Hours
@@ -359,10 +395,7 @@ export function ProjectsTable() {
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem
-                asChild
-                onClick={(e) => e.stopPropagation()}
-              >
+              <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
                 <Link href={`/project/${row.original.project.id}`}>
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Open
@@ -462,10 +495,10 @@ export function ProjectsTable() {
           status,
           stage,
           type: projectType,
-          subtotal: projectType === "labs" ? null : (subtotal || null),
+          subtotal: projectType === "labs" ? null : subtotal || null,
           currency: editCurrency,
           startDate: startDate || null,
-          deadline: projectType === "labs" ? null : (deadline || null),
+          deadline: projectType === "labs" ? null : deadline || null,
         }),
       });
 
@@ -576,7 +609,11 @@ export function ProjectsTable() {
           <div className="flex flex-col gap-3">
             <Label htmlFor="edit-stage">Stage</Label>
             <StatusCombobox
-              options={selectedProject?.project.type === "labs" ? LABS_PROJECT_STAGES : CLIENT_PROJECT_STAGES}
+              options={
+                selectedProject?.project.type === "labs"
+                  ? LABS_PROJECT_STAGES
+                  : CLIENT_PROJECT_STAGES
+              }
               value={editStage}
               onValueChange={setEditStage}
               placeholder="Select stage..."
@@ -597,7 +634,12 @@ export function ProjectsTable() {
             </div>
             <div className="flex flex-col gap-3">
               <Label htmlFor="edit-currency">Currency</Label>
-              <Select value={editCurrency} onValueChange={(value) => setEditCurrency(value as "USD" | "EUR")}>
+              <Select
+                value={editCurrency}
+                onValueChange={(value) =>
+                  setEditCurrency(value as "USD" | "EUR")
+                }
+              >
                 <SelectTrigger id="edit-currency" className="w-full">
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
@@ -682,12 +724,18 @@ export function ProjectsTable() {
         filterConfig={{
           status: {
             label: "Status",
-            options: PROJECT_STATUSES.map((s) => ({ label: s.label, value: s.value })),
+            options: PROJECT_STATUSES.map((s) => ({
+              label: s.label,
+              value: s.value,
+            })),
             getValue: (row) => row.project.status,
           },
           stage: {
             label: "Stage",
-            options: CLIENT_PROJECT_STAGES.map((s) => ({ label: s.label, value: s.value })),
+            options: CLIENT_PROJECT_STAGES.map((s) => ({
+              label: s.label,
+              value: s.value,
+            })),
             getValue: (row) => row.project.stage,
           },
         }}
@@ -757,19 +805,25 @@ export function ProjectsTable() {
           filterConfig={{
             status: {
               label: "Status",
-              options: PROJECT_STATUSES.map((s) => ({ label: s.label, value: s.value })),
+              options: PROJECT_STATUSES.map((s) => ({
+                label: s.label,
+                value: s.value,
+              })),
               getValue: (row) => row.project.status,
             },
             stage: {
               label: "Stage",
-            options: LABS_PROJECT_STAGES.map((s) => ({ label: s.label, value: s.value })),
-            getValue: (row) => row.project.stage,
-          },
-        }}
-        initialSorting={[{ id: "title", desc: false }]}
-        onRowClick={handleRowClick}
-        emptyMessage="No EXO Labs projects found."
-        isLoading={loading}
+              options: LABS_PROJECT_STAGES.map((s) => ({
+                label: s.label,
+                value: s.value,
+              })),
+              getValue: (row) => row.project.stage,
+            },
+          }}
+          initialSorting={[{ id: "title", desc: false }]}
+          onRowClick={handleRowClick}
+          emptyMessage="No EXO Labs projects found."
+          isLoading={loading}
         />
       </div>
 
@@ -846,7 +900,11 @@ export function ProjectsTable() {
                     <div className="space-y-2">
                       <Label htmlFor="edit-stage">Stage</Label>
                       <StatusCombobox
-                        options={selectedProject.project.type === "labs" ? LABS_PROJECT_STAGES : CLIENT_PROJECT_STAGES}
+                        options={
+                          selectedProject.project.type === "labs"
+                            ? LABS_PROJECT_STAGES
+                            : CLIENT_PROJECT_STAGES
+                        }
                         value={editStage}
                         onValueChange={setEditStage}
                         placeholder="Select stage..."

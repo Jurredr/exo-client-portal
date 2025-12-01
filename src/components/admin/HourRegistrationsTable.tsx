@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  ColumnDef,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -65,11 +63,11 @@ const formatHours = (decimalHours: number) => {
   const totalMinutes = Math.round(decimalHours * 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  
+
   if (hours === 0 && minutes === 0) {
     return "0min";
   }
-  
+
   const parts: string[] = [];
   if (hours > 0) {
     parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
@@ -77,7 +75,7 @@ const formatHours = (decimalHours: number) => {
   if (minutes > 0) {
     parts.push(`${minutes}min`);
   }
-  
+
   return parts.join(" ");
 };
 
@@ -144,15 +142,22 @@ const createColumns = (
       return (
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image || undefined} alt={user.name || user.email} />
+            <AvatarImage
+              src={user.image || undefined}
+              alt={user.name || user.email}
+            />
             <AvatarFallback>
               {getInitials(user.name, user.email)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="text-sm font-medium">{user.name || user.email}</span>
+            <span className="text-sm font-medium">
+              {user.name || user.email}
+            </span>
             {user.name && (
-              <span className="text-xs text-muted-foreground">{user.email}</span>
+              <span className="text-xs text-muted-foreground">
+                {user.email}
+              </span>
             )}
           </div>
         </div>
@@ -207,7 +212,11 @@ const createColumns = (
       const project = row.original.project;
       return (
         <div className="font-medium">
-          {project ? project.title : <span className="text-muted-foreground">—</span>}
+          {project ? (
+            project.title
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
         </div>
       );
     },
@@ -235,11 +244,7 @@ const createColumns = (
     },
     cell: ({ row }) => {
       const hours = parseFloat(row.original.hours);
-      return (
-        <div className="font-medium">
-          {formatHours(hours)}
-        </div>
-      );
+      return <div className="font-medium">{formatHours(hours)}</div>;
     },
     enableSorting: true,
     sortingFn: (rowA, rowB) => {
@@ -283,7 +288,9 @@ const createColumns = (
     header: "Actions",
     cell: ({ row }) => {
       const handleDelete = async () => {
-        if (!confirm("Are you sure you want to delete this hour registration?")) {
+        if (
+          !confirm("Are you sure you want to delete this hour registration?")
+        ) {
           return;
         }
 
@@ -328,18 +335,26 @@ interface Project {
 export function HourRegistrationsTable() {
   const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [allProjects, setAllProjects] = useState<Array<Project & { type?: string }>>([]);
+  const [allProjects, setAllProjects] = useState<
+    Array<Project & { type?: string }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingRegistration, setEditingRegistration] = useState<HourRegistration | null>(null);
+  const [editingRegistration, setEditingRegistration] =
+    useState<HourRegistration | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manualEntry, setManualEntry] = useState({
     date: new Date().toISOString().split("T")[0],
     hours: "",
     minutes: "",
     description: "",
-    category: "client" as "client" | "administration" | "brainstorming" | "research" | "labs",
+    category: "client" as
+      | "client"
+      | "administration"
+      | "brainstorming"
+      | "research"
+      | "labs",
     projectId: undefined as string | undefined,
   });
 
@@ -352,15 +367,20 @@ export function HourRegistrationsTable() {
       fetchRegistrations();
     };
     window.addEventListener("hour-registration-saved", handleRefresh);
-    return () => window.removeEventListener("hour-registration-saved", handleRefresh);
+    return () =>
+      window.removeEventListener("hour-registration-saved", handleRefresh);
   }, []);
 
   // Filter projects based on category
   useEffect(() => {
-    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+    ];
     if (nonProjectCategories.includes(manualEntry.category)) {
       setProjects([]);
-      setManualEntry(prev => ({ ...prev, projectId: undefined }));
+      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
     } else if (manualEntry.category === "labs") {
       setProjects(
         allProjects
@@ -370,7 +390,7 @@ export function HourRegistrationsTable() {
             title: p.title,
           }))
       );
-      setManualEntry(prev => ({ ...prev, projectId: undefined }));
+      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
     } else {
       // client
       setProjects(
@@ -381,7 +401,7 @@ export function HourRegistrationsTable() {
             title: p.title,
           }))
       );
-      setManualEntry(prev => ({ ...prev, projectId: undefined }));
+      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
     }
   }, [manualEntry.category, allProjects]);
 
@@ -390,11 +410,13 @@ export function HourRegistrationsTable() {
       const response = await fetch("/api/projects");
       if (response.ok) {
         const data = await response.json();
-        const projectsData = data.map((item: { project: Project & { type?: string } }) => ({
-          id: item.project.id,
-          title: item.project.title,
-          type: item.project.type || "client",
-        }));
+        const projectsData = data.map(
+          (item: { project: Project & { type?: string } }) => ({
+            id: item.project.id,
+            title: item.project.title,
+            type: item.project.type || "client",
+          })
+        );
         setAllProjects(projectsData);
         // Set initial projects (client projects)
         setProjects(
@@ -460,9 +482,18 @@ export function HourRegistrationsTable() {
     }
 
     // Validate: non-project categories (administration, brainstorming, research) should not have a project
-    const nonProjectCategories = ["administration", "brainstorming", "research"];
-    if (nonProjectCategories.includes(manualEntry.category) && manualEntry.projectId) {
-      toast.error(`${manualEntry.category.charAt(0).toUpperCase() + manualEntry.category.slice(1)} work should not be associated with a project`);
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+    ];
+    if (
+      nonProjectCategories.includes(manualEntry.category) &&
+      manualEntry.projectId
+    ) {
+      toast.error(
+        `${manualEntry.category.charAt(0).toUpperCase() + manualEntry.category.slice(1)} work should not be associated with a project`
+      );
       return;
     }
 
@@ -479,7 +510,10 @@ export function HourRegistrationsTable() {
         body: JSON.stringify({
           description: manualEntry.description.trim(),
           hours: totalHours,
-          projectId: manualEntry.projectId && manualEntry.projectId !== "none" ? manualEntry.projectId : null,
+          projectId:
+            manualEntry.projectId && manualEntry.projectId !== "none"
+              ? manualEntry.projectId
+              : null,
           date: manualEntry.date,
           category: manualEntry.category,
         }),
@@ -515,13 +549,18 @@ export function HourRegistrationsTable() {
     const totalHours = parseFloat(registration.hours);
     const hours = Math.floor(totalHours);
     const minutes = Math.round((totalHours - hours) * 60);
-    
+
     setManualEntry({
       date: new Date(registration.date).toISOString().split("T")[0],
       hours: hours.toString(),
       minutes: minutes.toString(),
       description: registration.description,
-      category: (registration.category || "client") as "client" | "administration" | "brainstorming" | "research" | "labs",
+      category: (registration.category || "client") as
+        | "client"
+        | "administration"
+        | "brainstorming"
+        | "research"
+        | "labs",
       projectId: registration.projectId || undefined,
     });
     setIsEditOpen(true);
@@ -545,9 +584,18 @@ export function HourRegistrationsTable() {
     }
 
     // Validate: non-project categories (administration, brainstorming, research) should not have a project
-    const nonProjectCategories = ["administration", "brainstorming", "research"];
-    if (nonProjectCategories.includes(manualEntry.category) && manualEntry.projectId) {
-      toast.error(`${manualEntry.category.charAt(0).toUpperCase() + manualEntry.category.slice(1)} work should not be associated with a project`);
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+    ];
+    if (
+      nonProjectCategories.includes(manualEntry.category) &&
+      manualEntry.projectId
+    ) {
+      toast.error(
+        `${manualEntry.category.charAt(0).toUpperCase() + manualEntry.category.slice(1)} work should not be associated with a project`
+      );
       return;
     }
 
@@ -565,7 +613,10 @@ export function HourRegistrationsTable() {
           id: editingRegistration.id,
           description: manualEntry.description.trim(),
           hours: totalHours,
-          projectId: manualEntry.projectId && manualEntry.projectId !== "none" ? manualEntry.projectId : null,
+          projectId:
+            manualEntry.projectId && manualEntry.projectId !== "none"
+              ? manualEntry.projectId
+              : null,
           date: manualEntry.date,
           category: manualEntry.category,
         }),
@@ -596,10 +647,16 @@ export function HourRegistrationsTable() {
     }
   };
 
-  const columns = useMemo(() => createColumns(handleDelete, handleEdit), [handleDelete, handleEdit]);
+  const columns = useMemo(
+    () => createColumns(handleDelete, handleEdit),
+    [handleDelete, handleEdit]
+  );
 
   const projectFilterOptions = useMemo(() => {
-    return projects.map((project) => ({ label: project.title, value: project.id }));
+    return projects.map((project) => ({
+      label: project.title,
+      value: project.id,
+    }));
   }, [projects]);
 
   return (
@@ -607,7 +664,9 @@ export function HourRegistrationsTable() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Hour Registrations</h2>
-          <p className="text-muted-foreground">View and manage hour registrations</p>
+          <p className="text-muted-foreground">
+            View and manage hour registrations
+          </p>
         </div>
       </div>
       <EnhancedDataTable
@@ -631,7 +690,10 @@ export function HourRegistrationsTable() {
             ? {
                 project: {
                   label: "Project",
-                  options: [{ label: "None", value: "none" }, ...projectFilterOptions],
+                  options: [
+                    { label: "None", value: "none" },
+                    ...projectFilterOptions,
+                  ],
                   getValue: (row) => row.project?.id || "none",
                 },
               }
@@ -675,7 +737,12 @@ export function HourRegistrationsTable() {
                     onValueChange={(value) =>
                       setManualEntry({
                         ...manualEntry,
-                        category: value as "client" | "administration" | "brainstorming" | "research" | "labs",
+                        category: value as
+                          | "client"
+                          | "administration"
+                          | "brainstorming"
+                          | "research"
+                          | "labs",
                       })
                     }
                   >
@@ -684,16 +751,24 @@ export function HourRegistrationsTable() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="client">Client Work</SelectItem>
-                      <SelectItem value="administration">Administration</SelectItem>
-                      <SelectItem value="brainstorming">Brainstorming</SelectItem>
+                      <SelectItem value="administration">
+                        Administration
+                      </SelectItem>
+                      <SelectItem value="brainstorming">
+                        Brainstorming
+                      </SelectItem>
                       <SelectItem value="research">Research</SelectItem>
                       <SelectItem value="labs">EXO Labs</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {(manualEntry.category === "client" || manualEntry.category === "labs") && (
+                {(manualEntry.category === "client" ||
+                  manualEntry.category === "labs") && (
                   <div className="space-y-2">
-                    <Label htmlFor="manual-project">Project {manualEntry.category === "client" ? "(Optional)" : ""}</Label>
+                    <Label htmlFor="manual-project">
+                      Project{" "}
+                      {manualEntry.category === "client" ? "(Optional)" : ""}
+                    </Label>
                     <Select
                       value={manualEntry.projectId || "none"}
                       onValueChange={(value) =>
@@ -726,7 +801,10 @@ export function HourRegistrationsTable() {
                       min="0"
                       value={manualEntry.hours}
                       onChange={(e) =>
-                        setManualEntry({ ...manualEntry, hours: e.target.value })
+                        setManualEntry({
+                          ...manualEntry,
+                          hours: e.target.value,
+                        })
                       }
                       placeholder="0"
                     />
@@ -740,7 +818,10 @@ export function HourRegistrationsTable() {
                       max="59"
                       value={manualEntry.minutes}
                       onChange={(e) =>
-                        setManualEntry({ ...manualEntry, minutes: e.target.value })
+                        setManualEntry({
+                          ...manualEntry,
+                          minutes: e.target.value,
+                        })
                       }
                       placeholder="0"
                     />
@@ -754,14 +835,17 @@ export function HourRegistrationsTable() {
                       manualEntry.category === "administration"
                         ? "Describe the administrative work you did..."
                         : manualEntry.category === "brainstorming"
-                        ? "Describe your brainstorming session..."
-                        : manualEntry.category === "research"
-                        ? "Describe the research you conducted..."
-                        : "Describe the work you did..."
+                          ? "Describe your brainstorming session..."
+                          : manualEntry.category === "research"
+                            ? "Describe the research you conducted..."
+                            : "Describe the work you did..."
                     }
                     value={manualEntry.description}
                     onChange={(e) =>
-                      setManualEntry({ ...manualEntry, description: e.target.value })
+                      setManualEntry({
+                        ...manualEntry,
+                        description: e.target.value,
+                      })
                     }
                     rows={4}
                     required
@@ -814,7 +898,12 @@ export function HourRegistrationsTable() {
                 onValueChange={(value) =>
                   setManualEntry({
                     ...manualEntry,
-                    category: value as "client" | "administration" | "brainstorming" | "research" | "labs",
+                    category: value as
+                      | "client"
+                      | "administration"
+                      | "brainstorming"
+                      | "research"
+                      | "labs",
                   })
                 }
               >
@@ -830,9 +919,13 @@ export function HourRegistrationsTable() {
                 </SelectContent>
               </Select>
             </div>
-            {(manualEntry.category === "client" || manualEntry.category === "labs") && (
+            {(manualEntry.category === "client" ||
+              manualEntry.category === "labs") && (
               <div className="space-y-2">
-                <Label htmlFor="edit-project">Project {manualEntry.category === "client" ? "(Optional)" : ""}</Label>
+                <Label htmlFor="edit-project">
+                  Project{" "}
+                  {manualEntry.category === "client" ? "(Optional)" : ""}
+                </Label>
                 <Select
                   value={manualEntry.projectId || "none"}
                   onValueChange={(value) =>
@@ -893,14 +986,17 @@ export function HourRegistrationsTable() {
                   manualEntry.category === "administration"
                     ? "Describe the administrative work you did..."
                     : manualEntry.category === "brainstorming"
-                    ? "Describe your brainstorming session..."
-                    : manualEntry.category === "research"
-                    ? "Describe the research you conducted..."
-                    : "Describe the work you did..."
+                      ? "Describe your brainstorming session..."
+                      : manualEntry.category === "research"
+                        ? "Describe the research you conducted..."
+                        : "Describe the work you did..."
                 }
                 value={manualEntry.description}
                 onChange={(e) =>
-                  setManualEntry({ ...manualEntry, description: e.target.value })
+                  setManualEntry({
+                    ...manualEntry,
+                    description: e.target.value,
+                  })
                 }
                 rows={4}
                 required
@@ -935,4 +1031,3 @@ export function HourRegistrationsTable() {
     </div>
   );
 }
-

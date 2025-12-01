@@ -23,10 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ProjectData {
@@ -49,11 +46,11 @@ const formatHours = (decimalHours: number) => {
   const totalMinutes = Math.round(decimalHours * 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  
+
   if (hours === 0 && minutes === 0) {
     return "0min";
   }
-  
+
   const parts: string[] = [];
   if (hours > 0) {
     parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
@@ -61,7 +58,7 @@ const formatHours = (decimalHours: number) => {
   if (minutes > 0) {
     parts.push(`${minutes}min`);
   }
-  
+
   return parts.join(" ");
 };
 
@@ -80,13 +77,14 @@ export function ProjectHoursChart() {
 
   useEffect(() => {
     fetchProjects();
-    
+
     // Listen for hour registration saved events to refresh
     const handleRefresh = () => {
       fetchProjects();
     };
     window.addEventListener("hour-registration-saved", handleRefresh);
-    return () => window.removeEventListener("hour-registration-saved", handleRefresh);
+    return () =>
+      window.removeEventListener("hour-registration-saved", handleRefresh);
   }, []);
 
   const fetchProjects = async () => {
@@ -156,14 +154,19 @@ export function ProjectHoursChart() {
           <ToggleGroup
             type="single"
             value={sortBy}
-            onValueChange={(value) => value && setSortBy(value as "hours" | "name")}
+            onValueChange={(value) =>
+              value && setSortBy(value as "hours" | "name")
+            }
             variant="outline"
             className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
           >
             <ToggleGroupItem value="hours">Sort by Hours</ToggleGroupItem>
             <ToggleGroupItem value="name">Sort by Name</ToggleGroupItem>
           </ToggleGroup>
-          <Select value={`${limit}`} onValueChange={(value) => setLimit(Number(value))}>
+          <Select
+            value={`${limit}`}
+            onValueChange={(value) => setLimit(Number(value))}
+          >
             <SelectTrigger
               className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
               size="sm"
@@ -172,9 +175,15 @@ export function ProjectHoursChart() {
               <SelectValue placeholder="Top 10" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="5" className="rounded-lg">Top 5</SelectItem>
-              <SelectItem value="10" className="rounded-lg">Top 10</SelectItem>
-              <SelectItem value="20" className="rounded-lg">Top 20</SelectItem>
+              <SelectItem value="5" className="rounded-lg">
+                Top 5
+              </SelectItem>
+              <SelectItem value="10" className="rounded-lg">
+                Top 10
+              </SelectItem>
+              <SelectItem value="20" className="rounded-lg">
+                Top 20
+              </SelectItem>
             </SelectContent>
           </Select>
         </CardAction>
@@ -185,7 +194,10 @@ export function ProjectHoursChart() {
             <div className="text-muted-foreground">No hours registered yet</div>
           </div>
         ) : (
-          <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-auto h-[250px] w-full"
+          >
             <BarChart data={chartData} layout="vertical">
               <CartesianGrid horizontal={false} />
               <XAxis type="number" hide />
@@ -218,4 +230,3 @@ export function ProjectHoursChart() {
     </Card>
   );
 }
-

@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { type Icon } from "@tabler/icons-react"
+import Link from "next/link";
+import { type Icon } from "@tabler/icons-react";
 
 import {
   SidebarGroup,
@@ -10,25 +10,21 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 export type NavItem = {
-  title: string
-  url: string
-  icon?: Icon
-  isActive?: boolean
-}
+  title: string;
+  url: string;
+  icon?: Icon;
+  isActive?: boolean;
+};
 
 export type NavGroup = {
-  label?: string
-  items: NavItem[]
-}
+  label?: string;
+  items: NavItem[];
+};
 
-export function NavMain({
-  groups,
-}: {
-  groups: NavGroup[]
-}) {
+export function NavMain({ groups }: { groups: NavGroup[] }) {
   return (
     <>
       {groups.map((group, groupIndex) => (
@@ -55,5 +51,5 @@ export function NavMain({
         </SidebarGroup>
       ))}
     </>
-  )
+  );
 }

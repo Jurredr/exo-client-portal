@@ -117,7 +117,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           status,
           stage,
           startDate: startDate || null,
-          deadline: projectType === "labs" ? null : (deadline || null),
+          deadline: projectType === "labs" ? null : deadline || null,
         }),
       });
 
@@ -170,7 +170,9 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           id="project-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={projectType === "labs" ? "EXO Website" : "Website Redesign"}
+          placeholder={
+            projectType === "labs" ? "EXO Website" : "Website Redesign"
+          }
           required
         />
       </div>
@@ -246,7 +248,10 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="project-start-date" className="flex items-center gap-2">
+          <Label
+            htmlFor="project-start-date"
+            className="flex items-center gap-2"
+          >
             <Calendar className="h-4 w-4" />
             Start Date
           </Label>
@@ -259,7 +264,10 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
         {projectType === "client" && (
           <div className="space-y-2">
-            <Label htmlFor="project-deadline" className="flex items-center gap-2">
+            <Label
+              htmlFor="project-deadline"
+              className="flex items-center gap-2"
+            >
               <Calendar className="h-4 w-4" />
               Deadline
             </Label>
@@ -279,4 +287,3 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
     </form>
   );
 }
-

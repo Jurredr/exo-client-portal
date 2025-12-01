@@ -1,20 +1,16 @@
-"use client"
+"use client";
 
 import {
   IconDotsVertical,
   IconLogout,
   IconUserCircle,
   IconDashboard,
-} from "@tabler/icons-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+} from "@tabler/icons-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,13 +19,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 export function NavUser({
   user,
@@ -37,15 +33,15 @@ export function NavUser({
   showAdminLink = false,
 }: {
   user: {
-    name: string
-    email: string
-    avatar?: string
-  }
-  onAccountClick?: () => void
-  showAdminLink?: boolean
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+  onAccountClick?: () => void;
+  showAdminLink?: boolean;
 }) {
-  const { isMobile } = useSidebar()
-  const router = useRouter()
+  const { isMobile } = useSidebar();
+  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
@@ -136,5 +132,5 @@ export function NavUser({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

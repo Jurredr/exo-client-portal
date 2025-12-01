@@ -40,7 +40,8 @@ export default async function InvoicesPage() {
                 <div className="mb-6">
                   <h1 className="text-3xl font-bold">Invoices</h1>
                   <p className="text-muted-foreground">
-                    View and manage all invoices for projects and manual invoices
+                    View and manage all invoices for projects and manual
+                    invoices
                   </p>
                 </div>
                 <div className="space-y-6">
@@ -54,5 +55,3 @@ export default async function InvoicesPage() {
     </SidebarProvider>
   );
 }
-
-

@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { createHourRegistration, getUserByEmail, getHourRegistrationsByUser, deleteHourRegistration, updateHourRegistration } from "@/lib/db/queries";
+import {
+  createHourRegistration,
+  getUserByEmail,
+  getHourRegistrationsByUser,
+  deleteHourRegistration,
+  updateHourRegistration,
+} from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -56,14 +62,28 @@ export async function POST(request: Request) {
     }
 
     // Validate category
-    const validCategories = ["client", "administration", "brainstorming", "research", "labs"];
-    const validCategory = validCategories.includes(category) ? category : "client";
-    
+    const validCategories = [
+      "client",
+      "administration",
+      "brainstorming",
+      "research",
+      "labs",
+    ];
+    const validCategory = validCategories.includes(category)
+      ? category
+      : "client";
+
     // Validate: non-project categories (administration, brainstorming, research) should not have a project
-    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+    ];
     if (nonProjectCategories.includes(validCategory) && projectId) {
       return NextResponse.json(
-        { error: `${validCategory.charAt(0).toUpperCase() + validCategory.slice(1)} work should not be associated with a project` },
+        {
+          error: `${validCategory.charAt(0).toUpperCase() + validCategory.slice(1)} work should not be associated with a project`,
+        },
         { status: 400 }
       );
     }
@@ -129,17 +149,34 @@ export async function PATCH(request: Request) {
     // Validate category if provided
     let validCategory = registration.category;
     if (category) {
-      const validCategories = ["client", "administration", "brainstorming", "research", "labs"];
-      validCategory = validCategories.includes(category) ? category : registration.category;
+      const validCategories = [
+        "client",
+        "administration",
+        "brainstorming",
+        "research",
+        "labs",
+      ];
+      validCategory = validCategories.includes(category)
+        ? category
+        : registration.category;
     }
 
     // Validate: non-project categories (administration, brainstorming, research) should not have a project
-    const nonProjectCategories = ["administration", "brainstorming", "research"];
-    const finalProjectId = category && nonProjectCategories.includes(validCategory) ? null : (projectId || registration.projectId);
-    
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+    ];
+    const finalProjectId =
+      category && nonProjectCategories.includes(validCategory)
+        ? null
+        : projectId || registration.projectId;
+
     if (nonProjectCategories.includes(validCategory) && finalProjectId) {
       return NextResponse.json(
-        { error: `${validCategory.charAt(0).toUpperCase() + validCategory.slice(1)} work should not be associated with a project` },
+        {
+          error: `${validCategory.charAt(0).toUpperCase() + validCategory.slice(1)} work should not be associated with a project`,
+        },
         { status: 400 }
       );
     }

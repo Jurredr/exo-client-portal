@@ -71,7 +71,11 @@ export async function POST(request: Request) {
       invoiceFileType,
     } = body;
 
-    if (!description || typeof description !== "string" || description.trim().length === 0) {
+    if (
+      !description ||
+      typeof description !== "string" ||
+      description.trim().length === 0
+    ) {
       return NextResponse.json(
         { error: "Description is required" },
         { status: 400 }
@@ -139,22 +143,31 @@ export async function PATCH(request: Request) {
     // Verify the expense exists
     const existingExpense = await getExpenseById(id);
     if (!existingExpense) {
-      return NextResponse.json(
-        { error: "Expense not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Expense not found" }, { status: 404 });
     }
 
     const expense = await updateExpense(id, {
-      ...(updateData.description && { description: updateData.description.trim() }),
+      ...(updateData.description && {
+        description: updateData.description.trim(),
+      }),
       ...(updateData.amount && { amount: updateData.amount }),
       ...(updateData.currency && { currency: updateData.currency }),
       ...(updateData.date && { date: new Date(updateData.date) }),
-      ...(updateData.category !== undefined && { category: updateData.category?.trim() || null }),
-      ...(updateData.vendor !== undefined && { vendor: updateData.vendor?.trim() || null }),
-      ...(updateData.invoiceUrl !== undefined && { invoiceUrl: updateData.invoiceUrl || null }),
-      ...(updateData.invoiceFileName !== undefined && { invoiceFileName: updateData.invoiceFileName || null }),
-      ...(updateData.invoiceFileType !== undefined && { invoiceFileType: updateData.invoiceFileType || null }),
+      ...(updateData.category !== undefined && {
+        category: updateData.category?.trim() || null,
+      }),
+      ...(updateData.vendor !== undefined && {
+        vendor: updateData.vendor?.trim() || null,
+      }),
+      ...(updateData.invoiceUrl !== undefined && {
+        invoiceUrl: updateData.invoiceUrl || null,
+      }),
+      ...(updateData.invoiceFileName !== undefined && {
+        invoiceFileName: updateData.invoiceFileName || null,
+      }),
+      ...(updateData.invoiceFileType !== undefined && {
+        invoiceFileType: updateData.invoiceFileType || null,
+      }),
     });
 
     return NextResponse.json(expense);
@@ -203,4 +216,3 @@ export async function DELETE(request: Request) {
     );
   }
 }
-

@@ -4,10 +4,7 @@ import { isUserInEXOOrganization } from "@/lib/db/queries";
 import { AppSidebar } from "@/components/app-sidebar";
 import { OrganizationsTable } from "@/components/admin/OrganizationsTable";
 import { SiteHeader } from "@/components/site-header";
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default async function OrganizationsPage() {
   const supabase = await createClient();
@@ -49,4 +46,3 @@ export default async function OrganizationsPage() {
     </SidebarProvider>
   );
 }
-

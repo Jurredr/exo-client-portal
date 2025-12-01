@@ -6,4 +6,3 @@ export function formatDate(date: Date | null | undefined): string {
     year: "numeric",
   });
 }
-

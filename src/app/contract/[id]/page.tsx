@@ -58,7 +58,9 @@ export default function ContractPage() {
         const data = await response.json();
         setContract(data);
       } else {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
         toast.error(errorData.error || "Failed to load contract");
         router.push("/dashboard/contracts");
       }
@@ -96,7 +98,7 @@ export default function ContractPage() {
     setSigning(true);
     try {
       const signatureData = signatureRef.current.toDataURL();
-      
+
       const response = await fetch(`/api/contracts/${contractId}/sign`, {
         method: "POST",
         headers: {
@@ -128,13 +130,15 @@ export default function ContractPage() {
 
   const handleDownload = async () => {
     if (!contract) return;
-    
+
     try {
-      const response = await fetch(`/api/contracts/${contract.contract.id}/download`);
+      const response = await fetch(
+        `/api/contracts/${contract.contract.id}/download`
+      );
       if (!response.ok) {
         throw new Error("Failed to download contract");
       }
-      
+
       if (response.redirected) {
         window.open(response.url, "_blank");
         toast.success("Contract opened");
@@ -221,13 +225,20 @@ export default function ContractPage() {
               </h3>
               <p className="text-sm text-green-700 dark:text-green-300">
                 This contract was signed on{" "}
-                {new Date(contract.contract.signedAt!).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {new Date(contract.contract.signedAt!).toLocaleDateString(
+                  "en-US",
+                  {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  }
+                )}
                 {contract.signedByUser && (
-                  <> by {contract.signedByUser.name || contract.signedByUser.email}</>
+                  <>
+                    {" "}
+                    by{" "}
+                    {contract.signedByUser.name || contract.signedByUser.email}
+                  </>
                 )}
               </p>
               {contract.contract.signature && (
@@ -253,7 +264,7 @@ export default function ContractPage() {
             <p className="text-muted-foreground mb-4">
               Please sign the contract using the signature pad below.
             </p>
-            
+
             <div className="border-2 border-dashed rounded-lg p-4 mb-4 bg-white dark:bg-gray-900">
               <SignatureCanvas
                 ref={signatureRef}
@@ -279,5 +290,3 @@ export default function ContractPage() {
     </div>
   );
 }
-
-

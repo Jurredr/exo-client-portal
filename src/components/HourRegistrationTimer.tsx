@@ -33,10 +33,14 @@ export function HourRegistrationTimer() {
   const [showDescriptionDialog, setShowDescriptionDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<"client" | "administration" | "brainstorming" | "research" | "labs">("client");
+  const [category, setCategory] = useState<
+    "client" | "administration" | "brainstorming" | "research" | "labs"
+  >("client");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [allProjects, setAllProjects] = useState<Array<Project & { type?: string }>>([]);
+  const [allProjects, setAllProjects] = useState<
+    Array<Project & { type?: string }>
+  >([]);
   const [isSaving, setIsSaving] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -98,9 +102,15 @@ export function HourRegistrationTimer() {
     }
 
     // Validate: non-project categories shouldn't have a project
-    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+    ];
     if (nonProjectCategories.includes(category) && projectId) {
-      toast.error(`${category.charAt(0).toUpperCase() + category.slice(1)} work should not be associated with a project`);
+      toast.error(
+        `${category.charAt(0).toUpperCase() + category.slice(1)} work should not be associated with a project`
+      );
       return;
     }
 
@@ -118,7 +128,12 @@ export function HourRegistrationTimer() {
           description: description.trim(),
           hours,
           category,
-          projectId: (category === "client" || category === "labs") && projectId && projectId !== "none" ? projectId : null,
+          projectId:
+            (category === "client" || category === "labs") &&
+            projectId &&
+            projectId !== "none"
+              ? projectId
+              : null,
         }),
       });
 
@@ -159,11 +174,13 @@ export function HourRegistrationTimer() {
         const response = await fetch("/api/projects");
         if (response.ok) {
           const data = await response.json();
-          const projectsData = data.map((item: { project: Project & { type?: string } }) => ({
-            id: item.project.id,
-            title: item.project.title,
-            type: item.project.type || "client",
-          }));
+          const projectsData = data.map(
+            (item: { project: Project & { type?: string } }) => ({
+              id: item.project.id,
+              title: item.project.title,
+              type: item.project.type || "client",
+            })
+          );
           setAllProjects(projectsData);
           // Set initial projects (client projects)
           setProjects(
@@ -184,7 +201,11 @@ export function HourRegistrationTimer() {
 
   // Filter projects based on category
   useEffect(() => {
-    const nonProjectCategories = ["administration", "brainstorming", "research"];
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+    ];
     if (nonProjectCategories.includes(category)) {
       setProjects([]);
       setProjectId(undefined);
@@ -419,7 +440,16 @@ export function HourRegistrationTimer() {
               <Label htmlFor="category">Work Category *</Label>
               <Select
                 value={category}
-                onValueChange={(value) => setCategory(value as "client" | "administration" | "brainstorming" | "research" | "labs")}
+                onValueChange={(value) =>
+                  setCategory(
+                    value as
+                      | "client"
+                      | "administration"
+                      | "brainstorming"
+                      | "research"
+                      | "labs"
+                  )
+                }
               >
                 <SelectTrigger id="category" className="w-full">
                   <SelectValue placeholder="Select category" />
@@ -435,7 +465,9 @@ export function HourRegistrationTimer() {
             </div>
             {(category === "client" || category === "labs") && (
               <div className="space-y-2">
-                <Label htmlFor="project">Project {category === "client" ? "(Optional)" : ""}</Label>
+                <Label htmlFor="project">
+                  Project {category === "client" ? "(Optional)" : ""}
+                </Label>
                 <Select
                   value={projectId || "none"}
                   onValueChange={(value) =>
@@ -464,10 +496,10 @@ export function HourRegistrationTimer() {
                   category === "administration"
                     ? "Describe the administrative work you did..."
                     : category === "brainstorming"
-                    ? "Describe your brainstorming session..."
-                    : category === "research"
-                    ? "Describe the research you conducted..."
-                    : "Describe the work you did..."
+                      ? "Describe your brainstorming session..."
+                      : category === "research"
+                        ? "Describe the research you conducted..."
+                        : "Describe the work you did..."
                 }
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

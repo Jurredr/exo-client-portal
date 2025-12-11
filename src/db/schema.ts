@@ -89,7 +89,7 @@ export const hourRegistrations = pgTable("hour_registrations", {
   projectId: uuid("project_id").references(() => projects.id),
   description: text("description").notNull(),
   hours: decimal("hours", { precision: 10, scale: 2 }).notNull(), // Stored as decimal for precision
-  category: text("category").notNull().default("client"), // client, administration, brainstorming, research, labs
+  category: text("category").notNull().default("client"), // client, administration, brainstorming, research, labs, client_acquisition
   date: timestamp("date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

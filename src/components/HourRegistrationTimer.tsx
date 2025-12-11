@@ -34,7 +34,12 @@ export function HourRegistrationTimer() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<
-    "client" | "administration" | "brainstorming" | "research" | "labs"
+    | "client"
+    | "administration"
+    | "brainstorming"
+    | "research"
+    | "labs"
+    | "client_acquisition"
   >("client");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -106,6 +111,7 @@ export function HourRegistrationTimer() {
       "administration",
       "brainstorming",
       "research",
+      "client_acquisition",
     ];
     if (nonProjectCategories.includes(category) && projectId) {
       toast.error(
@@ -205,6 +211,7 @@ export function HourRegistrationTimer() {
       "administration",
       "brainstorming",
       "research",
+      "client_acquisition",
     ];
     if (nonProjectCategories.includes(category)) {
       setProjects([]);
@@ -468,6 +475,7 @@ export function HourRegistrationTimer() {
                       | "brainstorming"
                       | "research"
                       | "labs"
+                      | "client_acquisition"
                   )
                 }
               >
@@ -479,6 +487,9 @@ export function HourRegistrationTimer() {
                   <SelectItem value="administration">Administration</SelectItem>
                   <SelectItem value="brainstorming">Brainstorming</SelectItem>
                   <SelectItem value="research">Research</SelectItem>
+                  <SelectItem value="client_acquisition">
+                    Client Acquisition
+                  </SelectItem>
                   <SelectItem value="labs">EXO Labs</SelectItem>
                 </SelectContent>
               </Select>
@@ -519,7 +530,9 @@ export function HourRegistrationTimer() {
                       ? "Describe your brainstorming session..."
                       : category === "research"
                         ? "Describe the research you conducted..."
-                        : "Describe the work you did..."
+                        : category === "client_acquisition"
+                          ? "Describe the client acquisition activities..."
+                          : "Describe the work you did..."
                 }
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

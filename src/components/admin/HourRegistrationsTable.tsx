@@ -354,7 +354,8 @@ export function HourRegistrationsTable() {
       | "administration"
       | "brainstorming"
       | "research"
-      | "labs",
+      | "labs"
+      | "client_acquisition",
     projectId: undefined as string | undefined,
   });
 
@@ -377,6 +378,7 @@ export function HourRegistrationsTable() {
       "administration",
       "brainstorming",
       "research",
+      "client_acquisition",
     ];
     if (nonProjectCategories.includes(manualEntry.category)) {
       setProjects([]);
@@ -481,11 +483,12 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
+      "client_acquisition",
     ];
     if (
       nonProjectCategories.includes(manualEntry.category) &&
@@ -560,7 +563,8 @@ export function HourRegistrationsTable() {
         | "administration"
         | "brainstorming"
         | "research"
-        | "labs",
+        | "labs"
+        | "client_acquisition",
       projectId: registration.projectId || undefined,
     });
     setIsEditOpen(true);
@@ -583,11 +587,12 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
+      "client_acquisition",
     ];
     if (
       nonProjectCategories.includes(manualEntry.category) &&
@@ -742,7 +747,8 @@ export function HourRegistrationsTable() {
                           | "administration"
                           | "brainstorming"
                           | "research"
-                          | "labs",
+                          | "labs"
+                          | "client_acquisition",
                       })
                     }
                   >
@@ -758,6 +764,9 @@ export function HourRegistrationsTable() {
                         Brainstorming
                       </SelectItem>
                       <SelectItem value="research">Research</SelectItem>
+                      <SelectItem value="client_acquisition">
+                        Client Acquisition
+                      </SelectItem>
                       <SelectItem value="labs">EXO Labs</SelectItem>
                     </SelectContent>
                   </Select>
@@ -838,7 +847,9 @@ export function HourRegistrationsTable() {
                           ? "Describe your brainstorming session..."
                           : manualEntry.category === "research"
                             ? "Describe the research you conducted..."
-                            : "Describe the work you did..."
+                            : manualEntry.category === "client_acquisition"
+                              ? "Describe the client acquisition activities..."
+                              : "Describe the work you did..."
                     }
                     value={manualEntry.description}
                     onChange={(e) =>
@@ -903,7 +914,8 @@ export function HourRegistrationsTable() {
                       | "administration"
                       | "brainstorming"
                       | "research"
-                      | "labs",
+                      | "labs"
+                      | "client_acquisition",
                   })
                 }
               >
@@ -915,6 +927,9 @@ export function HourRegistrationsTable() {
                   <SelectItem value="administration">Administration</SelectItem>
                   <SelectItem value="brainstorming">Brainstorming</SelectItem>
                   <SelectItem value="research">Research</SelectItem>
+                  <SelectItem value="client_acquisition">
+                    Client Acquisition
+                  </SelectItem>
                   <SelectItem value="labs">EXO Labs</SelectItem>
                 </SelectContent>
               </Select>
@@ -989,7 +1004,9 @@ export function HourRegistrationsTable() {
                       ? "Describe your brainstorming session..."
                       : manualEntry.category === "research"
                         ? "Describe the research you conducted..."
-                        : "Describe the work you did..."
+                        : manualEntry.category === "client_acquisition"
+                          ? "Describe the client acquisition activities..."
+                          : "Describe the work you did..."
                 }
                 value={manualEntry.description}
                 onChange={(e) =>

@@ -190,7 +190,8 @@ export async function createHourRegistration(
     | "administration"
     | "brainstorming"
     | "research"
-    | "labs" = "client"
+    | "labs"
+    | "client_acquisition" = "client"
 ) {
   const [registration] = await db
     .insert(hourRegistrations)
@@ -249,7 +250,8 @@ export async function updateHourRegistration(
       | "administration"
       | "brainstorming"
       | "research"
-      | "labs";
+      | "labs"
+      | "client_acquisition";
   }
 ) {
   const updateData: any = {};
@@ -617,10 +619,7 @@ export async function getDashboardStats() {
     })
     .from(invoices)
     .where(
-      and(
-        eq(invoices.status, "paid"),
-        sql`${invoices.paidAt} IS NOT NULL`
-      )
+      and(eq(invoices.status, "paid"), sql`${invoices.paidAt} IS NOT NULL`)
     );
 
   const totalRevenue = parseFloat(totalRevenueResult[0]?.total || "0");

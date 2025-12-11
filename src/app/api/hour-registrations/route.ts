@@ -68,16 +68,18 @@ export async function POST(request: Request) {
       "brainstorming",
       "research",
       "labs",
+      "client_acquisition",
     ];
     const validCategory = validCategories.includes(category)
       ? category
       : "client";
 
-    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
+      "client_acquisition",
     ];
     if (nonProjectCategories.includes(validCategory) && projectId) {
       return NextResponse.json(
@@ -155,17 +157,19 @@ export async function PATCH(request: Request) {
         "brainstorming",
         "research",
         "labs",
+        "client_acquisition",
       ];
       validCategory = validCategories.includes(category)
         ? category
         : registration.category;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
+      "client_acquisition",
     ];
     const finalProjectId =
       category && nonProjectCategories.includes(validCategory)

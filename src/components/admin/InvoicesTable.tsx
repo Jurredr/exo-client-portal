@@ -94,11 +94,11 @@ const getStatusColor = (status: string) => {
 
 const formatDate = (dateString: string | null) => {
   if (!dateString) return "—";
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const d = new Date(dateString);
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
 };
 
 export function InvoicesTable() {
@@ -107,7 +107,9 @@ export function InvoicesTable() {
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(
+    null
+  );
   const [isEditOpen, setIsEditOpen] = useState(false);
   const isMobile = useIsMobile();
 
@@ -539,9 +541,7 @@ export function InvoicesTable() {
           <DrawerContent>
             <DrawerHeader>
               <DrawerTitle>Edit Invoice</DrawerTitle>
-              <DrawerDescription>
-                Update invoice details
-              </DrawerDescription>
+              <DrawerDescription>Update invoice details</DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
               {editingInvoice && (
@@ -572,9 +572,7 @@ export function InvoicesTable() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Invoice</DialogTitle>
-              <DialogDescription>
-                Update invoice details
-              </DialogDescription>
+              <DialogDescription>Update invoice details</DialogDescription>
             </DialogHeader>
             {editingInvoice && (
               <CreateInvoiceForm

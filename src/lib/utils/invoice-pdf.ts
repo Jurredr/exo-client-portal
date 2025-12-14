@@ -70,19 +70,21 @@ export async function generateInvoicePDF(
     doc.moveDown(2);
 
     // Invoice details
-    const invoiceDate = new Date(
-      invoice.createdAt as string
-    ).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    const invoiceDateObj = new Date(invoice.createdAt as string);
+    const invoiceDay = invoiceDateObj.getDate().toString().padStart(2, "0");
+    const invoiceMonth = (invoiceDateObj.getMonth() + 1)
+      .toString()
+      .padStart(2, "0");
+    const invoiceYear = invoiceDateObj.getFullYear();
+    const invoiceDate = `${invoiceDay}/${invoiceMonth}/${invoiceYear}`;
     const dueDate = invoice.dueDate
-      ? new Date(invoice.dueDate as string).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
+      ? (() => {
+          const dueDateObj = new Date(invoice.dueDate as string);
+          const day = dueDateObj.getDate().toString().padStart(2, "0");
+          const month = (dueDateObj.getMonth() + 1).toString().padStart(2, "0");
+          const year = dueDateObj.getFullYear();
+          return `${day}/${month}/${year}`;
+        })()
       : null;
 
     doc.fontSize(10);

@@ -246,10 +246,10 @@ export function ChartAreaInteractive() {
               minTickGap={32}
               tickFormatter={(value) => {
                 const date = new Date(value);
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                });
+                const day = date.getDate().toString().padStart(2, "0");
+                const month = (date.getMonth() + 1).toString().padStart(2, "0");
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
               }}
             />
             <ChartTooltip
@@ -257,10 +257,13 @@ export function ChartAreaInteractive() {
               content={
                 <ChartTooltipContent
                   labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    });
+                    const date = new Date(value);
+                    const day = date.getDate().toString().padStart(2, "0");
+                    const month = (date.getMonth() + 1)
+                      .toString()
+                      .padStart(2, "0");
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
                   }}
                   indicator="dot"
                 />

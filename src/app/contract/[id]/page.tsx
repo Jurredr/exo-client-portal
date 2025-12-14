@@ -225,14 +225,15 @@ export default function ContractPage() {
               </h3>
               <p className="text-sm text-green-700 dark:text-green-300">
                 This contract was signed on{" "}
-                {new Date(contract.contract.signedAt!).toLocaleDateString(
-                  "en-US",
-                  {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  }
-                )}
+                {(() => {
+                  const date = new Date(contract.contract.signedAt!);
+                  const day = date.getDate().toString().padStart(2, "0");
+                  const month = (date.getMonth() + 1)
+                    .toString()
+                    .padStart(2, "0");
+                  const year = date.getFullYear();
+                  return `${day}/${month}/${year}`;
+                })()}
                 {contract.signedByUser && (
                   <>
                     {" "}
@@ -290,7 +291,3 @@ export default function ContractPage() {
     </div>
   );
 }
-
-
-
-

@@ -113,7 +113,10 @@ const createColumns = (
     },
     cell: ({ row }) => {
       const date = new Date(row.original.date);
-      return <div>{date.toLocaleDateString()}</div>;
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const year = date.getFullYear();
+      return <div>{`${day}/${month}/${year}`}</div>;
     },
     enableSorting: true,
     sortingFn: (rowA, rowB) => {
@@ -270,9 +273,12 @@ const createColumns = (
     },
     cell: ({ row }) => {
       const date = new Date(row.original.createdAt);
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const year = date.getFullYear();
       return (
         <div className="text-muted-foreground text-sm">
-          {date.toLocaleString()}
+          {`${day}/${month}/${year}`}
         </div>
       );
     },

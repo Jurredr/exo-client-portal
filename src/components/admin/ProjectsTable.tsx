@@ -637,7 +637,8 @@ export function ProjectsTable() {
             />
           </div>
         </div>
-        {(selectedProject?.project.type === "client" || !selectedProject?.project.type) && (
+        {(selectedProject?.project.type === "client" ||
+          !selectedProject?.project.type) && (
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-3">
               <Label htmlFor="edit-subtotal">Subtotal</Label>
@@ -684,7 +685,8 @@ export function ProjectsTable() {
               }
             />
           </div>
-          {(selectedProject?.project.type === "client" || !selectedProject?.project.type) && (
+          {(selectedProject?.project.type === "client" ||
+            !selectedProject?.project.type) && (
             <div className="flex flex-col gap-3">
               <Label htmlFor="edit-deadline">Deadline</Label>
               <Input
@@ -928,7 +930,8 @@ export function ProjectsTable() {
                       />
                     </div>
                   </div>
-                  {(selectedProject.project.type === "client" || !selectedProject.project.type) && (
+                  {(selectedProject.project.type === "client" ||
+                    !selectedProject.project.type) && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="edit-subtotal">Subtotal</Label>
@@ -975,7 +978,8 @@ export function ProjectsTable() {
                         }
                       />
                     </div>
-                    {(selectedProject.project.type === "client" || !selectedProject.project.type) && (
+                    {(selectedProject.project.type === "client" ||
+                      !selectedProject.project.type) && (
                       <div className="space-y-2">
                         <Label htmlFor="edit-deadline">Deadline</Label>
                         <Input

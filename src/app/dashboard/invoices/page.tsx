@@ -55,7 +55,3 @@ export default async function InvoicesPage() {
     </SidebarProvider>
   );
 }
-
-
-
-

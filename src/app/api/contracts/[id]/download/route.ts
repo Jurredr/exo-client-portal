@@ -50,7 +50,3 @@ export async function GET(
     );
   }
 }
-
-
-
-

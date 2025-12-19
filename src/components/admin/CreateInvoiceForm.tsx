@@ -74,7 +74,9 @@ export function CreateInvoiceForm({
   const [description, setDescription] = useState(invoice?.description || "");
   const [status, setStatus] = useState(invoice?.status || "draft");
   const [dueDate, setDueDate] = useState(
-    invoice?.dueDate ? new Date(invoice.dueDate).toISOString().split("T")[0] : ""
+    invoice?.dueDate
+      ? new Date(invoice.dueDate).toISOString().split("T")[0]
+      : ""
   );
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -86,9 +88,9 @@ export function CreateInvoiceForm({
   const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
     invoice?.invoiceNumber || ""
   );
-  const [paymentStage, setPaymentStage] = useState<"first" | "final" | "custom">(
-    "custom"
-  );
+  const [paymentStage, setPaymentStage] = useState<
+    "first" | "final" | "custom"
+  >("custom");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
@@ -128,9 +130,7 @@ export function CreateInvoiceForm({
           const data = await response.json();
           // Filter projects by selected organization
           const filteredProjects = data
-            .filter(
-              (p: any) => p.project.organizationId === organizationId
-            )
+            .filter((p: any) => p.project.organizationId === organizationId)
             .map((p: any) => ({
               id: p.project.id,
               title: p.project.title,
@@ -152,7 +152,11 @@ export function CreateInvoiceForm({
 
   // Auto-calculate amount when project and payment stage change
   useEffect(() => {
-    if (selectedProject && paymentStage !== "custom" && selectedProject.subtotal) {
+    if (
+      selectedProject &&
+      paymentStage !== "custom" &&
+      selectedProject.subtotal
+    ) {
       const calculatedAmount = calculatePaymentAmount(
         selectedProject.subtotal,
         paymentStage === "first" ? "pay_first" : "pay_final",
@@ -166,12 +170,14 @@ export function CreateInvoiceForm({
           .replace(/\s/g, "");
         setAmount(amountValue);
         setCurrency(selectedProject.currency as "USD" | "EUR");
-        
+
         // Auto-update description only if it's empty or matches the pattern
         // (to avoid overwriting user-entered descriptions)
         if (!description || description.includes("Payment for")) {
           const stageText = paymentStage === "first" ? "First" : "Final";
-          setDescription(`Payment for ${selectedProject.title} - ${stageText} payment`);
+          setDescription(
+            `Payment for ${selectedProject.title} - ${stageText} payment`
+          );
         }
       }
     }
@@ -411,7 +417,8 @@ export function CreateInvoiceForm({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Auto-calculates 50% of total (including VAT) based on project subtotal
+            Auto-calculates 50% of total (including VAT) based on project
+            subtotal
           </p>
         </div>
       )}

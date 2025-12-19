@@ -54,7 +54,3 @@ export default async function ContractsPage() {
     </SidebarProvider>
   );
 }
-
-
-
-

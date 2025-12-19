@@ -234,7 +234,10 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       {projectType === "client" && (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="project-subtotal" className="flex items-center gap-2">
+            <Label
+              htmlFor="project-subtotal"
+              className="flex items-center gap-2"
+            >
               <DollarSign className="h-4 w-4" />
               Subtotal *
             </Label>

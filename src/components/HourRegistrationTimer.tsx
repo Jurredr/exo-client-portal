@@ -19,19 +19,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
-import { Play, Pause, X, Clock, Check } from "lucide-react";
+import {
+  Play,
+  Pause,
+  X,
+  Clock,
+  Check,
+  Split,
+  Coffee,
+  Edit,
+  Trash2,
+} from "lucide-react";
 
 interface Project {
   id: string;
   title: string;
 }
 
+interface SplitEntry {
+  id: string;
+  description: string;
+  category:
+    | "client"
+    | "administration"
+    | "brainstorming"
+    | "research"
+    | "labs"
+    | "client_acquisition";
+  projectId?: string;
+  duration: number; // in seconds
+  isBreak: boolean;
+}
+
 export function HourRegistrationTimer() {
   const [isRunning, setIsRunning] = useState(false);
+  const [isBreakMode, setIsBreakMode] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [showDescriptionDialog, setShowDescriptionDialog] = useState(false);
+  const [splits, setSplits] = useState<SplitEntry[]>([]);
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [editingSplitId, setEditingSplitId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<
     | "client"
@@ -49,18 +85,57 @@ export function HourRegistrationTimer() {
   const [isSaving, setIsSaving] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const splitStartTimeRef = useRef<number | null>(null);
+  const breakStartTimeRef = useRef<number | null>(null);
+  const splitPausedTimeRef = useRef<number>(0); // Accumulated split time before break
 
-  // Round up to full minutes
-  const roundUpToMinutes = (totalSeconds: number) => {
-    if (totalSeconds === 0) return 0;
-    return Math.ceil(totalSeconds / 60) * 60;
+  // Format time as stopwatch (HH:MM:SS)
+  const formatStopwatch = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const pad = (n: number) => n.toString().padStart(2, "0");
+
+    if (hours > 0) {
+      return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+    }
+    return `${minutes}:${pad(seconds)}`;
   };
 
-  // Format time as "xhrs ymin"
+  // Format time with individual digit containers for stopwatch display
+  const formatStopwatchDigits = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const pad = (n: number) => n.toString().padStart(2, "0");
+
+    if (hours > 0) {
+      const hoursStr = pad(hours);
+      const minutesStr = pad(minutes);
+      const secondsStr = pad(seconds);
+      return {
+        hours: hoursStr.split(""),
+        minutes: minutesStr.split(""),
+        seconds: secondsStr.split(""),
+        showHours: true,
+      };
+    }
+    const minutesStr = pad(minutes);
+    const secondsStr = pad(seconds);
+    return {
+      hours: [],
+      minutes: minutesStr.split(""),
+      seconds: secondsStr.split(""),
+      showHours: false,
+    };
+  };
+
+  // Format time as "xhrs ymin" for display in table
   const formatTime = (totalSeconds: number) => {
-    const roundedSeconds = roundUpToMinutes(totalSeconds);
-    const hours = Math.floor(roundedSeconds / 3600);
-    const minutes = Math.floor((roundedSeconds % 3600) / 60);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
 
     if (hours === 0 && minutes === 0) {
       return "0min";
@@ -77,6 +152,12 @@ export function HourRegistrationTimer() {
     return parts.join(" ");
   };
 
+  // Round up to full minutes
+  const roundUpToMinutes = (totalSeconds: number) => {
+    if (totalSeconds === 0) return 0;
+    return Math.ceil(totalSeconds / 60) * 60;
+  };
+
   // Calculate hours from rounded minutes (as decimal)
   const getHours = (totalSeconds: number) => {
     const roundedSeconds = roundUpToMinutes(totalSeconds);
@@ -87,22 +168,90 @@ export function HourRegistrationTimer() {
   const handleStart = () => {
     setIsRunning(true);
     startTimeRef.current = Date.now() - elapsedSeconds * 1000;
+    // Initialize split timer if not already set and not in break mode
+    if (!splitStartTimeRef.current && !isBreakMode) {
+      splitStartTimeRef.current = Date.now();
+    }
   };
 
-  // Pause timer (just pause, don't open dialog)
+  // Pause timer
   const handlePause = () => {
     setIsRunning(false);
   };
 
-  // Submit timer (pause and show description dialog)
-  const handleSubmit = () => {
-    setIsRunning(false);
-    setShowDescriptionDialog(true);
+  // Enter break mode
+  const handleBreak = () => {
+    if (isBreakMode) {
+      // Exit break mode - add break entry
+      if (breakStartTimeRef.current) {
+        const breakDuration = Math.floor(
+          (Date.now() - breakStartTimeRef.current) / 1000
+        );
+        if (breakDuration > 0) {
+          const breakEntry: SplitEntry = {
+            id: `break-${Date.now()}`,
+            description: "Break",
+            category: "administration",
+            duration: breakDuration,
+            isBreak: true,
+          };
+          setSplits([...splits, breakEntry]);
+        }
+      }
+      setIsBreakMode(false);
+      breakStartTimeRef.current = null;
+      // Resume split timer when exiting break (if timer is running)
+      // The split timer continues from where it paused, so we adjust the start time
+      if (isRunning) {
+        if (splitPausedTimeRef.current > 0) {
+          // Resume from where we paused
+          splitStartTimeRef.current = Date.now() - splitPausedTimeRef.current * 1000;
+          splitPausedTimeRef.current = 0;
+        } else if (!splitStartTimeRef.current) {
+          // Start fresh if no paused time
+          splitStartTimeRef.current = Date.now();
+        }
+      }
+    } else {
+      // Enter break mode - pause split timer
+      if (splitStartTimeRef.current) {
+        // Calculate how much split time has elapsed so far
+        splitPausedTimeRef.current = Math.floor(
+          (Date.now() - splitStartTimeRef.current) / 1000
+        );
+        splitStartTimeRef.current = null; // Pause split timer
+      }
+      setIsBreakMode(true);
+      breakStartTimeRef.current = Date.now();
+    }
   };
 
-  // Save hour registration
-  const handleSave = async () => {
-    if (!description.trim()) {
+  // Add split
+  const handleSplit = () => {
+    if (isBreakMode) {
+      toast.error("Cannot create a split during break mode");
+      return;
+    }
+    if (splitStartTimeRef.current) {
+      const splitDuration = Math.floor(
+        (Date.now() - splitStartTimeRef.current) / 1000
+      );
+      if (splitDuration > 0) {
+        // Pause timer to capture split
+        setIsRunning(false);
+        setShowSplitDialog(true);
+      } else {
+        toast.error("No time elapsed to create a split");
+      }
+    } else {
+      toast.error("Timer hasn't been started yet");
+    }
+  };
+
+  // Save split
+  const handleSaveSplit = () => {
+    if (!description.trim() && !editingSplitId) {
+      toast.error("Description is required");
       return;
     }
 
@@ -120,49 +269,173 @@ export function HourRegistrationTimer() {
       return;
     }
 
-    setIsSaving(true);
-    try {
-      // Use rounded minutes for saving
-      const roundedSeconds = roundUpToMinutes(elapsedSeconds);
-      const hours = roundedSeconds / 3600;
-      const response = await fetch("/api/hour-registrations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+    if (editingSplitId) {
+      // Update existing split
+      setSplits(
+        splits.map((split) =>
+          split.id === editingSplitId
+            ? {
+                ...split,
+                description: description.trim() || split.description,
+                category,
+                projectId:
+                  (category === "client" || category === "labs") &&
+                  projectId &&
+                  projectId !== "none"
+                    ? projectId
+                    : undefined,
+              }
+            : split
+        )
+      );
+      setEditingSplitId(null);
+    } else {
+      // Create new split - calculate duration from when split started (excluding break time)
+      if (splitStartTimeRef.current) {
+        const splitDuration = Math.floor(
+          (Date.now() - splitStartTimeRef.current) / 1000
+        );
+        if (splitDuration > 0) {
+          const newSplit: SplitEntry = {
+            id: `split-${Date.now()}`,
+            description: description.trim(),
+            category,
+            projectId:
+              (category === "client" || category === "labs") &&
+              projectId &&
+              projectId !== "none"
+                ? projectId
+                : undefined,
+            duration: splitDuration,
+            isBreak: false,
+          };
+          setSplits([...splits, newSplit]);
+          // Reset split timer for next split
+          splitStartTimeRef.current = Date.now();
+          splitPausedTimeRef.current = 0;
+        } else {
+          toast.error("No time elapsed to create a split");
+          return;
+        }
+      } else if (splitPausedTimeRef.current > 0) {
+        // Use paused time if split timer was paused (e.g., during break)
+        const newSplit: SplitEntry = {
+          id: `split-${Date.now()}`,
           description: description.trim(),
-          hours,
           category,
           projectId:
             (category === "client" || category === "labs") &&
             projectId &&
             projectId !== "none"
               ? projectId
-              : null,
-        }),
+              : undefined,
+          duration: splitPausedTimeRef.current,
+          isBreak: false,
+        };
+        setSplits([...splits, newSplit]);
+        // Reset for next split
+        splitStartTimeRef.current = Date.now();
+        splitPausedTimeRef.current = 0;
+      } else {
+        toast.error("Split timer not initialized");
+        return;
+      }
+    }
+
+    // Reset form
+    setDescription("");
+    setCategory("client");
+    setProjectId(undefined);
+    setShowSplitDialog(false);
+    setEditingSplitId(null);
+
+    // Resume timer if it was running before split
+    if (!isRunning && !isBreakMode) {
+      handleStart();
+    }
+  };
+
+  // Edit split
+  const handleEditSplit = (split: SplitEntry) => {
+    setEditingSplitId(split.id);
+    setDescription(split.description);
+    setCategory(split.category);
+    setProjectId(split.projectId);
+    setShowSplitDialog(true);
+  };
+
+  // Delete split
+  const handleDeleteSplit = (splitId: string) => {
+    setSplits(splits.filter((split) => split.id !== splitId));
+  };
+
+  // Submit all splits
+  const handleSubmit = async () => {
+    // Filter out breaks and get only work splits
+    const workSplits = splits.filter((split) => !split.isBreak);
+
+    if (workSplits.length === 0) {
+      toast.error("No work splits to submit");
+      return;
+    }
+
+    setIsSaving(true);
+    setIsRunning(false);
+
+    try {
+      // Submit each split as a separate hour registration
+      const promises = workSplits.map(async (split) => {
+        const hours = getHours(split.duration);
+        const response = await fetch("/api/hour-registrations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            description: split.description,
+            hours,
+            category: split.category,
+            projectId:
+              (split.category === "client" || split.category === "labs") &&
+              split.projectId &&
+              split.projectId !== "none"
+                ? split.projectId
+                : null,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to save split: ${split.description}`);
+        }
+
+        return response.json();
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to save hour registration");
-      }
+      await Promise.all(promises);
 
-      toast.success("Hour registration saved successfully");
+      toast.success(
+        `Successfully saved ${workSplits.length} hour registration${
+          workSplits.length > 1 ? "s" : ""
+        }`
+      );
 
-      // Reset timer
+      // Reset timer and splits
       setIsRunning(false);
       setElapsedSeconds(0);
       startTimeRef.current = null;
+      splitStartTimeRef.current = null;
+      breakStartTimeRef.current = null;
+      setIsBreakMode(false);
+      setSplits([]);
       setDescription("");
       setCategory("client");
       setProjectId(undefined);
-      setShowDescriptionDialog(false);
 
       // Trigger refresh of hour registrations table
       window.dispatchEvent(new Event("hour-registration-saved"));
     } catch (error) {
-      console.error("Error saving hour registration:", error);
-      alert("Failed to save hour registration. Please try again.");
+      console.error("Error saving hour registrations:", error);
+      toast.error("Failed to save hour registrations. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -171,6 +444,22 @@ export function HourRegistrationTimer() {
   // Cancel timer with confirmation
   const handleCancel = () => {
     setShowCancelDialog(true);
+  };
+
+  // Confirm cancel
+  const handleConfirmCancel = () => {
+    setIsRunning(false);
+    setElapsedSeconds(0);
+    startTimeRef.current = null;
+    splitStartTimeRef.current = null;
+    breakStartTimeRef.current = null;
+    splitPausedTimeRef.current = 0;
+    setIsBreakMode(false);
+    setSplits([]);
+    setShowCancelDialog(false);
+    setDescription("");
+    setCategory("client");
+    setProjectId(undefined);
   };
 
   // Fetch projects on mount
@@ -240,82 +529,19 @@ export function HourRegistrationTimer() {
     }
   }, [category, allProjects]);
 
-  // Keyboard shortcuts (spacebar for start/pause, enter for submit, escape for cancel)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts if user is typing in an input/textarea or if dialogs are open
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement ||
-        showDescriptionDialog ||
-        showCancelDialog
-      ) {
-        // Allow Enter in description dialog to submit
-        if (e.key === "Enter" && showDescriptionDialog && !e.shiftKey) {
-          const descriptionInput = document.getElementById(
-            "description"
-          ) as HTMLTextAreaElement;
-          if (descriptionInput && descriptionInput.value.trim() && !isSaving) {
-            e.preventDefault();
-            handleSave();
-          }
-        }
-        return;
+  // Close split dialog handler
+  const handleCloseSplitDialog = (open: boolean) => {
+    if (!open) {
+      setShowSplitDialog(false);
+      setEditingSplitId(null);
+      setDescription("");
+      setCategory("client");
+      setProjectId(undefined);
+      // Resume timer if it was running before opening dialog
+      if (!isRunning && !isBreakMode && splitStartTimeRef.current) {
+        handleStart();
       }
-
-      // Handle escape key for cancel (when timer has elapsed time, running or paused)
-      if (
-        e.key === "Escape" &&
-        elapsedSeconds > 0 &&
-        !showDescriptionDialog &&
-        !showCancelDialog
-      ) {
-        e.preventDefault();
-        handleCancel();
-        return;
-      }
-
-      // Spacebar: start/pause
-      if (e.code === "Space" || e.key === " ") {
-        e.preventDefault();
-        if (!isRunning) {
-          handleStart();
-        } else {
-          handlePause();
-        }
-      }
-
-      // Enter: submit (open description dialog) - works when running or paused with elapsed time
-      if (e.key === "Enter" && elapsedSeconds > 0) {
-        e.preventDefault();
-        handleSubmit();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    isRunning,
-    elapsedSeconds,
-    showDescriptionDialog,
-    showCancelDialog,
-    isSaving,
-    description,
-    handleSave,
-    handleStart,
-    handlePause,
-    handleSubmit,
-    handleCancel,
-  ]);
-
-  // Confirm cancel
-  const handleConfirmCancel = () => {
-    setIsRunning(false);
-    setElapsedSeconds(0);
-    startTimeRef.current = null;
-    setShowCancelDialog(false);
-    setDescription("");
+    }
   };
 
   // Timer effect
@@ -348,7 +574,6 @@ export function HourRegistrationTimer() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isRunning) {
         e.preventDefault();
-        // Modern browsers ignore custom messages and show their own
         e.returnValue = "";
         return "";
       }
@@ -363,6 +588,20 @@ export function HourRegistrationTimer() {
     };
   }, [isRunning]);
 
+  // Calculate total work time (excluding breaks)
+  const totalWorkTime = splits
+    .filter((split) => !split.isBreak)
+    .reduce((sum, split) => sum + split.duration, 0);
+
+  const categoryLabels: Record<string, string> = {
+    client: "Client Work",
+    administration: "Administration",
+    brainstorming: "Brainstorming",
+    research: "Research",
+    client_acquisition: "Client Acquisition",
+    labs: "EXO Labs",
+  };
+
   return (
     <>
       <div className="rounded-lg border bg-card p-6 shadow-sm">
@@ -374,63 +613,153 @@ export function HourRegistrationTimer() {
         </div>
 
         <div className="mb-6">
-          <div className="text-4xl font-bold text-center mb-2">
-            {formatTime(elapsedSeconds)}
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {(() => {
+              const digits = formatStopwatchDigits(elapsedSeconds);
+              return (
+                <>
+                  {digits.showHours && (
+                    <>
+                      {digits.hours.map((digit, idx) => (
+                        <div
+                          key={`hour-${idx}`}
+                          className={`w-12 h-16 rounded-lg border-2 flex items-center justify-center text-4xl font-mono font-bold ${
+                            isBreakMode
+                              ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                              : "border-border bg-muted"
+                          }`}
+                        >
+                          {digit}
+                        </div>
+                      ))}
+                      <span
+                        className={`text-4xl font-mono font-bold ${
+                          isBreakMode ? "text-orange-500" : ""
+                        }`}
+                      >
+                        :
+                      </span>
+                    </>
+                  )}
+                  {digits.minutes.map((digit, idx) => (
+                    <div
+                      key={`minute-${idx}`}
+                      className={`w-12 h-16 rounded-lg border-2 flex items-center justify-center text-4xl font-mono font-bold ${
+                        isBreakMode
+                          ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                          : "border-border bg-muted"
+                      }`}
+                    >
+                      {digit}
+                    </div>
+                  ))}
+                  <span
+                    className={`text-4xl font-mono font-bold ${
+                      isBreakMode ? "text-orange-500" : ""
+                    }`}
+                  >
+                    :
+                  </span>
+                  {digits.seconds.map((digit, idx) => (
+                    <div
+                      key={`second-${idx}`}
+                      className={`w-12 h-16 rounded-lg border-2 flex items-center justify-center text-4xl font-mono font-bold ${
+                        isBreakMode
+                          ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                          : "border-border bg-muted"
+                      }`}
+                    >
+                      {digit}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
           </div>
+          {isBreakMode && (
+            <div className="text-center text-sm text-muted-foreground">
+              Break Mode
+            </div>
+          )}
         </div>
 
-        <div className="flex gap-2 justify-center">
+        <div className="flex gap-2 justify-center mb-4">
           {!isRunning && elapsedSeconds === 0 ? (
             <Button onClick={handleStart} size="lg" className="flex-1">
               <Play className="h-4 w-4 mr-2" />
               Start
             </Button>
-          ) : !isRunning ? (
-            <>
-              <Button
-                onClick={handleStart}
-                size="lg"
-                variant="secondary"
-                className="flex-1"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Continue
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                size="lg"
-                variant="default"
-                className="flex-1"
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Submit
-              </Button>
-              <Button
-                onClick={handleCancel}
-                size="lg"
-                variant="destructive"
-                className="flex-1"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-            </>
           ) : (
             <>
-              <Button
-                onClick={handlePause}
-                size="lg"
-                variant="secondary"
-                className="flex-1"
-              >
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
-              </Button>
+              {isRunning ? (
+                <>
+                  <Button
+                    onClick={handlePause}
+                    size="lg"
+                    variant="secondary"
+                    className="flex-1"
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Pause
+                  </Button>
+                  <Button
+                    onClick={handleSplit}
+                    size="lg"
+                    variant="outline"
+                    className="flex-1"
+                    disabled={isBreakMode}
+                  >
+                    <Split className="h-4 w-4 mr-2" />
+                    Split
+                  </Button>
+                  <Button
+                    onClick={handleBreak}
+                    size="lg"
+                    variant={isBreakMode ? "default" : "outline"}
+                    className="flex-1"
+                  >
+                    <Coffee className="h-4 w-4 mr-2" />
+                    {isBreakMode ? "End Break" : "Break"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleStart}
+                    size="lg"
+                    variant="secondary"
+                    className="flex-1"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Continue
+                  </Button>
+                  <Button
+                    onClick={handleSplit}
+                    size="lg"
+                    variant="outline"
+                    className="flex-1"
+                    disabled={isBreakMode}
+                  >
+                    <Split className="h-4 w-4 mr-2" />
+                    Split
+                  </Button>
+                  <Button
+                    onClick={handleBreak}
+                    size="lg"
+                    variant={isBreakMode ? "default" : "outline"}
+                    className="flex-1"
+                  >
+                    <Coffee className="h-4 w-4 mr-2" />
+                    {isBreakMode ? "End Break" : "Break"}
+                  </Button>
+                </>
+              )}
               <Button
                 onClick={handleSubmit}
                 size="lg"
                 variant="default"
                 className="flex-1"
+                disabled={splits.filter((s) => !s.isBreak).length === 0}
               >
                 <Check className="h-4 w-4 mr-2" />
                 Submit
@@ -447,19 +776,83 @@ export function HourRegistrationTimer() {
             </>
           )}
         </div>
+
+        {/* Splits Table */}
+        {splits.length > 0 && (
+          <div className="mt-6 border rounded-lg">
+            <div className="p-4 border-b">
+              <h4 className="font-semibold">Splits</h4>
+              <p className="text-sm text-muted-foreground">
+                Total work time: {formatTime(totalWorkTime)}
+              </p>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {splits.map((split) => (
+                  <TableRow key={split.id}>
+                    <TableCell className="max-w-[300px] truncate">
+                      {split.isBreak ? (
+                        <span className="text-orange-500">{split.description}</span>
+                      ) : (
+                        split.description
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {split.isBreak
+                        ? "-"
+                        : categoryLabels[split.category] || split.category}
+                    </TableCell>
+                    <TableCell>{formatTime(split.duration)}</TableCell>
+                    <TableCell>
+                      {!split.isBreak && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditSplit(split)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteSplit(split.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
-      {/* Description Dialog */}
+      {/* Split Dialog */}
       <Dialog
-        open={showDescriptionDialog}
-        onOpenChange={setShowDescriptionDialog}
+        open={showSplitDialog}
+        onOpenChange={(open) => handleCloseSplitDialog(open)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enter Work Description</DialogTitle>
+            <DialogTitle>
+              {editingSplitId ? "Edit Split" : "Add Split"}
+            </DialogTitle>
             <DialogDescription>
-              Please describe the work you completed during this session (
-              {formatTime(elapsedSeconds)}).
+              {editingSplitId
+                ? "Update the description and category for this split."
+                : "Describe the work you completed in this split."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -543,20 +936,14 @@ export function HourRegistrationTimer() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowDescriptionDialog(false);
-                setIsRunning(true); // Resume timer
-              }}
-            >
-              Continue Timer
+            <Button variant="outline" onClick={handleCloseSplitDialog}>
+              Cancel
             </Button>
             <Button
-              onClick={handleSave}
-              disabled={!description.trim() || isSaving}
+              onClick={handleSaveSplit}
+              disabled={!description.trim() && !editingSplitId}
             >
-              {isSaving ? "Saving..." : "Save Entry"}
+              {editingSplitId ? "Update Split" : "Add Split"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -568,9 +955,8 @@ export function HourRegistrationTimer() {
           <DialogHeader>
             <DialogTitle>Cancel Timer?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to cancel this timer? All progress (
-              {formatTime(elapsedSeconds)}) will be lost and no entry will be
-              saved.
+              Are you sure you want to cancel this timer? All progress and
+              splits will be lost and no entries will be saved.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

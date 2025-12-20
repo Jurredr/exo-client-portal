@@ -92,6 +92,7 @@ interface ProjectData {
 const PROJECT_STAGES = CLIENT_PROJECT_STAGES;
 
 const PROJECT_STATUSES: StatusOption[] = [
+  { value: "lead", label: "Lead", state: "bg-purple-500" },
   { value: "active", label: "Active", state: "bg-green-500" },
   { value: "completed", label: "Completed", state: "bg-blue-500" },
   { value: "on_hold", label: "On Hold", state: "bg-yellow-500" },

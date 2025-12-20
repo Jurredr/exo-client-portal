@@ -25,6 +25,7 @@ interface Organization {
 }
 
 const PROJECT_STATUSES: StatusOption[] = [
+  { value: "lead", label: "Lead", state: "bg-purple-500" },
   { value: "active", label: "Active", state: "bg-green-500" },
   { value: "completed", label: "Completed", state: "bg-blue-500" },
   { value: "on_hold", label: "On Hold", state: "bg-yellow-500" },
@@ -89,11 +90,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
-    // Subtotal is required for client projects, optional for EXO Labs
-    if (projectType === "client" && !subtotal.trim()) {
-      toast.error("Subtotal is required for client projects");
-      return;
-    }
+    // Subtotal is optional for all project types
 
     if (!organizationId) {
       toast.error("Organization is required");
@@ -112,8 +109,8 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
           description: description.trim() || null,
           organizationId,
           type: projectType,
-          subtotal: projectType === "labs" ? null : subtotal.trim(),
-          currency,
+          subtotal: subtotal && subtotal.trim() ? subtotal.trim() : null,
+          currency: currency || "EUR",
           status,
           stage,
           startDate: startDate || null,
@@ -239,18 +236,17 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
               className="flex items-center gap-2"
             >
               <DollarSign className="h-4 w-4" />
-              Subtotal *
+              Subtotal
             </Label>
             <Input
               id="project-subtotal"
               value={subtotal}
               onChange={(e) => setSubtotal(e.target.value)}
               placeholder="5000.00"
-              required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="project-currency">Currency *</Label>
+            <Label htmlFor="project-currency">Currency</Label>
             <Select
               value={currency}
               onValueChange={(value) => setCurrency(value as "USD" | "EUR")}

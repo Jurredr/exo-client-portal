@@ -86,16 +86,7 @@ export async function POST(request: Request) {
 
     const projectType = type === "labs" ? "labs" : "client";
 
-    // For client projects, subtotal is required
-    if (
-      projectType === "client" &&
-      (!subtotal || typeof subtotal !== "string")
-    ) {
-      return NextResponse.json(
-        { error: "Subtotal is required for client projects" },
-        { status: 400 }
-      );
-    }
+    // Subtotal is optional for all project types
 
     if (!organizationId || typeof organizationId !== "string") {
       return NextResponse.json(
@@ -122,7 +113,7 @@ export async function POST(request: Request) {
       stage: stage || getDefaultStage(projectType),
       startDate: startDate ? new Date(startDate) : null,
       deadline: deadline ? new Date(deadline) : null,
-      subtotal: projectType === "labs" ? null : subtotal || null,
+      subtotal: subtotal || null,
       currency: currency || "EUR",
       type: projectType,
       organizationId,
@@ -175,13 +166,7 @@ export async function PATCH(request: Request) {
     const projectType =
       updateData.type === "labs" ? "labs" : currentProject.type || "client";
 
-    // Validate subtotal: required for client projects, not for labs
-    if (projectType === "client" && updateData.subtotal === null) {
-      return NextResponse.json(
-        { error: "Subtotal is required for client projects" },
-        { status: 400 }
-      );
-    }
+    // Subtotal is optional for all project types
 
     const project = await updateProject(id, {
       ...(updateData.title && { title: updateData.title }),
@@ -197,7 +182,7 @@ export async function PATCH(request: Request) {
         deadline: updateData.deadline ? new Date(updateData.deadline) : null,
       }),
       ...(updateData.subtotal !== undefined && {
-        subtotal: projectType === "labs" ? null : updateData.subtotal,
+        subtotal: updateData.subtotal,
       }),
       ...(updateData.currency && { currency: updateData.currency }),
       ...(updateData.type && { type: projectType }),

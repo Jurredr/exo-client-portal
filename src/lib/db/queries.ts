@@ -314,15 +314,15 @@ export async function getAllOrganizations() {
     .from(organizations)
     .orderBy(organizations.name);
 
-  // Get user counts for each organization
+  // Get user counts for each organization from the junction table
+  // This correctly counts users who are part of multiple organizations
   const userCounts = await db
     .select({
-      organizationId: users.organizationId,
-      count: sql<number>`COUNT(*)::int`.as("count"),
+      organizationId: userOrganizations.organizationId,
+      count: sql<number>`COUNT(DISTINCT ${userOrganizations.userId})::int`.as("count"),
     })
-    .from(users)
-    .where(sql`${users.organizationId} IS NOT NULL`)
-    .groupBy(users.organizationId);
+    .from(userOrganizations)
+    .groupBy(userOrganizations.organizationId);
 
   // Create a map of organizationId -> count
   const countMap: Record<string, number> = {};

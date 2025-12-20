@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { projects, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { ensureUserExists, isAdmin } from "@/lib/db/queries";
+import {
+  ensureUserExists,
+  isAdmin,
+  isUserInEXOOrganization,
+} from "@/lib/db/queries";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -21,6 +25,12 @@ export default async function Home() {
     user.user_metadata?.name || user.user_metadata?.full_name,
     user.user_metadata?.avatar_url || user.user_metadata?.image
   );
+
+  // If user is in EXO organization, redirect to dashboard
+  const isInEXO = await isUserInEXOOrganization(user.email);
+  if (isInEXO) {
+    redirect("/dashboard");
+  }
 
   // Admins can see all projects, others need organization
   if (isAdmin(user.email)) {

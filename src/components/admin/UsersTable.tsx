@@ -612,7 +612,7 @@ export function UsersTable() {
     <div className="space-y-4">
       <div>
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-semibold">Users</h2>
+          <h2 className="text-3xl font-bold">Users</h2>
           <span className="text-sm text-muted-foreground">
             ({users.length})
           </span>
@@ -734,7 +734,10 @@ export function UsersTable() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-phone" className="flex items-center gap-2">
+                    <Label
+                      htmlFor="edit-phone"
+                      className="flex items-center gap-2"
+                    >
                       <Phone className="h-4 w-4" />
                       Phone
                     </Label>
@@ -747,7 +750,10 @@ export function UsersTable() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-note" className="flex items-center gap-2">
+                    <Label
+                      htmlFor="edit-note"
+                      className="flex items-center gap-2"
+                    >
                       <FileText className="h-4 w-4" />
                       Note
                     </Label>

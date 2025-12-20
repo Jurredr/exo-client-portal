@@ -276,9 +276,15 @@ export function InvoicesTable() {
         header: "Transaction Type",
         cell: ({ row }) => (
           <Badge
-            variant={row.original.invoice.transactionType === "credit" ? "default" : "outline"}
+            variant={
+              row.original.invoice.transactionType === "credit"
+                ? "default"
+                : "outline"
+            }
           >
-            {row.original.invoice.transactionType === "credit" ? "Credit" : "Debit"}
+            {row.original.invoice.transactionType === "credit"
+              ? "Credit"
+              : "Debit"}
           </Badge>
         ),
         enableSorting: false,
@@ -486,6 +492,18 @@ export function InvoicesTable() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-3xl font-bold">Invoices</h2>
+          <span className="text-sm text-muted-foreground">
+            ({invoices.length})
+          </span>
+        </div>
+        <p className="text-muted-foreground">
+          View and manage all invoices for projects and manual invoices
+        </p>
+      </div>
+
       <EnhancedDataTable
         columns={columns}
         data={invoices}

@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import {
   FileText,
   Download,
@@ -374,6 +373,18 @@ export function ContractsTable() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-3xl font-bold">Contracts</h2>
+          <span className="text-sm text-muted-foreground">
+            ({contracts.length})
+          </span>
+        </div>
+        <p className="text-muted-foreground">
+          View and manage all contracts for projects
+        </p>
+      </div>
+
       <EnhancedDataTable
         columns={columns}
         data={contracts}

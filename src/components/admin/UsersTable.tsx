@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
@@ -36,6 +37,8 @@ import {
   Pencil,
   MoreVertical,
   ArrowUpDown,
+  Phone,
+  FileText,
 } from "lucide-react";
 import { CreateUserForm } from "./CreateUserForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
@@ -56,6 +59,8 @@ interface UserData {
     id: string;
     email: string;
     name: string | null;
+    phone: string | null;
+    note: string | null;
     image: string | null;
     organizationId: string | null;
     createdAt: string;
@@ -417,6 +422,8 @@ export function UsersTable() {
 
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const name = formData.get("name") as string;
+    const phone = formData.get("phone") as string;
+    const note = formData.get("note") as string;
 
     try {
       const response = await fetch("/api/users", {
@@ -427,6 +434,8 @@ export function UsersTable() {
         body: JSON.stringify({
           id: selectedUser.user.id,
           name: name.trim() || null,
+          phone: phone.trim() || null,
+          note: note.trim() || null,
           organizationIds:
             selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
           image: imageBase64 || selectedUser.user.image || null,
@@ -506,6 +515,33 @@ export function UsersTable() {
             id="edit-name"
             name="name"
             defaultValue={selectedUser?.user.name || ""}
+          />
+        </div>
+        <div className="flex flex-col gap-3">
+          <Label htmlFor="edit-phone" className="flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Phone
+          </Label>
+          <Input
+            id="edit-phone"
+            name="phone"
+            type="tel"
+            defaultValue={selectedUser?.user.phone || ""}
+            placeholder="+1 234 567 8900"
+          />
+        </div>
+        <div className="flex flex-col gap-3">
+          <Label htmlFor="edit-note" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Note
+          </Label>
+          <Textarea
+            id="edit-note"
+            name="note"
+            defaultValue={selectedUser?.user.note || ""}
+            placeholder="Add any notes about this user..."
+            rows={3}
+            className="resize-none"
           />
         </div>
         <div className="flex flex-col gap-3">
@@ -690,6 +726,33 @@ export function UsersTable() {
                       id="edit-name"
                       name="name"
                       defaultValue={selectedUser.user.name || ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-phone" className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      Phone
+                    </Label>
+                    <Input
+                      id="edit-phone"
+                      name="phone"
+                      type="tel"
+                      defaultValue={selectedUser.user.phone || ""}
+                      placeholder="+1 234 567 8900"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-note" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Note
+                    </Label>
+                    <Textarea
+                      id="edit-note"
+                      name="note"
+                      defaultValue={selectedUser.user.note || ""}
+                      placeholder="Add any notes about this user..."
+                      rows={3}
+                      className="resize-none"
                     />
                   </div>
                   <div className="space-y-2">

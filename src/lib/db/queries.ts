@@ -343,7 +343,9 @@ export async function createUser(
   email: string,
   name: string | null,
   organizationIds: string[] | null,
-  image?: string | null
+  image?: string | null,
+  phone?: string | null,
+  note?: string | null
 ) {
   // Create user with first organization as primary (for backward compatibility)
   const primaryOrgId =
@@ -354,6 +356,8 @@ export async function createUser(
     .values({
       email,
       name: name || null,
+      phone: phone || null,
+      note: note || null,
       image: image || null,
       organizationId: primaryOrgId,
     })
@@ -379,6 +383,8 @@ export async function updateUser(
     organizationId: string | null;
     organizationIds?: string[] | null;
     image: string | null;
+    phone: string | null;
+    note: string | null;
   }>
 ) {
   // If organizationIds is provided, update the junction table
@@ -408,6 +414,8 @@ export async function updateUser(
     name: string | null;
     organizationId: string | null;
     image: string | null;
+    phone: string | null;
+    note: string | null;
     updatedAt: Date;
   }> = {
     ...(data.name !== undefined && { name: data.name }),
@@ -415,6 +423,8 @@ export async function updateUser(
       organizationId: data.organizationId,
     }),
     ...(data.image !== undefined && { image: data.image }),
+    ...(data.phone !== undefined && { phone: data.phone }),
+    ...(data.note !== undefined && { note: data.note }),
     updatedAt: new Date(),
   };
 

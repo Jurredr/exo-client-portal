@@ -127,6 +127,13 @@
       "when": 1764598439935,
       "tag": "0017_square_sheva_callister",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1766246445030,
+      "tag": "0018_powerful_inertia",
+      "breakpoints": true
     }
   ]
 }

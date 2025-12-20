@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { UserPlus, Mail, User, X } from "lucide-react";
+import { UserPlus, Mail, User, X, Phone, FileText } from "lucide-react";
 import { OrganizationCombobox } from "@/components/organization-combobox";
 
 interface Organization {
@@ -20,6 +21,8 @@ interface Organization {
 export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [note, setNote] = useState("");
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
     string[]
   >([]);
@@ -90,6 +93,8 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         body: JSON.stringify({
           email: email.trim(),
           name: name.trim() || null,
+          phone: phone.trim() || null,
+          note: note.trim() || null,
           organizationIds:
             selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
           image: imageBase64 || null,
@@ -104,6 +109,8 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
       toast.success("User created successfully");
       setEmail("");
       setName("");
+      setPhone("");
+      setNote("");
       setSelectedOrganizationIds([]);
       setImagePreview(null);
       setImageBase64(null);
@@ -143,6 +150,33 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="John Doe"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="user-phone" className="flex items-center gap-2">
+          <Phone className="h-4 w-4" />
+          Phone (Optional)
+        </Label>
+        <Input
+          id="user-phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="+1 234 567 8900"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="user-note" className="flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Note (Optional)
+        </Label>
+        <Textarea
+          id="user-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Add any notes about this user..."
+          rows={3}
+          className="resize-none"
         />
       </div>
       <div className="space-y-2">

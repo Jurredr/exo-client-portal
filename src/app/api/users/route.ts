@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { email, name, organizationId, organizationIds, image } = body;
+    const { email, name, phone, note, organizationId, organizationIds, image } = body;
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
@@ -83,7 +83,9 @@ export async function POST(request: Request) {
       email.trim(),
       name?.trim() || null,
       orgIds,
-      image || null
+      image || null,
+      phone?.trim() || null,
+      note?.trim() || null
     );
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
@@ -112,7 +114,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, organizationId, organizationIds, image } = body;
+    const { id, name, phone, note, organizationId, organizationIds, image } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -138,6 +140,8 @@ export async function PATCH(request: Request) {
 
     const updatedUser = await updateUser(id, {
       ...(name !== undefined && { name: name?.trim() || null }),
+      ...(phone !== undefined && { phone: phone?.trim() || null }),
+      ...(note !== undefined && { note: note?.trim() || null }),
       ...(orgIds !== undefined && { organizationIds: orgIds }),
       ...(image !== undefined && { image: image || null }),
     });

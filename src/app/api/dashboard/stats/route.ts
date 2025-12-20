@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isUserInEXOOrganization, getDashboardStats } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const {
@@ -18,7 +18,11 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const stats = await getDashboardStats();
+    const { searchParams } = new URL(request.url);
+    const revenueTimeRange = searchParams.get("revenueTimeRange") || "year";
+    const hoursTimeRange = searchParams.get("hoursTimeRange") || "30d";
+
+    const stats = await getDashboardStats(revenueTimeRange, hoursTimeRange);
     return NextResponse.json(stats);
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);

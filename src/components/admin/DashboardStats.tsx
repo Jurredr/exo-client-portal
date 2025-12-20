@@ -2,8 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   TrendingDown,
   TrendingUp,
@@ -11,15 +26,15 @@ import {
   Clock,
   FolderKanban,
 } from "lucide-react";
-import { formatCurrency, parseNumeric } from "@/lib/utils/currency";
+import { formatCurrency } from "@/lib/utils/currency";
 import {
   Area,
   AreaChart,
   CartesianGrid,
   XAxis,
+  YAxis,
   Bar,
   BarChart,
-  YAxis,
 } from "recharts";
 import {
   ChartConfig,
@@ -101,14 +116,28 @@ const projectsChartConfig = {
 export default function DashboardStats() {
   const [stats, setStats] = useState<DashboardStatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [revenueTimeRange, setRevenueTimeRange] = useState("year");
+  const [hoursTimeRange, setHoursTimeRange] = useState("year");
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (isMobile) {
+      setRevenueTimeRange("30d");
+      setHoursTimeRange("7d");
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [revenueTimeRange, hoursTimeRange]);
 
   const fetchStats = async () => {
     try {
-      const response = await fetch("/api/dashboard/stats");
+      const params = new URLSearchParams({
+        revenueTimeRange,
+        hoursTimeRange,
+      });
+      const response = await fetch(`/api/dashboard/stats?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -155,26 +184,6 @@ export default function DashboardStats() {
                   <DollarSign className="h-4 w-4" />
                   Total Revenue
                 </dt>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "font-medium inline-flex items-center px-1.5 ps-2.5 py-0.5 text-xs",
-                    stats.revenue.change >= 0
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                  )}
-                >
-                  {stats.revenue.change >= 0 ? (
-                    <TrendingUp className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-green-500" />
-                  ) : (
-                    <TrendingDown className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-red-500" />
-                  )}
-                  <span className="sr-only">
-                    {stats.revenue.change >= 0 ? "Increased" : "Decreased"}{" "}
-                    by{" "}
-                  </span>
-                  {formatChange(stats.revenue.change)}
-                </Badge>
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
                 {formatCurrency(stats.revenue.total)}
@@ -218,6 +227,46 @@ export default function DashboardStats() {
         <Card>
           <CardHeader>
             <CardTitle>Revenue Over Time</CardTitle>
+            <CardAction>
+              <ToggleGroup
+                type="single"
+                value={revenueTimeRange}
+                onValueChange={setRevenueTimeRange}
+                variant="outline"
+                className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
+              >
+                <ToggleGroupItem value="year">This Year</ToggleGroupItem>
+                <ToggleGroupItem value="90d">Last 3 months</ToggleGroupItem>
+                <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
+                <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
+              </ToggleGroup>
+              <Select
+                value={revenueTimeRange}
+                onValueChange={setRevenueTimeRange}
+              >
+                <SelectTrigger
+                  className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
+                  size="sm"
+                  aria-label="Select time range"
+                >
+                  <SelectValue placeholder="This Year" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="year" className="rounded-lg">
+                    This Year
+                  </SelectItem>
+                  <SelectItem value="90d" className="rounded-lg">
+                    Last 3 months
+                  </SelectItem>
+                  <SelectItem value="30d" className="rounded-lg">
+                    Last 30 days
+                  </SelectItem>
+                  <SelectItem value="7d" className="rounded-lg">
+                    Last 7 days
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <ChartContainer
@@ -246,29 +295,18 @@ export default function DashboardStats() {
                   axisLine={false}
                   tickMargin={8}
                   minTickGap={32}
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    const day = date.getDate().toString().padStart(2, "0");
-                    const month = (date.getMonth() + 1)
-                      .toString()
-                      .padStart(2, "0");
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                  }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) => formatCurrency(value)}
                 />
                 <ChartTooltip
                   cursor={false}
                   content={
                     <ChartTooltipContent
-                      labelFormatter={(value) => {
-                        const date = new Date(value);
-                        const day = date.getDate().toString().padStart(2, "0");
-                        const month = (date.getMonth() + 1)
-                          .toString()
-                          .padStart(2, "0");
-                        const year = date.getFullYear();
-                        return `${day}/${month}/${year}`;
-                      }}
+                      labelFormatter={(value) => value}
                       formatter={(value) => formatCurrency(Number(value))}
                       indicator="dot"
                     />
@@ -297,26 +335,6 @@ export default function DashboardStats() {
                   <Clock className="h-4 w-4" />
                   Total Hours
                 </dt>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "font-medium inline-flex items-center px-1.5 ps-2.5 py-0.5 text-xs",
-                    stats.hours.change >= 0
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                  )}
-                >
-                  {stats.hours.change >= 0 ? (
-                    <TrendingUp className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-green-500" />
-                  ) : (
-                    <TrendingDown className="mr-0.5 -ml-1 h-5 w-5 shrink-0 self-center text-red-500" />
-                  )}
-                  <span className="sr-only">
-                    {stats.hours.change >= 0 ? "Increased" : "Decreased"}{" "}
-                    by{" "}
-                  </span>
-                  {formatChange(stats.hours.change)}
-                </Badge>
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
                 {formatHours(stats.hours.total)}
@@ -360,6 +378,43 @@ export default function DashboardStats() {
         <Card>
           <CardHeader>
             <CardTitle>Hours Over Time</CardTitle>
+            <CardAction>
+              <ToggleGroup
+                type="single"
+                value={hoursTimeRange}
+                onValueChange={setHoursTimeRange}
+                variant="outline"
+                className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
+              >
+                <ToggleGroupItem value="year">This Year</ToggleGroupItem>
+                <ToggleGroupItem value="90d">Last 3 months</ToggleGroupItem>
+                <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
+                <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
+              </ToggleGroup>
+              <Select value={hoursTimeRange} onValueChange={setHoursTimeRange}>
+                <SelectTrigger
+                  className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
+                  size="sm"
+                  aria-label="Select time range"
+                >
+                  <SelectValue placeholder="This Year" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="year" className="rounded-lg">
+                    This Year
+                  </SelectItem>
+                  <SelectItem value="90d" className="rounded-lg">
+                    Last 3 months
+                  </SelectItem>
+                  <SelectItem value="30d" className="rounded-lg">
+                    Last 30 days
+                  </SelectItem>
+                  <SelectItem value="7d" className="rounded-lg">
+                    Last 7 days
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <ChartContainer
@@ -388,29 +443,18 @@ export default function DashboardStats() {
                   axisLine={false}
                   tickMargin={8}
                   minTickGap={32}
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    const day = date.getDate().toString().padStart(2, "0");
-                    const month = (date.getMonth() + 1)
-                      .toString()
-                      .padStart(2, "0");
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                  }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) => formatHours(value)}
                 />
                 <ChartTooltip
                   cursor={false}
                   content={
                     <ChartTooltipContent
-                      labelFormatter={(value) => {
-                        const date = new Date(value);
-                        const day = date.getDate().toString().padStart(2, "0");
-                        const month = (date.getMonth() + 1)
-                          .toString()
-                          .padStart(2, "0");
-                        const year = date.getFullYear();
-                        return `${day}/${month}/${year}`;
-                      }}
+                      labelFormatter={(value) => value}
                       formatter={(value) => formatHours(Number(value))}
                       indicator="dot"
                     />

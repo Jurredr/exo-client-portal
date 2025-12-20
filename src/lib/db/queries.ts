@@ -319,7 +319,9 @@ export async function getAllOrganizations() {
   const userCounts = await db
     .select({
       organizationId: userOrganizations.organizationId,
-      count: sql<number>`COUNT(DISTINCT ${userOrganizations.userId})::int`.as("count"),
+      count: sql<number>`COUNT(DISTINCT ${userOrganizations.userId})::int`.as(
+        "count"
+      ),
     })
     .from(userOrganizations)
     .groupBy(userOrganizations.organizationId);
@@ -606,7 +608,30 @@ export async function deleteProject(projectId: string) {
   await db.delete(projects).where(eq(projects.id, projectId));
 }
 
-export async function getDashboardStats() {
+// Estimated USD to EUR conversion rate
+const USD_TO_EUR_RATE = 0.92; // 1 USD = 0.92 EUR (approximate rate)
+
+// Helper function to parse invoice amount (removes currency symbols, commas, spaces)
+function parseInvoiceAmount(amount: string): number {
+  if (!amount) return 0;
+  // Remove currency symbols (€, $), commas, spaces, and other non-numeric characters except decimal point
+  const cleaned = amount.replace(/[€$,\s]/g, "").trim();
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+// Helper function to convert amount to EUR
+function convertToEUR(amount: number, currency: string): number {
+  if (currency === "USD") {
+    return amount * USD_TO_EUR_RATE;
+  }
+  return amount; // Already in EUR or default to EUR
+}
+
+export async function getDashboardStats(
+  revenueTimeRange: string = "year",
+  hoursTimeRange: string = "30d"
+) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -620,56 +645,52 @@ export async function getDashboardStats() {
     999
   );
 
-  // Get total revenue (sum of all paid invoices)
-  const totalRevenueResult = await db
+  // Get all paid invoices with their amounts and transaction types
+  // Only require status = "paid", paidAt is optional
+  const paidInvoices = await db
     .select({
-      total: sql<string>`COALESCE(SUM(${invoices.amount}::numeric), 0)`.as(
-        "total"
-      ),
+      amount: invoices.amount,
+      currency: invoices.currency,
+      transactionType: invoices.transactionType,
+      dueDate: invoices.dueDate,
+      paidAt: invoices.paidAt,
+      createdAt: invoices.createdAt,
     })
     .from(invoices)
-    .where(
-      and(eq(invoices.status, "paid"), sql`${invoices.paidAt} IS NOT NULL`)
-    );
+    .where(eq(invoices.status, "paid"));
 
-  const totalRevenue = parseFloat(totalRevenueResult[0]?.total || "0");
+  // Calculate total revenue (debits add, credits subtract)
+  let totalRevenue = 0;
+  let revenueThisMonth = 0;
+  let revenueLastMonth = 0;
 
-  // Get revenue this month (invoices paid this month)
-  const revenueThisMonthResult = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${invoices.amount}::numeric), 0)`.as(
-        "total"
-      ),
-    })
-    .from(invoices)
-    .where(
-      and(
-        eq(invoices.status, "paid"),
-        sql`${invoices.paidAt} IS NOT NULL`,
-        gte(invoices.paidAt, startOfMonth)
-      )
-    );
+  paidInvoices.forEach((invoice) => {
+    const amount = parseInvoiceAmount(invoice.amount);
+    // Convert to EUR if needed
+    const amountInEUR = convertToEUR(amount, invoice.currency || "EUR");
+    // Default to debit if transactionType is null (for invoices created before migration)
+    const isDebit = (invoice.transactionType || "debit") === "debit";
+    const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
 
-  const revenueThisMonth = parseFloat(revenueThisMonthResult[0]?.total || "0");
+    totalRevenue += value;
 
-  // Get revenue last month (invoices paid last month)
-  const revenueLastMonthResult = await db
-    .select({
-      total: sql<string>`COALESCE(SUM(${invoices.amount}::numeric), 0)`.as(
-        "total"
-      ),
-    })
-    .from(invoices)
-    .where(
-      and(
-        eq(invoices.status, "paid"),
-        sql`${invoices.paidAt} IS NOT NULL`,
-        gte(invoices.paidAt, startOfLastMonth),
-        lte(invoices.paidAt, endOfLastMonth)
-      )
-    );
+    // Use dueDate if available, otherwise use paidAt, then createdAt as fallback
+    const dateForCalculation = invoice.dueDate
+      ? new Date(invoice.dueDate)
+      : invoice.paidAt
+        ? new Date(invoice.paidAt)
+        : new Date(invoice.createdAt);
 
-  const revenueLastMonth = parseFloat(revenueLastMonthResult[0]?.total || "0");
+    if (dateForCalculation >= startOfMonth) {
+      revenueThisMonth += value;
+    }
+    if (
+      dateForCalculation >= startOfLastMonth &&
+      dateForCalculation <= endOfLastMonth
+    ) {
+      revenueLastMonth += value;
+    }
+  });
 
   // Get total hours
   const totalHoursResult = await db
@@ -740,76 +761,174 @@ export async function getDashboardStats() {
         ? 100
         : 0;
 
-  // Get revenue over time (last 30 days) - based on when invoices were paid
-  const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - 30);
+  // Calculate revenue chart date range based on time range parameter
+  let revenueStartDate: Date;
+  let revenueEndDate: Date = now;
+  let revenueDaysToShow = 0;
+  let revenueGroupByMonth = false;
+
+  if (revenueTimeRange === "year") {
+    revenueStartDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+    revenueEndDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999); // December 31st
+    revenueGroupByMonth = true;
+  } else {
+    const days =
+      revenueTimeRange === "90d" ? 90 : revenueTimeRange === "30d" ? 30 : 7;
+    revenueStartDate = new Date(now);
+    revenueStartDate.setDate(revenueStartDate.getDate() - days);
+    revenueDaysToShow = days;
+  }
 
   const revenueOverTime = await db
     .select({
-      date: invoices.paidAt,
-      revenue: invoices.amount,
+      dueDate: invoices.dueDate,
+      paidAt: invoices.paidAt,
+      createdAt: invoices.createdAt,
+      amount: invoices.amount,
+      transactionType: invoices.transactionType,
       currency: invoices.currency,
     })
     .from(invoices)
-    .where(
-      and(
-        eq(invoices.status, "paid"),
-        sql`${invoices.paidAt} IS NOT NULL`,
-        gte(invoices.paidAt, startDate)
-      )
-    )
-    .orderBy(invoices.paidAt);
+    .where(eq(invoices.status, "paid"))
+    .orderBy(invoices.dueDate);
 
-  // Group revenue by date
+  // Group revenue by date/month (debits add, credits subtract)
   const revenueByDate: { [key: string]: number } = {};
   revenueOverTime.forEach((row) => {
-    if (row.date) {
-      const dateStr = new Date(row.date).toISOString().split("T")[0];
-      const amount = parseFloat(row.revenue);
-      // For now, we'll sum all currencies together (could be improved with currency conversion)
-      revenueByDate[dateStr] = (revenueByDate[dateStr] || 0) + amount;
+    // Use dueDate if available, otherwise use paidAt, then createdAt as fallback
+    const dateForChart = row.dueDate
+      ? new Date(row.dueDate)
+      : row.paidAt
+        ? new Date(row.paidAt)
+        : new Date(row.createdAt);
+
+    // Only include if within the selected time range
+    if (dateForChart >= revenueStartDate && dateForChart <= revenueEndDate) {
+      let dateKey: string;
+      if (revenueGroupByMonth) {
+        // Format as YYYY-MM for monthly grouping
+        dateKey = `${dateForChart.getFullYear()}-${String(dateForChart.getMonth() + 1).padStart(2, "0")}`;
+      } else {
+        // Format as YYYY-MM-DD for daily grouping
+        dateKey = dateForChart.toISOString().split("T")[0];
+      }
+      const amount = parseInvoiceAmount(row.amount);
+      // Convert to EUR if needed
+      const amountInEUR = convertToEUR(amount, row.currency || "EUR");
+      // Default to debit if transactionType is null
+      const isDebit = (row.transactionType || "debit") === "debit";
+      const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
+      revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + value;
     }
   });
 
-  // Generate revenue chart data for last 30 days
+  // Generate revenue chart data
   const revenueChartData: { date: string; revenue: number }[] = [];
-  for (let i = 0; i <= 30; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    const dateStr = date.toISOString().split("T")[0];
-    revenueChartData.push({
-      date: dateStr,
-      revenue: revenueByDate[dateStr] || 0,
-    });
+  if (revenueGroupByMonth) {
+    // Generate data for all months of the current year
+    for (let month = 0; month < 12; month++) {
+      const date = new Date(now.getFullYear(), month, 1);
+      const monthStr = `${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`;
+      const monthName = date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+      revenueChartData.push({
+        date: monthName,
+        revenue: revenueByDate[monthStr] || 0,
+      });
+    }
+  } else {
+    // Generate data for the selected number of days
+    for (let i = 0; i <= revenueDaysToShow; i++) {
+      const date = new Date(revenueStartDate);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split("T")[0];
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const year = date.getFullYear();
+      revenueChartData.push({
+        date: `${day}/${month}/${year}`,
+        revenue: revenueByDate[dateStr] || 0,
+      });
+    }
   }
 
-  // Get hours over time (last 30 days)
+  // Calculate hours chart date range based on time range parameter
+  let hoursStartDate: Date;
+  let hoursEndDate: Date = now;
+  let hoursDays = 0;
+  let hoursGroupByMonth = false;
+
+  if (hoursTimeRange === "year") {
+    hoursStartDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+    hoursEndDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999); // December 31st
+    hoursGroupByMonth = true;
+  } else {
+    hoursDays =
+      hoursTimeRange === "90d" ? 90 : hoursTimeRange === "30d" ? 30 : 7;
+    hoursStartDate = new Date(now);
+    hoursStartDate.setDate(hoursStartDate.getDate() - hoursDays);
+  }
+
   const hoursOverTime = await db
     .select({
       date: hourRegistrations.date,
       hours: hourRegistrations.hours,
     })
     .from(hourRegistrations)
-    .where(gte(hourRegistrations.date, startDate))
+    .where(gte(hourRegistrations.date, hoursStartDate))
     .orderBy(hourRegistrations.date);
 
-  // Group hours by date
+  // Group hours by date/month
   const hoursByDate: { [key: string]: number } = {};
   hoursOverTime.forEach((row) => {
-    const dateStr = new Date(row.date).toISOString().split("T")[0];
-    hoursByDate[dateStr] = (hoursByDate[dateStr] || 0) + parseFloat(row.hours);
+    const rowDate = new Date(row.date);
+    // Only include if within the selected time range
+    if (rowDate >= hoursStartDate && rowDate <= hoursEndDate) {
+      let dateKey: string;
+      if (hoursGroupByMonth) {
+        // Format as YYYY-MM for monthly grouping
+        dateKey = `${rowDate.getFullYear()}-${String(rowDate.getMonth() + 1).padStart(2, "0")}`;
+      } else {
+        // Format as YYYY-MM-DD for daily grouping
+        dateKey = rowDate.toISOString().split("T")[0];
+      }
+      hoursByDate[dateKey] =
+        (hoursByDate[dateKey] || 0) + parseFloat(row.hours);
+    }
   });
 
-  // Generate hours chart data for last 30 days
+  // Generate hours chart data
   const hoursChartData: { date: string; hours: number }[] = [];
-  for (let i = 0; i <= 30; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    const dateStr = date.toISOString().split("T")[0];
-    hoursChartData.push({
-      date: dateStr,
-      hours: hoursByDate[dateStr] || 0,
-    });
+  if (hoursGroupByMonth) {
+    // Generate data for all months of the current year
+    for (let month = 0; month < 12; month++) {
+      const date = new Date(now.getFullYear(), month, 1);
+      const monthStr = `${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`;
+      const monthName = date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+      hoursChartData.push({
+        date: monthName,
+        hours: hoursByDate[monthStr] || 0,
+      });
+    }
+  } else {
+    // Generate data for the selected number of days
+    for (let i = 0; i <= hoursDays; i++) {
+      const date = new Date(hoursStartDate);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split("T")[0];
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const year = date.getFullYear();
+      hoursChartData.push({
+        date: `${day}/${month}/${year}`,
+        hours: hoursByDate[dateStr] || 0,
+      });
+    }
   }
 
   // Get projects by stage for chart

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardAction,
@@ -47,7 +47,7 @@ const chartConfig = {
 export function HourChart() {
   const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState("30d");
+  const [timeRange, setTimeRange] = useState("year");
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -96,25 +96,61 @@ export function HourChart() {
   const generateChartData = () => {
     const grouped = groupByDate();
     const now = new Date();
-    let daysToSubtract = 30;
-    if (timeRange === "90d") daysToSubtract = 90;
-    else if (timeRange === "7d") daysToSubtract = 7;
 
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - daysToSubtract);
-
-    const data: { date: string; hours: number }[] = [];
-    for (let i = 0; i <= daysToSubtract; i++) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + i);
-      const dateStr = date.toISOString().split("T")[0];
-      data.push({
-        date: dateStr,
-        hours: grouped[dateStr] || 0,
+    if (timeRange === "year") {
+      // Group by month for yearly view
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      
+      // Group hours by month
+      const hoursByMonth: { [key: string]: number } = {};
+      registrations.forEach((reg) => {
+        const regDate = new Date(reg.date);
+        if (regDate >= startOfYear && regDate <= endOfYear) {
+          const monthStr = `${regDate.getFullYear()}-${String(regDate.getMonth() + 1).padStart(2, "0")}`;
+          hoursByMonth[monthStr] = (hoursByMonth[monthStr] || 0) + parseFloat(reg.hours);
+        }
       });
-    }
 
-    return data;
+      // Generate data for all months of the current year
+      const data: { date: string; hours: number }[] = [];
+      for (let month = 0; month < 12; month++) {
+        const date = new Date(now.getFullYear(), month, 1);
+        const monthStr = `${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`;
+        const monthName = date.toLocaleDateString("en-US", {
+          month: "short",
+          year: "numeric",
+        });
+        data.push({
+          date: monthName,
+          hours: hoursByMonth[monthStr] || 0,
+        });
+      }
+      return data;
+    } else {
+      // Daily view for 7d, 30d, 90d
+      let daysToSubtract = 30;
+      if (timeRange === "90d") daysToSubtract = 90;
+      else if (timeRange === "7d") daysToSubtract = 7;
+
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - daysToSubtract);
+
+      const data: { date: string; hours: number }[] = [];
+      for (let i = 0; i <= daysToSubtract; i++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + i);
+        const dateStr = date.toISOString().split("T")[0];
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const year = date.getFullYear();
+        data.push({
+          date: `${day}/${month}/${year}`,
+          hours: grouped[dateStr] || 0,
+        });
+      }
+      return data;
+    }
   };
 
   // Format hours (as decimal) to "xhrs ymin" format
@@ -170,26 +206,18 @@ export function HourChart() {
           </span>
         </CardDescription>
         <CardAction>
-          <ToggleGroup
-            type="single"
-            value={timeRange}
-            onValueChange={setTimeRange}
-            variant="outline"
-            className="hidden *:data-[slot=toggle-group-item]:!px-4 @[767px]/card:flex"
-          >
-            <ToggleGroupItem value="90d">Last 3 months</ToggleGroupItem>
-            <ToggleGroupItem value="30d">Last 30 days</ToggleGroupItem>
-            <ToggleGroupItem value="7d">Last 7 days</ToggleGroupItem>
-          </ToggleGroup>
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger
-              className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
+              className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
               size="sm"
               aria-label="Select time range"
             >
-              <SelectValue placeholder="Last 30 days" />
+              <SelectValue placeholder="This Year" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
+              <SelectItem value="year" className="rounded-lg">
+                This Year
+              </SelectItem>
               <SelectItem value="90d" className="rounded-lg">
                 Last 3 months
               </SelectItem>
@@ -230,27 +258,18 @@ export function HourChart() {
               axisLine={false}
               tickMargin={8}
               minTickGap={32}
-              tickFormatter={(value) => {
-                const date = new Date(value);
-                const day = date.getDate().toString().padStart(2, "0");
-                const month = (date.getMonth() + 1).toString().padStart(2, "0");
-                const year = date.getFullYear();
-                return `${day}/${month}/${year}`;
-              }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => formatHours(value)}
             />
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    const date = new Date(value);
-                    const day = date.getDate().toString().padStart(2, "0");
-                    const month = (date.getMonth() + 1)
-                      .toString()
-                      .padStart(2, "0");
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                  }}
+                  labelFormatter={(value) => value}
                   formatter={(value) => formatHours(Number(value))}
                   indicator="dot"
                 />

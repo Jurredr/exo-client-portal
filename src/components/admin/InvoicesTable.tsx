@@ -272,13 +272,40 @@ export function InvoicesTable() {
       {
         accessorKey: "invoice.dueDate",
         id: "dueDate",
-        header: "Due Date",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="-ml-3 h-8"
+            >
+              Due Date
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
         cell: ({ row }) => (
           <div className="text-muted-foreground">
             {formatDate(row.original.invoice.dueDate)}
           </div>
         ),
-        enableSorting: false,
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const dateA = rowA.original.invoice.dueDate
+            ? new Date(rowA.original.invoice.dueDate).getTime()
+            : 0;
+          const dateB = rowB.original.invoice.dueDate
+            ? new Date(rowB.original.invoice.dueDate).getTime()
+            : 0;
+          // Sort null/undefined dates to the end
+          if (!rowA.original.invoice.dueDate && !rowB.original.invoice.dueDate)
+            return 0;
+          if (!rowA.original.invoice.dueDate) return 1;
+          if (!rowB.original.invoice.dueDate) return -1;
+          return dateA - dateB;
+        },
       },
       {
         id: "actions",

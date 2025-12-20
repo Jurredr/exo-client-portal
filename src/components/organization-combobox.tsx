@@ -45,6 +45,52 @@ export function OrganizationCombobox({
 }: OrganizationComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
+  React.useEffect(() => {
+    if (!open) return;
+
+    // Find the CommandList element after it renders
+    const findListElement = () => {
+      return document.querySelector(
+        '[data-slot="command-list"]'
+      ) as HTMLDivElement | null;
+    };
+
+    let cleanup: (() => void) | undefined;
+
+    // Wait for the element to be rendered
+    const timer = setTimeout(() => {
+      const listElement = findListElement();
+      if (!listElement) return;
+
+      // Ensure scroll events work by preventing cmdk from intercepting them
+      const handleWheel = (e: WheelEvent) => {
+        const { scrollTop, scrollHeight, clientHeight } = listElement;
+        const isScrollable = scrollHeight > clientHeight;
+
+        if (!isScrollable) return;
+
+        const isAtTop = scrollTop <= 0;
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+
+        // Allow scrolling if not at boundaries
+        if (!(isAtTop && e.deltaY < 0) && !(isAtBottom && e.deltaY > 0)) {
+          e.stopPropagation();
+        }
+      };
+
+      listElement.addEventListener("wheel", handleWheel, { passive: false });
+
+      cleanup = () => {
+        listElement.removeEventListener("wheel", handleWheel);
+      };
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      cleanup?.();
+    };
+  }, [open]);
+
   const toggleSelection = (id: string) => {
     const newSelection = selectedIds.includes(id)
       ? selectedIds.filter((selectedId) => selectedId !== id)
@@ -108,12 +154,16 @@ export function OrganizationCombobox({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] p-0"
+          className="w-[var(--radix-popover-trigger-width)] p-0 h-[300px] flex flex-col"
           align="start"
+          sideOffset={4}
         >
-          <Command>
-            <CommandInput placeholder="Search organizations..." />
-            <CommandList>
+          <Command className="h-full flex flex-col overflow-hidden">
+            <CommandInput
+              placeholder="Search organizations..."
+              className="shrink-0"
+            />
+            <CommandList className="flex-1 overflow-y-auto min-h-0">
               <CommandEmpty>No organizations found.</CommandEmpty>
               <CommandGroup>
                 {organizations.map((org) => {

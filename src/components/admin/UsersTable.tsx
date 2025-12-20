@@ -611,7 +611,12 @@ export function UsersTable() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-semibold">Users</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-semibold">Users</h2>
+          <span className="text-sm text-muted-foreground">
+            ({users.length})
+          </span>
+        </div>
         <p className="text-muted-foreground">Manage user accounts</p>
       </div>
 

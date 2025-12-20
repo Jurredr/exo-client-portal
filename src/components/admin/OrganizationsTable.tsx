@@ -420,7 +420,12 @@ export function OrganizationsTable() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-semibold">Organizations</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-semibold">Organizations</h2>
+          <span className="text-sm text-muted-foreground">
+            ({organizations.length})
+          </span>
+        </div>
         <p className="text-muted-foreground">Manage client organizations</p>
       </div>
 

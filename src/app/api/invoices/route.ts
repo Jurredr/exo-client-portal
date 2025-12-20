@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       currency,
       status,
       type,
+      transactionType,
       description,
       dueDate,
       autoGenerate,
@@ -99,6 +100,7 @@ export async function POST(request: Request) {
         currency: currency || "EUR",
         status: status || "draft",
         type: type || "manual",
+        transactionType: transactionType || "debit",
         description: description || null,
         dueDate: dueDate ? new Date(dueDate) : null,
         pdfUrl: pdfUrl || null,
@@ -209,6 +211,9 @@ export async function PATCH(request: Request) {
       ...(updateData.amount && { amount: updateData.amount }),
       ...(updateData.currency && { currency: updateData.currency }),
       ...(updateData.status && { status: updateData.status }),
+      ...(updateData.transactionType && {
+        transactionType: updateData.transactionType,
+      }),
       ...(updateData.description !== undefined && {
         description: updateData.description?.trim() || null,
       }),

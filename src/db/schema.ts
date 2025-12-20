@@ -127,6 +127,7 @@ export const invoices = pgTable("invoices", {
   currency: text("currency").notNull().default("EUR"), // USD, EUR
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
   type: text("type").notNull().default("manual"), // auto, manual
+  transactionType: text("transaction_type").notNull().default("debit"), // debit, credit
   description: text("description"), // For manual invoices
   dueDate: timestamp("due_date"),
   paidAt: timestamp("paid_at"),

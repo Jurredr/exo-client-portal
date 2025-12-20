@@ -39,6 +39,7 @@ interface Invoice {
   amount: string;
   currency: string;
   status: string;
+  transactionType: string;
   description: string | null;
   dueDate: string | null;
   pdfUrl: string | null;
@@ -73,6 +74,9 @@ export function CreateInvoiceForm({
   );
   const [description, setDescription] = useState(invoice?.description || "");
   const [status, setStatus] = useState(invoice?.status || "draft");
+  const [transactionType, setTransactionType] = useState<"debit" | "credit">(
+    (invoice?.transactionType as "debit" | "credit") || "debit"
+  );
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate
       ? new Date(invoice.dueDate).toISOString().split("T")[0]
@@ -249,6 +253,7 @@ export function CreateInvoiceForm({
             currency,
             description: description.trim() || null,
             status,
+            transactionType,
             dueDate: dueDate || null,
             pdfUrl,
             pdfFileName,
@@ -262,6 +267,7 @@ export function CreateInvoiceForm({
             description: description.trim() || null,
             status,
             type: "manual",
+            transactionType,
             dueDate: dueDate || null,
             pdfUrl,
             pdfFileName,
@@ -292,6 +298,7 @@ export function CreateInvoiceForm({
         setCurrency("EUR");
         setDescription("");
         setStatus("draft");
+        setTransactionType("debit");
         setDueDate("");
         setPdfFile(null);
         setInvoiceNumberOverride("");
@@ -484,17 +491,35 @@ export function CreateInvoiceForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="invoice-due-date" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Due Date
-          </Label>
-          <Input
-            id="invoice-due-date"
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-          />
+          <Label htmlFor="invoice-transaction-type">Transaction Type *</Label>
+          <Select
+            value={transactionType}
+            onValueChange={(value) =>
+              setTransactionType(value as "debit" | "credit")
+            }
+            required
+          >
+            <SelectTrigger id="invoice-transaction-type" className="w-full">
+              <SelectValue placeholder="Select transaction type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="debit">Debit</SelectItem>
+              <SelectItem value="credit">Credit</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="invoice-due-date" className="flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          Due Date
+        </Label>
+        <Input
+          id="invoice-due-date"
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="invoice-pdf" className="flex items-center gap-2">

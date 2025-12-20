@@ -53,6 +53,7 @@ interface InvoiceData {
     currency: string;
     status: string;
     type: string;
+    transactionType: string;
     description: string | null;
     dueDate: string | null;
     paidAt: string | null;
@@ -265,6 +266,19 @@ export function InvoicesTable() {
         cell: ({ row }) => (
           <Badge variant="secondary">
             {row.original.invoice.type === "auto" ? "Auto" : "Manual"}
+          </Badge>
+        ),
+        enableSorting: false,
+      },
+      {
+        accessorKey: "invoice.transactionType",
+        id: "transactionType",
+        header: "Transaction Type",
+        cell: ({ row }) => (
+          <Badge
+            variant={row.original.invoice.transactionType === "credit" ? "default" : "outline"}
+          >
+            {row.original.invoice.transactionType === "credit" ? "Credit" : "Debit"}
           </Badge>
         ),
         enableSorting: false,
@@ -581,6 +595,7 @@ export function InvoicesTable() {
                     amount: editingInvoice.invoice.amount,
                     currency: editingInvoice.invoice.currency,
                     status: editingInvoice.invoice.status,
+                    transactionType: editingInvoice.invoice.transactionType,
                     description: editingInvoice.invoice.description,
                     dueDate: editingInvoice.invoice.dueDate,
                     pdfUrl: editingInvoice.invoice.pdfUrl || null,
@@ -611,6 +626,7 @@ export function InvoicesTable() {
                   amount: editingInvoice.invoice.amount,
                   currency: editingInvoice.invoice.currency,
                   status: editingInvoice.invoice.status,
+                  transactionType: editingInvoice.invoice.transactionType,
                   description: editingInvoice.invoice.description,
                   dueDate: editingInvoice.invoice.dueDate,
                   pdfUrl: editingInvoice.invoice.pdfUrl || null,

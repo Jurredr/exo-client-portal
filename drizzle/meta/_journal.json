@@ -134,6 +134,13 @@
       "when": 1766246445030,
       "tag": "0018_powerful_inertia",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1766249769068,
+      "tag": "0019_nice_wrecker",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "invoices" ADD COLUMN "transaction_type" text DEFAULT 'debit' NOT NULL;

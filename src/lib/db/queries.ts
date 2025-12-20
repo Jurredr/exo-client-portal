@@ -945,6 +945,7 @@ export async function createInvoice(data: {
   currency?: string;
   status?: string;
   type?: string;
+  transactionType?: string;
   description?: string | null;
   dueDate?: Date | null;
   pdfUrl?: string | null;
@@ -961,6 +962,7 @@ export async function createInvoice(data: {
       currency: data.currency || "EUR",
       status: data.status || "draft",
       type: data.type || "manual",
+      transactionType: data.transactionType || "debit",
       description: data.description || null,
       dueDate: data.dueDate || null,
       pdfUrl: data.pdfUrl || null,
@@ -980,6 +982,7 @@ export async function updateInvoice(
     status: string;
     amount: string;
     currency: string;
+    transactionType: string;
     description: string | null;
     dueDate: Date | null;
     paidAt: Date | null;

@@ -544,6 +544,11 @@ export function HourRegistrationTimer() {
     }
   };
 
+  // Handle cancel button click in split dialog
+  const handleCancelSplitDialog = () => {
+    handleCloseSplitDialog(false);
+  };
+
   // Timer effect
   useEffect(() => {
     if (isRunning) {
@@ -936,7 +941,7 @@ export function HourRegistrationTimer() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseSplitDialog}>
+            <Button variant="outline" onClick={handleCancelSplitDialog}>
               Cancel
             </Button>
             <Button

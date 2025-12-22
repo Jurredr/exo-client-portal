@@ -87,41 +87,65 @@ export async function POST(request: Request) {
     }
 
     // Use provided invoice number or generate one
-    const invoiceNumber = invoiceNumberOverride
+    let invoiceNumber = invoiceNumberOverride
       ? invoiceNumberOverride.trim()
       : await getNextInvoiceNumber();
 
-    try {
-      const invoice = await createInvoice({
-        invoiceNumber,
-        projectId: projectId || null,
-        organizationId,
-        amount,
-        currency: currency || "EUR",
-        status: status || "draft",
-        type: type || "manual",
-        transactionType: transactionType || "debit",
-        description: description || null,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        pdfUrl: pdfUrl || null,
-        pdfFileName: pdfFileName || null,
-        pdfFileType: pdfFileType || null,
-      });
+    // Retry logic for duplicate invoice numbers (handles race conditions)
+    let retries = 0;
+    const maxRetries = 5;
+    
+    while (retries < maxRetries) {
+      try {
+        const invoice = await createInvoice({
+          invoiceNumber,
+          projectId: projectId || null,
+          organizationId,
+          amount,
+          currency: currency || "EUR",
+          status: status || "draft",
+          type: type || "manual",
+          transactionType: transactionType || "debit",
+          description: description || null,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          pdfUrl: pdfUrl || null,
+          pdfFileName: pdfFileName || null,
+          pdfFileType: pdfFileType || null,
+        });
 
-      return NextResponse.json(invoice, { status: 201 });
-    } catch (dbError: any) {
-      // Check if it's a unique constraint violation
-      if (
-        dbError?.code === "23505" ||
-        dbError?.message?.includes("unique") ||
-        dbError?.message?.includes("duplicate")
-      ) {
-        return NextResponse.json(
-          { error: `Invoice number "${invoiceNumber}" already exists` },
-          { status: 400 }
-        );
+        return NextResponse.json(invoice, { status: 201 });
+      } catch (dbError: any) {
+        // Check if it's a unique constraint violation
+        if (
+          (dbError?.code === "23505" ||
+            dbError?.message?.includes("unique") ||
+            dbError?.message?.includes("duplicate")) &&
+          !invoiceNumberOverride
+        ) {
+          // If it's a duplicate and we didn't override, generate a new number and retry
+          retries++;
+          if (retries < maxRetries) {
+            invoiceNumber = await getNextInvoiceNumber();
+            continue;
+          }
+          return NextResponse.json(
+            { error: `Failed to generate unique invoice number after ${maxRetries} attempts` },
+            { status: 500 }
+          );
+        }
+        // If it's a duplicate with override, return error
+        if (
+          dbError?.code === "23505" ||
+          dbError?.message?.includes("unique") ||
+          dbError?.message?.includes("duplicate")
+        ) {
+          return NextResponse.json(
+            { error: `Invoice number "${invoiceNumber}" already exists` },
+            { status: 400 }
+          );
+        }
+        throw dbError;
       }
-      throw dbError;
     }
   } catch (error) {
     console.error("Error creating invoice:", error);

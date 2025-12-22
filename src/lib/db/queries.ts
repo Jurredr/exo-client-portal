@@ -1019,41 +1019,35 @@ export async function getInvoiceById(invoiceId: string) {
 }
 
 export async function getNextInvoiceNumber(): Promise<string> {
-  // Get the latest invoice number
-  const latestInvoice = await db
+  const currentYear = new Date().getFullYear();
+  const pattern = `INV-${currentYear}-%`;
+
+  // Get all invoice numbers for the current year
+  const currentYearInvoices = await db
     .select({ invoiceNumber: invoices.invoiceNumber })
     .from(invoices)
-    .orderBy(desc(invoices.createdAt))
-    .limit(1);
+    .where(sql`${invoices.invoiceNumber} LIKE ${pattern}`);
 
-  if (latestInvoice.length === 0) {
-    // First invoice
-    const year = new Date().getFullYear();
-    return `INV-${year}-0001`;
-  }
-
-  // Extract number from latest invoice (format: INV-YYYY-NNNN)
-  const latestNumber = latestInvoice[0].invoiceNumber;
-  const match = latestNumber.match(/INV-(\d{4})-(\d+)/);
-
-  if (!match) {
-    // If format doesn't match, start fresh
-    const year = new Date().getFullYear();
-    return `INV-${year}-0001`;
-  }
-
-  const latestYear = parseInt(match[1]);
-  const latestNum = parseInt(match[2]);
-  const currentYear = new Date().getFullYear();
-
-  if (latestYear === currentYear) {
-    // Same year, increment number
-    const nextNum = latestNum + 1;
-    return `INV-${currentYear}-${String(nextNum).padStart(4, "0")}`;
-  } else {
-    // New year, start from 0001
+  if (currentYearInvoices.length === 0) {
+    // First invoice for this year
     return `INV-${currentYear}-0001`;
   }
+
+  // Extract numbers and find the maximum
+  let maxNum = 0;
+  for (const invoice of currentYearInvoices) {
+    const match = invoice.invoiceNumber.match(/INV-(\d{4})-(\d+)/);
+    if (match && parseInt(match[1]) === currentYear) {
+      const num = parseInt(match[2]);
+      if (num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+
+  // Increment the maximum number
+  const nextNum = maxNum + 1;
+  return `INV-${currentYear}-${String(nextNum).padStart(4, "0")}`;
 }
 
 export async function createInvoice(data: {

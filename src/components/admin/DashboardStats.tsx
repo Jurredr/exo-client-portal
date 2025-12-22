@@ -25,7 +25,13 @@ import {
   DollarSign,
   Clock,
   FolderKanban,
+  Info,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatCurrency } from "@/lib/utils/currency";
 import {
   Area,
@@ -183,6 +189,18 @@ export default function DashboardStats() {
                 <dt className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
                   Total Revenue
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>
+                        Amounts are estimates based on a fixed exchange rate
+                        (1 USD = 0.92 EUR). USD invoices are converted to EUR
+                        for display.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 </dt>
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
@@ -196,6 +214,18 @@ export default function DashboardStats() {
                 <dt className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
                   Revenue This Month
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>
+                        Amounts are estimates based on a fixed exchange rate
+                        (1 USD = 0.92 EUR). USD invoices are converted to EUR
+                        for display.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 </dt>
                 <Badge
                   variant="outline"

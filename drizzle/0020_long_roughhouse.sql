@@ -1,0 +1,1 @@
+ALTER TABLE "invoices" ADD COLUMN "vat_included" boolean DEFAULT true NOT NULL;

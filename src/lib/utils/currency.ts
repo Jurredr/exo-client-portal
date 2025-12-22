@@ -12,8 +12,8 @@ export function formatCurrency(
 ): string {
   const symbol = currency === "USD" ? "$" : "€";
   return `${symbol}${amount.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   })}`;
 }
 

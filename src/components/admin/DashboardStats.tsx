@@ -123,13 +123,13 @@ export default function DashboardStats() {
   const [stats, setStats] = useState<DashboardStatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [revenueTimeRange, setRevenueTimeRange] = useState("year");
-  const [hoursTimeRange, setHoursTimeRange] = useState("year");
+  const [hoursTimeRange, setHoursTimeRange] = useState("30d");
   const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isMobile) {
       setRevenueTimeRange("30d");
-      setHoursTimeRange("7d");
+      setHoursTimeRange("30d");
     }
   }, [isMobile]);
 

@@ -47,12 +47,12 @@ const chartConfig = {
 export function HourChart() {
   const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState("year");
+  const [timeRange, setTimeRange] = useState("30d");
   const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isMobile) {
-      setTimeRange("7d");
+      setTimeRange("30d");
     }
   }, [isMobile]);
 

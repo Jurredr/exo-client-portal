@@ -128,6 +128,7 @@ export const invoices = pgTable("invoices", {
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
   type: text("type").notNull().default("manual"), // auto, manual
   transactionType: text("transaction_type").notNull().default("debit"), // debit, credit
+  vatIncluded: boolean("vat_included").notNull().default(true), // whether 21% VAT is included in the total
   description: text("description"), // For manual invoices
   dueDate: timestamp("due_date"),
   paidAt: timestamp("paid_at"),

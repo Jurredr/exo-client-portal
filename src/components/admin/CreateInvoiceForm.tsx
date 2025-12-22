@@ -17,6 +17,7 @@ import { FileText, DollarSign, Calendar, Upload, X } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
 import { calculatePaymentAmount } from "@/lib/utils/currency";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Organization {
   id: string;
@@ -45,6 +46,7 @@ interface Invoice {
   pdfUrl: string | null;
   pdfFileName: string | null;
   pdfFileType: string | null;
+  vatIncluded: boolean;
 }
 
 const INVOICE_STATUSES: StatusOption[] = [
@@ -76,6 +78,9 @@ export function CreateInvoiceForm({
   const [status, setStatus] = useState(invoice?.status || "draft");
   const [transactionType, setTransactionType] = useState<"debit" | "credit">(
     (invoice?.transactionType as "debit" | "credit") || "debit"
+  );
+  const [vatIncluded, setVatIncluded] = useState<boolean>(
+    invoice?.vatIncluded !== undefined ? invoice.vatIncluded : true
   );
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate
@@ -254,6 +259,7 @@ export function CreateInvoiceForm({
             description: description.trim() || null,
             status,
             transactionType,
+            vatIncluded,
             dueDate: dueDate || null,
             pdfUrl,
             pdfFileName,
@@ -268,6 +274,7 @@ export function CreateInvoiceForm({
             status,
             type: "manual",
             transactionType,
+            vatIncluded,
             dueDate: dueDate || null,
             pdfUrl,
             pdfFileName,
@@ -299,6 +306,7 @@ export function CreateInvoiceForm({
         setDescription("");
         setStatus("draft");
         setTransactionType("debit");
+        setVatIncluded(true);
         setDueDate("");
         setPdfFile(null);
         setInvoiceNumberOverride("");
@@ -508,6 +516,19 @@ export function CreateInvoiceForm({
             </SelectContent>
           </Select>
         </div>
+      </div>
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="vat-included"
+          checked={vatIncluded}
+          onCheckedChange={(checked) => setVatIncluded(checked === true)}
+        />
+        <Label
+          htmlFor="vat-included"
+          className="text-sm font-normal cursor-pointer"
+        >
+          21% VAT is included in the total amount
+        </Label>
       </div>
       <div className="space-y-2">
         <Label htmlFor="invoice-due-date" className="flex items-center gap-2">

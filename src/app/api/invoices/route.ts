@@ -63,6 +63,7 @@ export async function POST(request: Request) {
       status,
       type,
       transactionType,
+      vatIncluded,
       description,
       dueDate,
       autoGenerate,
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
           status: status || "draft",
           type: type || "manual",
           transactionType: transactionType || "debit",
+          vatIncluded: vatIncluded !== undefined ? vatIncluded : true,
           description: description || null,
           dueDate: dueDate ? new Date(dueDate) : null,
           pdfUrl: pdfUrl || null,
@@ -237,6 +239,9 @@ export async function PATCH(request: Request) {
       ...(updateData.status && { status: updateData.status }),
       ...(updateData.transactionType && {
         transactionType: updateData.transactionType,
+      }),
+      ...(updateData.vatIncluded !== undefined && {
+        vatIncluded: updateData.vatIncluded,
       }),
       ...(updateData.description !== undefined && {
         description: updateData.description?.trim() || null,

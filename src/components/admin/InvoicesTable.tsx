@@ -54,6 +54,7 @@ interface InvoiceData {
     status: string;
     type: string;
     transactionType: string;
+    vatIncluded: boolean;
     description: string | null;
     dueDate: string | null;
     paidAt: string | null;
@@ -614,6 +615,7 @@ export function InvoicesTable() {
                     currency: editingInvoice.invoice.currency,
                     status: editingInvoice.invoice.status,
                     transactionType: editingInvoice.invoice.transactionType,
+                    vatIncluded: editingInvoice.invoice.vatIncluded ?? true,
                     description: editingInvoice.invoice.description,
                     dueDate: editingInvoice.invoice.dueDate,
                     pdfUrl: editingInvoice.invoice.pdfUrl || null,
@@ -645,6 +647,7 @@ export function InvoicesTable() {
                   currency: editingInvoice.invoice.currency,
                   status: editingInvoice.invoice.status,
                   transactionType: editingInvoice.invoice.transactionType,
+                  vatIncluded: editingInvoice.invoice.vatIncluded ?? true,
                   description: editingInvoice.invoice.description,
                   dueDate: editingInvoice.invoice.dueDate,
                   pdfUrl: editingInvoice.invoice.pdfUrl || null,

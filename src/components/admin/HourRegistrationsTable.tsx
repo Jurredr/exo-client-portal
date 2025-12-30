@@ -411,8 +411,6 @@ export function HourRegistrationsTable() {
       );
       setManualEntry((prev) => ({ ...prev, projectId: undefined }));
     }
-      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
-    }
   }, [manualEntry.category, allProjects]);
 
   const fetchProjects = async () => {

@@ -263,6 +263,7 @@ export function HourRegistrationTimer() {
       "brainstorming",
       "research",
       "client_acquisition",
+      "content_creation",
     ];
     if (nonProjectCategories.includes(category) && projectId) {
       toast.error(
@@ -281,7 +282,7 @@ export function HourRegistrationTimer() {
                 description: description.trim() || split.description,
                 category,
                 projectId:
-                  (category === "client" || category === "labs" || category === "content_creation") &&
+                  (category === "client" || category === "labs") &&
                   projectId &&
                   projectId !== "none"
                     ? projectId
@@ -398,7 +399,7 @@ export function HourRegistrationTimer() {
             hours,
             category: split.category,
             projectId:
-              (split.category === "client" || split.category === "labs" || split.category === "content_creation") &&
+              (split.category === "client" || split.category === "labs") &&
               split.projectId &&
               split.projectId !== "none"
                 ? split.projectId
@@ -503,6 +504,7 @@ export function HourRegistrationTimer() {
       "brainstorming",
       "research",
       "client_acquisition",
+      "content_creation",
     ];
     if (nonProjectCategories.includes(category)) {
       setProjects([]);
@@ -518,7 +520,7 @@ export function HourRegistrationTimer() {
       );
       setProjectId(undefined);
     } else {
-      // client or content_creation
+      // client
       setProjects(
         allProjects
           .filter((p) => p.type === "client")
@@ -897,7 +899,7 @@ export function HourRegistrationTimer() {
                 </SelectContent>
               </Select>
             </div>
-            {(category === "client" || category === "labs" || category === "content_creation") && (
+            {(category === "client" || category === "labs") && (
               <div className="space-y-2">
                 <Label htmlFor="project">
                   Project {category === "client" ? "(Optional)" : ""}

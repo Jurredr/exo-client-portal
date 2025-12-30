@@ -386,6 +386,7 @@ export function HourRegistrationsTable() {
       "brainstorming",
       "research",
       "client_acquisition",
+      "content_creation",
     ];
     if (nonProjectCategories.includes(manualEntry.category)) {
       setProjects([]);
@@ -400,7 +401,7 @@ export function HourRegistrationsTable() {
           }))
       );
     } else {
-      // client or content_creation
+      // client
       setProjects(
         allProjects
           .filter((p) => p.type === "client")
@@ -489,12 +490,13 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research, client_acquisition) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
       "client_acquisition",
+      "content_creation",
     ];
     if (
       nonProjectCategories.includes(manualEntry.category) &&
@@ -594,12 +596,13 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research, client_acquisition) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
       "client_acquisition",
+      "content_creation",
     ];
     if (
       nonProjectCategories.includes(manualEntry.category) &&

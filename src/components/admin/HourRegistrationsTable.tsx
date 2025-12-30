@@ -355,13 +355,14 @@ export function HourRegistrationsTable() {
     hours: "",
     minutes: "",
     description: "",
-    category: "client" as
-      | "client"
-      | "administration"
-      | "brainstorming"
-      | "research"
-      | "labs"
-      | "client_acquisition",
+      category: "client" as
+        | "client"
+        | "administration"
+        | "brainstorming"
+        | "research"
+        | "labs"
+        | "client_acquisition"
+        | "content_creation",
     projectId: undefined as string | undefined,
   });
 
@@ -398,9 +399,8 @@ export function HourRegistrationsTable() {
             title: p.title,
           }))
       );
-      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
     } else {
-      // client
+      // client or content_creation
       setProjects(
         allProjects
           .filter((p) => p.type === "client")
@@ -409,6 +409,8 @@ export function HourRegistrationsTable() {
             title: p.title,
           }))
       );
+      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
+    }
       setManualEntry((prev) => ({ ...prev, projectId: undefined }));
     }
   }, [manualEntry.category, allProjects]);
@@ -564,13 +566,14 @@ export function HourRegistrationsTable() {
       hours: hours.toString(),
       minutes: minutes.toString(),
       description: registration.description,
-      category: (registration.category || "client") as
-        | "client"
-        | "administration"
-        | "brainstorming"
-        | "research"
-        | "labs"
-        | "client_acquisition",
+        category: (registration.category || "client") as
+          | "client"
+          | "administration"
+          | "brainstorming"
+          | "research"
+          | "labs"
+          | "client_acquisition"
+          | "content_creation",
       projectId: registration.projectId || undefined,
     });
     setIsEditOpen(true);
@@ -774,11 +777,13 @@ export function HourRegistrationsTable() {
                         Client Acquisition
                       </SelectItem>
                       <SelectItem value="labs">EXO Labs</SelectItem>
+                      <SelectItem value="content_creation">Content Creation</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {(manualEntry.category === "client" ||
-                  manualEntry.category === "labs") && (
+                  manualEntry.category === "labs" ||
+                  manualEntry.category === "content_creation") && (
                   <div className="space-y-2">
                     <Label htmlFor="manual-project">
                       Project{" "}
@@ -855,7 +860,9 @@ export function HourRegistrationsTable() {
                             ? "Describe the research you conducted..."
                             : manualEntry.category === "client_acquisition"
                               ? "Describe the client acquisition activities..."
-                              : "Describe the work you did..."
+                              : manualEntry.category === "content_creation"
+                                ? "Describe the content you created..."
+                                : "Describe the work you did..."
                     }
                     value={manualEntry.description}
                     onChange={(e) =>
@@ -921,7 +928,8 @@ export function HourRegistrationsTable() {
                       | "brainstorming"
                       | "research"
                       | "labs"
-                      | "client_acquisition",
+                      | "client_acquisition"
+                      | "content_creation",
                   })
                 }
               >
@@ -937,11 +945,13 @@ export function HourRegistrationsTable() {
                     Client Acquisition
                   </SelectItem>
                   <SelectItem value="labs">EXO Labs</SelectItem>
+                  <SelectItem value="content_creation">Content Creation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {(manualEntry.category === "client" ||
-              manualEntry.category === "labs") && (
+              manualEntry.category === "labs" ||
+              manualEntry.category === "content_creation") && (
               <div className="space-y-2">
                 <Label htmlFor="edit-project">
                   Project{" "}
@@ -1012,7 +1022,9 @@ export function HourRegistrationsTable() {
                         ? "Describe the research you conducted..."
                         : manualEntry.category === "client_acquisition"
                           ? "Describe the client acquisition activities..."
-                          : "Describe the work you did..."
+                          : manualEntry.category === "content_creation"
+                            ? "Describe the content you created..."
+                            : "Describe the work you did..."
                 }
                 value={manualEntry.description}
                 onChange={(e) =>

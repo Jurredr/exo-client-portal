@@ -54,7 +54,8 @@ interface SplitEntry {
     | "brainstorming"
     | "research"
     | "labs"
-    | "client_acquisition";
+    | "client_acquisition"
+    | "content_creation";
   projectId?: string;
   duration: number; // in seconds
   isBreak: boolean;
@@ -76,6 +77,7 @@ export function HourRegistrationTimer() {
     | "research"
     | "labs"
     | "client_acquisition"
+    | "content_creation"
   >("client");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -279,7 +281,7 @@ export function HourRegistrationTimer() {
                 description: description.trim() || split.description,
                 category,
                 projectId:
-                  (category === "client" || category === "labs") &&
+                  (category === "client" || category === "labs" || category === "content_creation") &&
                   projectId &&
                   projectId !== "none"
                     ? projectId
@@ -301,7 +303,7 @@ export function HourRegistrationTimer() {
             description: description.trim(),
             category,
             projectId:
-              (category === "client" || category === "labs") &&
+              (category === "client" || category === "labs" || category === "content_creation") &&
               projectId &&
               projectId !== "none"
                 ? projectId
@@ -396,7 +398,7 @@ export function HourRegistrationTimer() {
             hours,
             category: split.category,
             projectId:
-              (split.category === "client" || split.category === "labs") &&
+              (split.category === "client" || split.category === "labs" || split.category === "content_creation") &&
               split.projectId &&
               split.projectId !== "none"
                 ? split.projectId
@@ -516,7 +518,7 @@ export function HourRegistrationTimer() {
       );
       setProjectId(undefined);
     } else {
-      // client
+      // client or content_creation
       setProjects(
         allProjects
           .filter((p) => p.type === "client")
@@ -605,6 +607,7 @@ export function HourRegistrationTimer() {
     research: "Research",
     client_acquisition: "Client Acquisition",
     labs: "EXO Labs",
+    content_creation: "Content Creation",
   };
 
   return (
@@ -874,6 +877,7 @@ export function HourRegistrationTimer() {
                       | "research"
                       | "labs"
                       | "client_acquisition"
+                      | "content_creation"
                   )
                 }
               >
@@ -889,10 +893,11 @@ export function HourRegistrationTimer() {
                     Client Acquisition
                   </SelectItem>
                   <SelectItem value="labs">EXO Labs</SelectItem>
+                  <SelectItem value="content_creation">Content Creation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {(category === "client" || category === "labs") && (
+            {(category === "client" || category === "labs" || category === "content_creation") && (
               <div className="space-y-2">
                 <Label htmlFor="project">
                   Project {category === "client" ? "(Optional)" : ""}
@@ -930,7 +935,9 @@ export function HourRegistrationTimer() {
                         ? "Describe the research you conducted..."
                         : category === "client_acquisition"
                           ? "Describe the client acquisition activities..."
-                          : "Describe the work you did..."
+                          : category === "content_creation"
+                            ? "Describe the content you created..."
+                            : "Describe the work you did..."
                 }
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

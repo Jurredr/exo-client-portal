@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     // Retry logic for duplicate invoice numbers (handles race conditions)
     let retries = 0;
     const maxRetries = 5;
-    
+
     while (retries < maxRetries) {
       try {
         const invoice = await createInvoice({
@@ -131,7 +131,9 @@ export async function POST(request: Request) {
             continue;
           }
           return NextResponse.json(
-            { error: `Failed to generate unique invoice number after ${maxRetries} attempts` },
+            {
+              error: `Failed to generate unique invoice number after ${maxRetries} attempts`,
+            },
             { status: 500 }
           );
         }

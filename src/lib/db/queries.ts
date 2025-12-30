@@ -191,7 +191,8 @@ export async function createHourRegistration(
     | "brainstorming"
     | "research"
     | "labs"
-    | "client_acquisition" = "client"
+    | "client_acquisition"
+    | "content_creation" = "client"
 ) {
   const [registration] = await db
     .insert(hourRegistrations)
@@ -251,7 +252,8 @@ export async function updateHourRegistration(
       | "brainstorming"
       | "research"
       | "labs"
-      | "client_acquisition";
+      | "client_acquisition"
+      | "content_creation";
   }
 ) {
   const updateData: any = {};

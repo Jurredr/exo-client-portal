@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       "research",
       "labs",
       "client_acquisition",
+      "content_creation",
     ];
     const validCategory = validCategories.includes(category)
       ? category
@@ -158,6 +159,7 @@ export async function PATCH(request: Request) {
         "research",
         "labs",
         "client_acquisition",
+        "content_creation",
       ];
       validCategory = validCategories.includes(category)
         ? category

@@ -1,6 +1,14 @@
 import PDFDocument from "pdfkit";
-import { VAT_PERCENTAGE } from "@/lib/constants";
 import { parseNumeric, formatCurrency } from "./currency";
+
+interface InvoiceLineItem {
+  id?: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  taxPercentage: string;
+  order: number;
+}
 
 interface InvoiceData {
   invoice: {
@@ -11,7 +19,8 @@ interface InvoiceData {
     status: string;
     type: string;
     transactionType: string;
-    vatIncluded: boolean;
+    vatIncluded: boolean | null;
+    isKOR: boolean;
     description: string | null;
     dueDate: string | Date | null;
     paidAt: string | Date | null;
@@ -27,6 +36,7 @@ interface InvoiceData {
     id: string;
     name: string;
   };
+  lineItems?: InvoiceLineItem[];
 }
 
 export async function generateInvoicePDF(
@@ -53,27 +63,72 @@ export async function generateInvoicePDF(
     });
     doc.on("error", reject);
 
-    const { invoice, project, organization } = invoiceData;
+    const { invoice, project, organization, lineItems = [] } = invoiceData;
     const currency = invoice.currency || project?.currency || "EUR";
     const isCredit = invoice.transactionType === "credit";
-    const vatIncluded =
-      invoice.vatIncluded !== undefined ? invoice.vatIncluded : true;
+    const isKOR = invoice.isKOR || false;
+
+    // Process line items
+    const processedItems = lineItems
+      .map((item) => {
+        const quantity = parseFloat(item.quantity) || 0;
+        const unitPrice = parseFloat(item.unitPrice) || 0;
+        const taxPercentage = parseFloat(item.taxPercentage) || 0;
+        const subtotal = quantity * unitPrice;
+        const tax = subtotal * (taxPercentage / 100);
+        const total = subtotal + tax;
+
+        return {
+          description: item.description,
+          quantity,
+          unitPrice,
+          taxPercentage,
+          subtotal,
+          tax,
+          total,
+        };
+      })
+      .filter((item) => item.quantity > 0 && item.unitPrice !== 0);
+
+    // Calculate totals
+    let grandSubtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
+    let grandTotal = processedItems.reduce((sum, item) => sum + item.total, 0);
+    let grandVat = grandTotal - grandSubtotal;
+
+    // Apply credit invoice negation (only if values are positive)
+    // Legacy credit invoices may already have negative values from conversion, so check before negating
+    if (isCredit && grandSubtotal > 0) {
+      grandSubtotal = -grandSubtotal;
+      grandVat = -grandVat;
+      grandTotal = -grandTotal;
+    }
+    // If grandSubtotal is already negative (from legacy conversion), values are already correct
+
+    // Group tax by percentage for display
+    const taxGroups: { [key: string]: number } = {};
+    processedItems.forEach((item) => {
+      if (item.taxPercentage > 0) {
+        const key = item.taxPercentage.toFixed(2);
+        const taxAmount = isCredit ? -item.tax : item.tax;
+        taxGroups[key] = (taxGroups[key] || 0) + taxAmount;
+      }
+    });
 
     // Draw dark left column background
     doc
       .rect(0, 0, leftColumnWidth, pageHeight)
-      .fillColor("#1a1a1a") // Almost black background (darker)
+      .fillColor("#1a1a1a")
       .fill()
-      .fillColor("black"); // Reset fill color
+      .fillColor("black");
 
     // Add vertical branding line separating columns
     doc
-      .strokeColor("#1a1a1a") // Almost black
+      .strokeColor("#1a1a1a")
       .lineWidth(3)
       .moveTo(leftColumnWidth, 0)
       .lineTo(leftColumnWidth, pageHeight)
       .stroke()
-      .strokeColor("black"); // Reset stroke color
+      .strokeColor("black");
 
     // Format dates
     const invoiceDateObj = new Date(invoice.createdAt as string);
@@ -210,13 +265,14 @@ export async function generateInvoicePDF(
     });
 
     // Set currentY to the maximum of both sections
-    currentY = Math.max(billedToEndY, payToY) + 40; // Added extra spacing
+    currentY = Math.max(billedToEndY, payToY) + 40;
 
     // Invoice items table
     const tableStartY = currentY;
     const tableWidth = rightColumnWidth - rightMargin * 2;
     const qtyWidth = 50;
-    const descWidth = tableWidth - qtyWidth - 100 - 100; // Remaining after QTY, Price, Amount
+    const taxPctWidth = 30; // Narrow column for tax percentage (max 3-4 chars like "21%")
+    const descWidth = tableWidth - qtyWidth - taxPctWidth - 100 - 100; // Remaining after QTY, Tax %, Price, Amount
     const priceWidth = 100;
     const amountWidth = 100;
 
@@ -229,14 +285,20 @@ export async function generateInvoicePDF(
       tableStartY
     );
     doc.text(
-      "Price",
+      "Tax %",
       rightColumnStart + rightMargin + qtyWidth + descWidth,
+      tableStartY,
+      { width: taxPctWidth, align: "right" }
+    );
+    doc.text(
+      "Price",
+      rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth,
       tableStartY,
       { width: priceWidth, align: "right" }
     );
     doc.text(
       "Amount",
-      rightColumnStart + rightMargin + qtyWidth + descWidth + priceWidth,
+      rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth + priceWidth,
       tableStartY,
       { width: amountWidth, align: "right" }
     );
@@ -251,70 +313,91 @@ export async function generateInvoicePDF(
       .stroke()
       .strokeColor("black");
 
-    // Invoice line item
+    // Invoice line items
     currentY = headerLineY + 10;
     doc.fontSize(9).font("Helvetica");
-    const description =
-      invoice.description ||
-      (project ? `Project: ${project.title}` : "Invoice");
 
-    // Calculate item details
-    const amountValue = parseNumeric(invoice.amount);
-    let subtotal: number;
-    let vat: number;
-    let total: number;
-    let itemPrice: number;
-    const itemQty = 1;
+    if (processedItems.length === 0) {
+      // Fallback: use old single-item format if no line items
+      const description =
+        invoice.description ||
+        (project ? `Project: ${project.title}` : "Invoice");
+      const amountValue = parseNumeric(invoice.amount);
+      const itemQty = 1;
+      const itemPrice = isCredit ? -amountValue : amountValue;
 
-    if (isCredit) {
-      // For credit invoices, make all amounts negative
-      if (vatIncluded) {
-        // Calculate negative amounts with VAT
-        total = -amountValue;
-        subtotal = -amountValue / (1 + VAT_PERCENTAGE / 100);
-        vat = -amountValue - subtotal; // This will be negative
-        itemPrice = subtotal; // Price per item (without VAT)
-      } else {
-        // No VAT included
-        total = -amountValue;
-        subtotal = -amountValue;
-        vat = 0;
-        itemPrice = subtotal;
-      }
-    } else if (vatIncluded) {
-      subtotal = amountValue / (1 + VAT_PERCENTAGE / 100);
-      vat = amountValue - subtotal;
-      total = amountValue;
-      itemPrice = subtotal; // Price per item (without VAT)
+      // For fallback, assume 0% tax if not specified
+      const fallbackTaxPct = 0;
+      doc.text(itemQty.toString(), rightColumnStart + rightMargin, currentY);
+      doc.text(
+        description,
+        rightColumnStart + rightMargin + qtyWidth,
+        currentY,
+        { width: descWidth }
+      );
+      doc.text(
+        `${fallbackTaxPct}%`,
+        rightColumnStart + rightMargin + qtyWidth + descWidth,
+        currentY,
+        { width: taxPctWidth, align: "right" }
+      );
+      doc.text(
+        formatCurrency(itemPrice, currency),
+        rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth,
+        currentY,
+        { width: priceWidth, align: "right" }
+      );
+      doc.text(
+        formatCurrency(itemPrice, currency),
+        rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth + priceWidth,
+        currentY,
+        { width: amountWidth, align: "right" }
+      );
+      currentY += 30;
     } else {
-      subtotal = amountValue;
-      vat = 0;
-      total = amountValue;
-      itemPrice = subtotal;
+      // Display line items
+      processedItems.forEach((item) => {
+        const itemSubtotal = isCredit ? -item.subtotal : item.subtotal;
+        const itemTotal = isCredit ? -item.total : item.total;
+        const itemUnitPrice = isCredit ? -item.unitPrice : item.unitPrice;
+
+        doc.text(
+          item.quantity.toString(),
+          rightColumnStart + rightMargin,
+          currentY
+        );
+        doc.text(
+          item.description,
+          rightColumnStart + rightMargin + qtyWidth,
+          currentY,
+          { width: descWidth }
+        );
+        doc.text(
+          `${item.taxPercentage}%`,
+          rightColumnStart + rightMargin + qtyWidth + descWidth,
+          currentY,
+          { width: taxPctWidth, align: "right" }
+        );
+        doc.text(
+          formatCurrency(itemUnitPrice, currency),
+          rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth,
+          currentY,
+          { width: priceWidth, align: "right" }
+        );
+        doc.text(
+          formatCurrency(itemTotal, currency),
+          rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth + priceWidth,
+          currentY,
+          { width: amountWidth, align: "right" }
+        );
+        currentY += 25;
+      });
     }
 
-    // Table row
-    doc.text(itemQty.toString(), rightColumnStart + rightMargin, currentY);
-    doc.text(description, rightColumnStart + rightMargin + qtyWidth, currentY, {
-      width: descWidth,
-    });
-    doc.text(
-      formatCurrency(itemPrice, currency),
-      rightColumnStart + rightMargin + qtyWidth + descWidth,
-      currentY,
-      { width: priceWidth, align: "right" }
-    );
-    doc.text(
-      formatCurrency(isCredit ? -amountValue : amountValue, currency),
-      rightColumnStart + rightMargin + qtyWidth + descWidth + priceWidth,
-      currentY,
-      { width: amountWidth, align: "right" }
-    );
-
-    currentY += 40;
+    currentY += 15;
 
     // Totals section
-    const totalsStartX = rightColumnStart + rightMargin + qtyWidth + descWidth;
+    const totalsStartX = rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth;
 
     doc.fontSize(9).font("Helvetica");
     doc.text("Sub Total", totalsStartX, currentY, {
@@ -322,23 +405,42 @@ export async function generateInvoicePDF(
       align: "right",
     });
     doc.text(
-      formatCurrency(subtotal, currency),
+      formatCurrency(grandSubtotal, currency),
       totalsStartX + priceWidth,
       currentY,
       { width: amountWidth, align: "right" }
     );
     currentY += 15;
 
-    // Show VAT if vatIncluded is true (for both debit and credit invoices)
-    // For credit invoices, VAT will be negative
-    if (vatIncluded) {
-      const vatPercentage = VAT_PERCENTAGE;
-      doc.text(`${vatPercentage}% Tax`, totalsStartX, currentY, {
+    // Always show tax line (even if 0.00)
+    const sortedTaxKeys = Object.keys(taxGroups).sort(
+      (a, b) => parseFloat(b) - parseFloat(a)
+    );
+    if (sortedTaxKeys.length > 0) {
+      // Show tax grouped by percentage
+      sortedTaxKeys.forEach((taxKey) => {
+        const taxPercentage = parseFloat(taxKey);
+        const taxAmount = taxGroups[taxKey];
+        doc.text(`${taxPercentage}% Tax`, totalsStartX, currentY, {
+          width: priceWidth,
+          align: "right",
+        });
+        doc.text(
+          formatCurrency(taxAmount, currency),
+          totalsStartX + priceWidth,
+          currentY,
+          { width: amountWidth, align: "right" }
+        );
+        currentY += 15;
+      });
+    } else {
+      // No tax items, but still show 0.00 tax
+      doc.text("Tax", totalsStartX, currentY, {
         width: priceWidth,
         align: "right",
       });
       doc.text(
-        formatCurrency(vat, currency),
+        formatCurrency(grandVat, currency),
         totalsStartX + priceWidth,
         currentY,
         { width: amountWidth, align: "right" }
@@ -352,11 +454,23 @@ export async function generateInvoicePDF(
       align: "right",
     });
     doc.text(
-      formatCurrency(total, currency),
+      formatCurrency(grandTotal, currency),
       totalsStartX + priceWidth,
       currentY,
       { width: amountWidth, align: "right" }
     );
+
+    // Add KOR text at the bottom if enabled
+    if (isKOR) {
+      currentY += 30;
+      doc.fontSize(8).font("Helvetica").fillColor("#666666");
+      doc.text(
+        "Factuur vrijgesteld van OB o.g.v. artikel 25 Wet OB",
+        rightColumnStart + rightMargin,
+        currentY,
+        { width: rightColumnWidth - rightMargin * 2, align: "center" }
+      );
+    }
 
     doc.end();
   });

@@ -54,7 +54,8 @@ interface InvoiceData {
     status: string;
     type: string;
     transactionType: string;
-    vatIncluded: boolean;
+    vatIncluded: boolean | null;
+    isKOR: boolean;
     description: string | null;
     dueDate: string | null;
     paidAt: string | null;
@@ -72,6 +73,14 @@ interface InvoiceData {
     id: string;
     name: string;
   };
+  lineItems?: Array<{
+    id: string;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    taxPercentage: string;
+    order: number;
+  }>;
 }
 
 const INVOICE_STATUSES = [
@@ -571,7 +580,7 @@ export function InvoicesTable() {
                   Create Invoice
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="!max-w-4xl !sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create Invoice</DialogTitle>
                   <DialogDescription>
@@ -615,12 +624,14 @@ export function InvoicesTable() {
                     currency: editingInvoice.invoice.currency,
                     status: editingInvoice.invoice.status,
                     transactionType: editingInvoice.invoice.transactionType,
-                    vatIncluded: editingInvoice.invoice.vatIncluded ?? true,
+                    vatIncluded: editingInvoice.invoice.vatIncluded ?? null,
+                    isKOR: editingInvoice.invoice.isKOR || false,
                     description: editingInvoice.invoice.description,
                     dueDate: editingInvoice.invoice.dueDate,
                     pdfUrl: editingInvoice.invoice.pdfUrl || null,
                     pdfFileName: editingInvoice.invoice.pdfFileName || null,
                     pdfFileType: editingInvoice.invoice.pdfFileType || null,
+                    lineItems: (editingInvoice as any).lineItems || undefined,
                   }}
                   onSuccess={handleEditSuccess}
                   onCancel={handleEditCancel}
@@ -631,7 +642,7 @@ export function InvoicesTable() {
         </Drawer>
       ) : (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="!max-w-4xl !sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Invoice</DialogTitle>
               <DialogDescription>Update invoice details</DialogDescription>
@@ -647,12 +658,14 @@ export function InvoicesTable() {
                   currency: editingInvoice.invoice.currency,
                   status: editingInvoice.invoice.status,
                   transactionType: editingInvoice.invoice.transactionType,
-                  vatIncluded: editingInvoice.invoice.vatIncluded ?? true,
+                  vatIncluded: editingInvoice.invoice.vatIncluded ?? null,
+                  isKOR: editingInvoice.invoice.isKOR || false,
                   description: editingInvoice.invoice.description,
                   dueDate: editingInvoice.invoice.dueDate,
                   pdfUrl: editingInvoice.invoice.pdfUrl || null,
                   pdfFileName: editingInvoice.invoice.pdfFileName || null,
                   pdfFileType: editingInvoice.invoice.pdfFileType || null,
+                  lineItems: (editingInvoice as any).lineItems || undefined,
                 }}
                 onSuccess={handleEditSuccess}
                 onCancel={handleEditCancel}

@@ -64,6 +64,7 @@ export async function POST(request: Request) {
       type,
       transactionType,
       vatIncluded,
+      isKOR,
       description,
       dueDate,
       autoGenerate,
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
       pdfFileName,
       pdfFileType,
       invoiceNumber: invoiceNumberOverride,
+      lineItems,
     } = body;
 
     if (!organizationId || typeof organizationId !== "string") {
@@ -107,12 +109,14 @@ export async function POST(request: Request) {
           status: status || "draft",
           type: type || "manual",
           transactionType: transactionType || "debit",
-          vatIncluded: vatIncluded !== undefined ? vatIncluded : true,
+          vatIncluded: vatIncluded !== undefined ? vatIncluded : null,
+          isKOR: isKOR || false,
           description: description || null,
           dueDate: dueDate ? new Date(dueDate) : null,
           pdfUrl: pdfUrl || null,
           pdfFileName: pdfFileName || null,
           pdfFileType: pdfFileType || null,
+          lineItems: lineItems || undefined,
         });
 
         return NextResponse.json(invoice, { status: 201 });
@@ -245,6 +249,9 @@ export async function PATCH(request: Request) {
       ...(updateData.vatIncluded !== undefined && {
         vatIncluded: updateData.vatIncluded,
       }),
+      ...(updateData.isKOR !== undefined && {
+        isKOR: updateData.isKOR,
+      }),
       ...(updateData.description !== undefined && {
         description: updateData.description?.trim() || null,
       }),
@@ -262,6 +269,9 @@ export async function PATCH(request: Request) {
       }),
       ...(updateData.pdfFileType !== undefined && {
         pdfFileType: updateData.pdfFileType || null,
+      }),
+      ...(updateData.lineItems !== undefined && {
+        lineItems: updateData.lineItems,
       }),
     });
 

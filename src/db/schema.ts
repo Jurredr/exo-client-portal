@@ -5,6 +5,7 @@ import {
   uuid,
   boolean,
   decimal,
+  integer,
   primaryKey,
 } from "drizzle-orm/pg-core";
 
@@ -123,18 +124,37 @@ export const invoices = pgTable("invoices", {
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
     .notNull(),
-  amount: text("amount").notNull(), // Stored as text to preserve formatting
+  amount: text("amount").notNull(), // Stored as text to preserve formatting (total amount)
   currency: text("currency").notNull().default("EUR"), // USD, EUR
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
   type: text("type").notNull().default("manual"), // auto, manual
   transactionType: text("transaction_type").notNull().default("debit"), // debit, credit
-  vatIncluded: boolean("vat_included").notNull().default(true), // whether 21% VAT is included in the total
-  description: text("description"), // For manual invoices
+  vatIncluded: boolean("vat_included"), // Deprecated: whether 21% VAT is included in the total (kept for backward compatibility)
+  isKOR: boolean("is_kor").notNull().default(false), // Kleine ondernemersregeling - if true, no tax is charged
+  description: text("description"), // For manual invoices (deprecated, use line items instead)
   dueDate: timestamp("due_date"),
   paidAt: timestamp("paid_at"),
   pdfUrl: text("pdf_url"), // URL to uploaded invoice PDF file
   pdfFileName: text("pdf_file_name"), // Original filename
   pdfFileType: text("pdf_file_type"), // MIME type
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id")
+    .references(() => invoices.id, { onDelete: "cascade" })
+    .notNull(),
+  description: text("description").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 })
+    .notNull()
+    .default("1"), // Quantity/amount
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(), // Price per unit
+  taxPercentage: decimal("tax_percentage", { precision: 5, scale: 2 })
+    .notNull()
+    .default("0"), // Tax percentage (0-100)
+  order: integer("order").notNull().default(0), // Order of items in the invoice
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

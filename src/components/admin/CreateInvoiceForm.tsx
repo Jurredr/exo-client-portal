@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -13,10 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, DollarSign, Calendar, Upload, X } from "lucide-react";
+import { FileText, DollarSign, Calendar, Upload, X, Plus, Trash2 } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
-import { calculatePaymentAmount } from "@/lib/utils/currency";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface Organization {
@@ -30,6 +28,14 @@ interface Project {
   organizationId: string;
   subtotal: string | null;
   currency: string;
+}
+
+interface InvoiceLineItem {
+  id?: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  taxPercentage: string;
 }
 
 interface Invoice {
@@ -46,7 +52,9 @@ interface Invoice {
   pdfUrl: string | null;
   pdfFileName: string | null;
   pdfFileType: string | null;
-  vatIncluded: boolean;
+  vatIncluded: boolean | null;
+  isKOR: boolean;
+  lineItems?: InvoiceLineItem[];
 }
 
 const INVOICE_STATUSES: StatusOption[] = [
@@ -70,17 +78,15 @@ export function CreateInvoiceForm({
     invoice?.organizationId || ""
   );
   const [projectId, setProjectId] = useState<string>(invoice?.projectId || "");
-  const [amount, setAmount] = useState(invoice?.amount || "");
   const [currency, setCurrency] = useState<"USD" | "EUR">(
     (invoice?.currency as "USD" | "EUR") || "EUR"
   );
-  const [description, setDescription] = useState(invoice?.description || "");
   const [status, setStatus] = useState(invoice?.status || "draft");
   const [transactionType, setTransactionType] = useState<"debit" | "credit">(
     (invoice?.transactionType as "debit" | "credit") || "debit"
   );
-  const [vatIncluded, setVatIncluded] = useState<boolean>(
-    invoice?.vatIncluded !== undefined ? invoice.vatIncluded : true
+  const [isKOR, setIsKOR] = useState<boolean>(
+    invoice?.isKOR !== undefined ? invoice.isKOR : false
   );
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate
@@ -97,10 +103,30 @@ export function CreateInvoiceForm({
   const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
     invoice?.invoiceNumber || ""
   );
-  const [paymentStage, setPaymentStage] = useState<
-    "first" | "final" | "custom"
-  >("custom");
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
+    invoice?.lineItems && invoice.lineItems.length > 0
+      ? invoice.lineItems
+      : [
+          {
+            description: "",
+            quantity: "1",
+            unitPrice: "",
+            taxPercentage: isKOR ? "0" : "21",
+          },
+        ]
+  );
+
+  // Calculate total from line items
+  const calculateTotal = (): number => {
+    return lineItems.reduce((total, item) => {
+      const quantity = parseFloat(item.quantity) || 0;
+      const unitPrice = parseFloat(item.unitPrice) || 0;
+      const taxPercentage = parseFloat(item.taxPercentage) || 0;
+      const subtotal = quantity * unitPrice;
+      const tax = subtotal * (taxPercentage / 100);
+      return total + subtotal + tax;
+    }, 0);
+  };
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -108,7 +134,6 @@ export function CreateInvoiceForm({
         const response = await fetch("/api/organizations");
         if (response.ok) {
           const data = await response.json();
-          // Filter out EXO organization
           const filteredData = data.filter(
             (org: Organization) => org.name !== EXO_ORGANIZATION_NAME
           );
@@ -137,7 +162,6 @@ export function CreateInvoiceForm({
         const response = await fetch("/api/projects");
         if (response.ok) {
           const data = await response.json();
-          // Filter projects by selected organization
           const filteredProjects = data
             .filter((p: any) => p.project.organizationId === organizationId)
             .map((p: any) => ({
@@ -159,38 +183,14 @@ export function CreateInvoiceForm({
     fetchProjects();
   }, [organizationId]);
 
-  // Auto-calculate amount when project and payment stage change
+  // When KOR is enabled, set all tax percentages to 0
   useEffect(() => {
-    if (
-      selectedProject &&
-      paymentStage !== "custom" &&
-      selectedProject.subtotal
-    ) {
-      const calculatedAmount = calculatePaymentAmount(
-        selectedProject.subtotal,
-        paymentStage === "first" ? "pay_first" : "pay_final",
-        selectedProject.currency
+    if (isKOR) {
+      setLineItems((items) =>
+        items.map((item) => ({ ...item, taxPercentage: "0" }))
       );
-      if (calculatedAmount) {
-        // Remove currency symbol and formatting for storage
-        // formatCurrency returns something like "€1,000" or "$1,000"
-        const amountValue = calculatedAmount
-          .replace(/[€$,\s]/g, "")
-          .replace(/\s/g, "");
-        setAmount(amountValue);
-        setCurrency(selectedProject.currency as "USD" | "EUR");
-
-        // Auto-update description only if it's empty or matches the pattern
-        // (to avoid overwriting user-entered descriptions)
-        if (!description || description.includes("Payment for")) {
-          const stageText = paymentStage === "first" ? "First" : "Final";
-          setDescription(
-            `Payment for ${selectedProject.title} - ${stageText} payment`
-          );
-        }
-      }
     }
-  }, [selectedProject, paymentStage]);
+  }, [isKOR]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -204,8 +204,38 @@ export function CreateInvoiceForm({
         return;
       }
       setPdfFile(file);
-      setRemovePdf(false); // Reset remove flag when new file is selected
+      setRemovePdf(false);
     }
+  };
+
+  const addLineItem = () => {
+    setLineItems([
+      ...lineItems,
+      {
+        description: "",
+        quantity: "1",
+        unitPrice: "",
+        taxPercentage: isKOR ? "0" : "21",
+      },
+    ]);
+  };
+
+  const removeLineItem = (index: number) => {
+    if (lineItems.length > 1) {
+      setLineItems(lineItems.filter((_, i) => i !== index));
+    } else {
+      toast.error("At least one line item is required");
+    }
+  };
+
+  const updateLineItem = (
+    index: number,
+    field: keyof InvoiceLineItem,
+    value: string
+  ) => {
+    const updated = [...lineItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setLineItems(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -216,8 +246,23 @@ export function CreateInvoiceForm({
       return;
     }
 
-    if (!amount.trim()) {
-      toast.error("Amount is required");
+    // Validate line items
+    const hasValidItems = lineItems.some(
+      (item) =>
+        item.description.trim() &&
+        parseFloat(item.quantity) > 0 &&
+        parseFloat(item.unitPrice) > 0
+    );
+
+    if (!hasValidItems) {
+      toast.error("At least one valid line item is required");
+      return;
+    }
+
+    // Calculate total
+    const total = calculateTotal();
+    if (total <= 0) {
+      toast.error("Total amount must be greater than 0");
       return;
     }
 
@@ -227,7 +272,6 @@ export function CreateInvoiceForm({
       let pdfFileName: string | null = null;
       let pdfFileType: string | null = null;
 
-      // If a new PDF file is provided, use it
       if (pdfFile) {
         const reader = new FileReader();
         pdfUrl = await new Promise<string>((resolve, reject) => {
@@ -240,12 +284,10 @@ export function CreateInvoiceForm({
         pdfFileName = pdfFile.name;
         pdfFileType = pdfFile.type;
       } else if (invoice?.pdfUrl && !removePdf) {
-        // Keep existing PDF if no new file and user didn't remove it
         pdfUrl = invoice.pdfUrl;
         pdfFileName = invoice.pdfFileName;
         pdfFileType = invoice.pdfFileType;
       }
-      // If removePdf is true, pdfUrl will be null (removed)
 
       const url = "/api/invoices";
       const method = invoice ? "PATCH" : "POST";
@@ -254,32 +296,38 @@ export function CreateInvoiceForm({
             id: invoice.id,
             organizationId,
             projectId: projectId || null,
-            amount: amount.trim(),
+            amount: total.toFixed(2),
             currency,
-            description: description.trim() || null,
             status,
             transactionType,
-            vatIncluded,
+            isKOR,
             dueDate: dueDate || null,
             pdfUrl,
             pdfFileName,
             pdfFileType,
+            lineItems: lineItems.map((item, index) => ({
+              ...item,
+              order: index,
+            })),
           }
         : {
             organizationId,
             projectId: projectId || null,
-            amount: amount.trim(),
+            amount: total.toFixed(2),
             currency,
-            description: description.trim() || null,
             status,
             type: "manual",
             transactionType,
-            vatIncluded,
+            isKOR,
             dueDate: dueDate || null,
             pdfUrl,
             pdfFileName,
             pdfFileType,
             invoiceNumber: invoiceNumberOverride.trim() || null,
+            lineItems: lineItems.map((item, index) => ({
+              ...item,
+              order: index,
+            })),
           };
 
       const response = await fetch(url, {
@@ -301,17 +349,21 @@ export function CreateInvoiceForm({
       if (!invoice) {
         setOrganizationId("");
         setProjectId("");
-        setAmount("");
         setCurrency("EUR");
-        setDescription("");
         setStatus("draft");
         setTransactionType("debit");
-        setVatIncluded(true);
+        setIsKOR(false);
         setDueDate("");
         setPdfFile(null);
         setInvoiceNumberOverride("");
-        setPaymentStage("custom");
-        setSelectedProject(null);
+        setLineItems([
+          {
+            description: "",
+            quantity: "1",
+            unitPrice: "",
+            taxPercentage: "21",
+          },
+        ]);
       }
       onSuccess?.();
     } catch (error) {
@@ -324,6 +376,8 @@ export function CreateInvoiceForm({
       setIsSubmitting(false);
     }
   };
+
+  const total = calculateTotal();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -347,7 +401,6 @@ export function CreateInvoiceForm({
           value={organizationId}
           onValueChange={(value) => {
             setOrganizationId(value);
-            // Clear project selection when organization changes
             setProjectId("");
           }}
           disabled={isLoadingOrgs}
@@ -370,21 +423,7 @@ export function CreateInvoiceForm({
         <Select
           value={projectId || "none"}
           onValueChange={(value) => {
-            if (value === "none") {
-              setProjectId("");
-              setSelectedProject(null);
-              setPaymentStage("custom");
-            } else {
-              setProjectId(value);
-              const project = projects.find((p) => p.id === value);
-              setSelectedProject(project || null);
-              // Reset to custom if project doesn't have subtotal
-              if (project && project.subtotal) {
-                setPaymentStage("first"); // Default to first payment
-              } else {
-                setPaymentStage("custom");
-              }
-            }
+            setProjectId(value === "none" ? "" : value);
           }}
           disabled={isLoadingProjects || !organizationId}
         >
@@ -413,55 +452,7 @@ export function CreateInvoiceForm({
           </SelectContent>
         </Select>
       </div>
-      {selectedProject && selectedProject.subtotal && (
-        <div className="space-y-2">
-          <Label htmlFor="invoice-payment-stage">Payment Stage</Label>
-          <Select
-            value={paymentStage}
-            onValueChange={(value) =>
-              setPaymentStage(value as "first" | "final" | "custom")
-            }
-          >
-            <SelectTrigger id="invoice-payment-stage" className="w-full">
-              <SelectValue placeholder="Select payment stage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="first">First Payment (50%)</SelectItem>
-              <SelectItem value="final">Final Payment (50%)</SelectItem>
-              <SelectItem value="custom">Custom Amount</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Auto-calculates 50% of total (including VAT) based on project
-            subtotal
-          </p>
-        </div>
-      )}
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="invoice-amount" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            Amount *
-          </Label>
-          <Input
-            id="invoice-amount"
-            value={amount}
-            onChange={(e) => {
-              setAmount(e.target.value);
-              // If user manually edits amount, switch to custom mode
-              if (paymentStage !== "custom" && selectedProject) {
-                setPaymentStage("custom");
-              }
-            }}
-            placeholder="5000.00"
-            required
-          />
-          {selectedProject && paymentStage !== "custom" && (
-            <p className="text-xs text-muted-foreground">
-              Auto-calculated from project subtotal. Edit manually to override.
-            </p>
-          )}
-        </div>
         <div className="space-y-2">
           <Label htmlFor="invoice-currency">Currency *</Label>
           <Select
@@ -476,27 +467,6 @@ export function CreateInvoiceForm({
               <SelectItem value="EUR">EUR (€)</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="invoice-description">Description</Label>
-        <Textarea
-          id="invoice-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Invoice description..."
-          rows={3}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="invoice-status">Status</Label>
-          <StatusCombobox
-            options={INVOICE_STATUSES}
-            value={status}
-            onValueChange={setStatus}
-            placeholder="Select status..."
-          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="invoice-transaction-type">Transaction Type *</Label>
@@ -517,31 +487,165 @@ export function CreateInvoiceForm({
           </Select>
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="invoice-status">Status</Label>
+          <StatusCombobox
+            options={INVOICE_STATUSES}
+            value={status}
+            onValueChange={setStatus}
+            placeholder="Select status..."
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="invoice-due-date" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Due Date
+          </Label>
+          <Input
+            id="invoice-due-date"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </div>
+      </div>
       <div className="flex items-center space-x-2">
         <Checkbox
-          id="vat-included"
-          checked={vatIncluded}
-          onCheckedChange={(checked) => setVatIncluded(checked === true)}
+          id="is-kor"
+          checked={isKOR}
+          onCheckedChange={(checked) => setIsKOR(checked === true)}
         />
         <Label
-          htmlFor="vat-included"
+          htmlFor="is-kor"
           className="text-sm font-normal cursor-pointer"
         >
-          21% VAT is included in the total amount
+          Kleine ondernemersregeling (KOR) - No tax charged
         </Label>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="invoice-due-date" className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
-          Due Date
-        </Label>
-        <Input
-          id="invoice-due-date"
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-        />
+
+      {/* Line Items Section */}
+      <div className="space-y-4 border rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Items</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addLineItem}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
+        <div className="space-y-3">
+          {lineItems.map((item, index) => {
+            const quantity = parseFloat(item.quantity) || 0;
+            const unitPrice = parseFloat(item.unitPrice) || 0;
+            const taxPercentage = parseFloat(item.taxPercentage) || 0;
+            const subtotal = quantity * unitPrice;
+            const tax = subtotal * (taxPercentage / 100);
+            const itemTotal = subtotal + tax;
+
+            return (
+              <div
+                key={index}
+                className="grid grid-cols-12 gap-3 p-3 border rounded-md bg-muted/50 items-end"
+              >
+                <div className="col-span-12 lg:col-span-5 space-y-1">
+                  <Label className="text-xs">Description *</Label>
+                  <Input
+                    value={item.description}
+                    onChange={(e) =>
+                      updateLineItem(index, "description", e.target.value)
+                    }
+                    placeholder="Item description"
+                    required
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-span-3 lg:col-span-1 space-y-1">
+                  <Label className="text-xs">Qty *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={item.quantity}
+                    onChange={(e) =>
+                      updateLineItem(index, "quantity", e.target.value)
+                    }
+                    required
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-span-4 lg:col-span-2 space-y-1">
+                  <Label className="text-xs">Unit Price *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={item.unitPrice}
+                    onChange={(e) =>
+                      updateLineItem(index, "unitPrice", e.target.value)
+                    }
+                    required
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-span-3 lg:col-span-1 space-y-1">
+                  <Label className="text-xs">Tax %</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={item.taxPercentage}
+                    onChange={(e) =>
+                      updateLineItem(index, "taxPercentage", e.target.value)
+                    }
+                    disabled={isKOR}
+                    required
+                    className="w-full"
+                  />
+                </div>
+                <div className="col-span-2 lg:col-span-2 flex items-end space-y-1">
+                  <div className="w-full">
+                    <Label className="text-xs block mb-1">Total</Label>
+                    <div className="text-sm font-medium h-10 flex items-center justify-end px-3 border rounded-md bg-background">
+                      {currency === "EUR" ? "€" : "$"}
+                      {itemTotal.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+                <div className="col-span-12 lg:col-span-1 flex items-end justify-center lg:justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeLineItem(index)}
+                    disabled={lineItems.length === 1}
+                    className="h-9 w-9"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="border-t pt-3 flex justify-end">
+          <div className="text-right space-y-1">
+            <div className="text-sm text-muted-foreground">
+              Total:{" "}
+              <span className="text-base font-bold">
+                {currency === "EUR" ? "€" : "$"}
+                {total.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
+
       <div className="space-y-2">
         <Label htmlFor="invoice-pdf" className="flex items-center gap-2">
           <Upload className="h-4 w-4" />

@@ -6,11 +6,16 @@ import {
   hourRegistrations,
   userOrganizations,
   invoices,
+  invoiceLineItems,
   legalDocuments,
   expenses,
 } from "@/db/schema";
 import { eq, desc, sql, inArray, gte, lte, and } from "drizzle-orm";
-import { ADMIN_EMAIL_DOMAIN, EXO_ORGANIZATION_NAME } from "@/lib/constants";
+import {
+  ADMIN_EMAIL_DOMAIN,
+  EXO_ORGANIZATION_NAME,
+  VAT_PERCENTAGE,
+} from "@/lib/constants";
 
 export function isAdmin(email: string): boolean {
   return email.endsWith(ADMIN_EMAIL_DOMAIN);
@@ -992,7 +997,7 @@ export async function getDashboardStats(
 }
 
 export async function getAllInvoices() {
-  return await db
+  const results = await db
     .select({
       invoice: invoices,
       project: projects,
@@ -1002,6 +1007,94 @@ export async function getAllInvoices() {
     .leftJoin(projects, eq(invoices.projectId, projects.id))
     .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
     .orderBy(desc(invoices.createdAt));
+
+  // Fetch all line items for all invoices in one query
+  const invoiceIds = results.map((r) => r.invoice.id);
+  const allLineItems =
+    invoiceIds.length > 0
+      ? await db
+          .select()
+          .from(invoiceLineItems)
+          .where(inArray(invoiceLineItems.invoiceId, invoiceIds))
+          .orderBy(invoiceLineItems.order)
+      : [];
+
+  // Convert decimal fields to strings for the form
+  const formattedAllLineItems = allLineItems.map((item) => ({
+    ...item,
+    quantity: item.quantity?.toString() || "1",
+    unitPrice: item.unitPrice?.toString() || "0",
+    taxPercentage: item.taxPercentage?.toString() || "0",
+  }));
+
+  // Group line items by invoice ID
+  const lineItemsByInvoice = new Map<string, typeof formattedAllLineItems>();
+  formattedAllLineItems.forEach((item) => {
+    if (!lineItemsByInvoice.has(item.invoiceId)) {
+      lineItemsByInvoice.set(item.invoiceId, []);
+    }
+    lineItemsByInvoice.get(item.invoiceId)!.push(item);
+  });
+
+  // Attach line items to each invoice, creating legacy line items if needed
+  return results.map((result) => {
+    const items = lineItemsByInvoice.get(result.invoice.id) || [];
+
+    // If no line items exist but invoice has legacy data, create a virtual line item
+    if (items.length === 0 && result.invoice.amount) {
+      let amountValue = parseFloat(result.invoice.amount) || 0;
+      const isCredit = result.invoice.transactionType === "credit";
+      const vatIncluded = result.invoice.vatIncluded ?? true;
+      const isKOR = result.invoice.isKOR || false;
+
+      // For credit invoices, make amount negative
+      if (isCredit) {
+        amountValue = -Math.abs(amountValue);
+      }
+
+      const quantity = "1";
+      let unitPrice: string;
+      const taxPercentage = isKOR ? "0" : VAT_PERCENTAGE.toString();
+
+      if (vatIncluded && !isKOR) {
+        // Calculate unit price without VAT
+        const subtotal = amountValue / (1 + VAT_PERCENTAGE / 100);
+        unitPrice = subtotal.toFixed(2);
+      } else {
+        // No VAT or KOR
+        unitPrice = amountValue.toFixed(2);
+      }
+
+      // Use description if available, otherwise use a fallback
+      const description =
+        result.invoice.description ||
+        result.project?.title ||
+        `Invoice ${result.invoice.invoiceNumber}`;
+
+      // Return virtual line item (not saved to DB yet, will be saved when invoice is updated)
+      return {
+        ...result,
+        lineItems: [
+          {
+            id: `legacy-${result.invoice.id}`,
+            invoiceId: result.invoice.id,
+            description,
+            quantity,
+            unitPrice,
+            taxPercentage,
+            order: 0,
+            createdAt: result.invoice.createdAt,
+            updatedAt: result.invoice.updatedAt,
+          },
+        ],
+      };
+    }
+
+    return {
+      ...result,
+      lineItems: items,
+    };
+  });
 }
 
 export async function getInvoiceById(invoiceId: string) {
@@ -1017,7 +1110,79 @@ export async function getInvoiceById(invoiceId: string) {
     .where(eq(invoices.id, invoiceId))
     .limit(1);
 
-  return result[0] || null;
+  if (!result[0]) {
+    return null;
+  }
+
+  // Fetch line items
+  const items = await db
+    .select()
+    .from(invoiceLineItems)
+    .where(eq(invoiceLineItems.invoiceId, invoiceId))
+    .orderBy(invoiceLineItems.order);
+
+  // Convert decimal fields to strings for the form
+  const formattedItems = items.map((item) => ({
+    ...item,
+    quantity: item.quantity?.toString() || "1",
+    unitPrice: item.unitPrice?.toString() || "0",
+    taxPercentage: item.taxPercentage?.toString() || "0",
+  }));
+
+  // If no line items exist but invoice has legacy data, create a virtual line item
+  if (formattedItems.length === 0 && result[0].invoice.amount) {
+    let amountValue = parseFloat(result[0].invoice.amount) || 0;
+    const isCredit = result[0].invoice.transactionType === "credit";
+    const vatIncluded = result[0].invoice.vatIncluded ?? true;
+    const isKOR = result[0].invoice.isKOR || false;
+
+    // For credit invoices, make amount negative
+    if (isCredit) {
+      amountValue = -Math.abs(amountValue);
+    }
+
+    const quantity = "1";
+    let unitPrice: string;
+    const taxPercentage = isKOR ? "0" : VAT_PERCENTAGE.toString();
+
+    if (vatIncluded && !isKOR) {
+      // Calculate unit price without VAT
+      const subtotal = amountValue / (1 + VAT_PERCENTAGE / 100);
+      unitPrice = subtotal.toFixed(2);
+    } else {
+      // No VAT or KOR
+      unitPrice = amountValue.toFixed(2);
+    }
+
+    // Use description if available, otherwise use a fallback
+    const description =
+      result[0].invoice.description ||
+      result[0].project?.title ||
+      `Invoice ${result[0].invoice.invoiceNumber}`;
+
+    // Return virtual line item (not saved to DB yet, will be saved when invoice is updated)
+    return {
+      ...result[0],
+      lineItems: [
+        {
+          id: `legacy-${result[0].invoice.id}`,
+          invoiceId: result[0].invoice.id,
+          description,
+          quantity,
+          unitPrice,
+          taxPercentage,
+          order: 0,
+          createdAt: result[0].invoice.createdAt,
+          updatedAt: result[0].invoice.updatedAt,
+        },
+      ],
+    };
+  }
+
+  return {
+    ...result[0],
+    lineItems: formattedItems,
+  };
 }
 
 export async function getNextInvoiceNumber(): Promise<string> {
@@ -1061,12 +1226,20 @@ export async function createInvoice(data: {
   status?: string;
   type?: string;
   transactionType?: string;
-  vatIncluded?: boolean;
+  vatIncluded?: boolean | null;
+  isKOR?: boolean;
   description?: string | null;
   dueDate?: Date | null;
   pdfUrl?: string | null;
   pdfFileName?: string | null;
   pdfFileType?: string | null;
+  lineItems?: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    taxPercentage: string;
+    order: number;
+  }>;
 }) {
   const [invoice] = await db
     .insert(invoices)
@@ -1079,7 +1252,8 @@ export async function createInvoice(data: {
       status: data.status || "draft",
       type: data.type || "manual",
       transactionType: data.transactionType || "debit",
-      vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : true,
+      vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : null,
+      isKOR: data.isKOR || false,
       description: data.description || null,
       dueDate: data.dueDate || null,
       pdfUrl: data.pdfUrl || null,
@@ -1087,6 +1261,20 @@ export async function createInvoice(data: {
       pdfFileType: data.pdfFileType || null,
     })
     .returning();
+
+  // Create line items if provided
+  if (data.lineItems && data.lineItems.length > 0) {
+    await db.insert(invoiceLineItems).values(
+      data.lineItems.map((item) => ({
+        invoiceId: invoice.id,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxPercentage: item.taxPercentage,
+        order: item.order,
+      }))
+    );
+  }
 
   return invoice;
 }
@@ -1100,23 +1288,56 @@ export async function updateInvoice(
     amount: string;
     currency: string;
     transactionType: string;
-    vatIncluded: boolean;
+    vatIncluded: boolean | null;
+    isKOR: boolean;
     description: string | null;
     dueDate: Date | null;
     paidAt: Date | null;
     pdfUrl: string | null;
     pdfFileName: string | null;
     pdfFileType: string | null;
+    lineItems?: Array<{
+      id?: string;
+      description: string;
+      quantity: string;
+      unitPrice: string;
+      taxPercentage: string;
+      order: number;
+    }>;
   }>
 ) {
+  const { lineItems, ...invoiceData } = data;
+
   const [invoice] = await db
     .update(invoices)
     .set({
-      ...data,
+      ...invoiceData,
       updatedAt: new Date(),
     })
     .where(eq(invoices.id, invoiceId))
     .returning();
+
+  // Update line items if provided
+  if (lineItems !== undefined) {
+    // Delete existing line items
+    await db
+      .delete(invoiceLineItems)
+      .where(eq(invoiceLineItems.invoiceId, invoiceId));
+
+    // Insert new line items
+    if (lineItems.length > 0) {
+      await db.insert(invoiceLineItems).values(
+        lineItems.map((item) => ({
+          invoiceId: invoice.id,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          taxPercentage: item.taxPercentage,
+          order: item.order,
+        }))
+      );
+    }
+  }
 
   return invoice;
 }

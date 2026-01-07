@@ -82,12 +82,28 @@ export function HourChart() {
     }
   };
 
-  // Group hours by date
+  // Helper function to format date as YYYY-MM-DD in local timezone (matching table display)
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Group hours by date (using the actual work date, not createdAt)
+  // Use local timezone to match table display
   const groupByDate = () => {
     const grouped: { [key: string]: number } = {};
     registrations.forEach((reg) => {
-      const date = new Date(reg.date).toISOString().split("T")[0];
-      grouped[date] = (grouped[date] || 0) + parseFloat(reg.hours);
+      // Ensure we're using the 'date' field (actual work date), not 'createdAt' (logged at)
+      const workDate = reg.date ? new Date(reg.date) : null;
+      if (!workDate || isNaN(workDate.getTime())) {
+        console.warn("Invalid date for registration:", reg.id);
+        return;
+      }
+      // Use local timezone to match how the table displays dates
+      const dateStr = formatDateLocal(workDate);
+      grouped[dateStr] = (grouped[dateStr] || 0) + parseFloat(reg.hours);
     });
     return grouped;
   };
@@ -102,10 +118,14 @@ export function HourChart() {
       const startOfYear = new Date(now.getFullYear(), 0, 1);
       const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
       
-      // Group hours by month
+      // Group hours by month (using the actual work date, not createdAt)
       const hoursByMonth: { [key: string]: number } = {};
       registrations.forEach((reg) => {
-        const regDate = new Date(reg.date);
+        // Ensure we're using the 'date' field (actual work date), not 'createdAt' (logged at)
+        const regDate = reg.date ? new Date(reg.date) : null;
+        if (!regDate || isNaN(regDate.getTime())) {
+          return;
+        }
         if (regDate >= startOfYear && regDate <= endOfYear) {
           const monthStr = `${regDate.getFullYear()}-${String(regDate.getMonth() + 1).padStart(2, "0")}`;
           hoursByMonth[monthStr] = (hoursByMonth[monthStr] || 0) + parseFloat(reg.hours);
@@ -140,7 +160,8 @@ export function HourChart() {
       for (let i = 0; i <= daysToSubtract; i++) {
         const date = new Date(startDate);
         date.setDate(date.getDate() + i);
-        const dateStr = date.toISOString().split("T")[0];
+        // Use local timezone to match table display
+        const dateStr = formatDateLocal(date);
         const day = date.getDate().toString().padStart(2, "0");
         const month = (date.getMonth() + 1).toString().padStart(2, "0");
         const year = date.getFullYear();

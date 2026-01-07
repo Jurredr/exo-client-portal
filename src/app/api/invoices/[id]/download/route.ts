@@ -38,7 +38,51 @@ export async function GET(
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
-    // Generate PDF
+    // Check if there's an uploaded PDF
+    if (invoiceData.invoice.pdfUrl) {
+      // If pdfUrl is a data URL (base64), extract and return it
+      if (invoiceData.invoice.pdfUrl.startsWith("data:")) {
+        // Extract base64 data from data URL
+        // Format: data:application/pdf;base64,<base64data>
+        const base64Match = invoiceData.invoice.pdfUrl.match(/^data:.*?;base64,(.+)$/);
+        if (base64Match && base64Match[1]) {
+          const base64Data = base64Match[1];
+          const pdfBuffer = Buffer.from(base64Data, "base64");
+          
+          // Use original filename if available, otherwise generate one
+          const filename = invoiceData.invoice.pdfFileName || `invoice-${invoiceData.invoice.invoiceNumber}.pdf`;
+          
+          return new NextResponse(new Uint8Array(pdfBuffer), {
+            headers: {
+              "Content-Type": "application/pdf",
+              "Content-Disposition": `attachment; filename="${filename}"`,
+            },
+          });
+        }
+      } else {
+        // If it's a regular URL, redirect to it or fetch it
+        // For now, we'll fetch it and return it
+        try {
+          const response = await fetch(invoiceData.invoice.pdfUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            const filename = invoiceData.invoice.pdfFileName || `invoice-${invoiceData.invoice.invoiceNumber}.pdf`;
+            
+            return new NextResponse(new Uint8Array(arrayBuffer), {
+              headers: {
+                "Content-Type": "application/pdf",
+                "Content-Disposition": `attachment; filename="${filename}"`,
+              },
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching uploaded PDF:", error);
+          // Fall through to generate PDF if fetch fails
+        }
+      }
+    }
+
+    // If no uploaded PDF or failed to fetch it, generate PDF
     const pdfBuffer = await generateInvoicePDF(invoiceData);
 
     // Return PDF as response

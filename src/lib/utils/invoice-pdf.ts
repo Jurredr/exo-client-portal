@@ -98,12 +98,12 @@ export async function generateInvoicePDF(
     const leftMargin = 20;
     let currentY = 40;
 
-    // INVOICE title (large, white, bold)
+    // INVOICE title (large, white, bold) - "CREDIT INVOICE" for credit invoices
     doc
       .fontSize(20)
       .font("Helvetica-Bold")
       .fillColor("white")
-      .text("INVOICE", leftMargin, currentY, {
+      .text(isCredit ? "CREDIT INVOICE" : "INVOICE", leftMargin, currentY, {
         width: leftColumnWidth - leftMargin * 2,
       });
     currentY += 50;
@@ -267,10 +267,20 @@ export async function generateInvoicePDF(
     const itemQty = 1;
 
     if (isCredit) {
-      total = amountValue;
-      subtotal = total;
-      vat = 0;
-      itemPrice = total;
+      // For credit invoices, make all amounts negative
+      if (vatIncluded) {
+        // Calculate negative amounts with VAT
+        total = -amountValue;
+        subtotal = -amountValue / (1 + VAT_PERCENTAGE / 100);
+        vat = -amountValue - subtotal; // This will be negative
+        itemPrice = subtotal; // Price per item (without VAT)
+      } else {
+        // No VAT included
+        total = -amountValue;
+        subtotal = -amountValue;
+        vat = 0;
+        itemPrice = subtotal;
+      }
     } else if (vatIncluded) {
       subtotal = amountValue / (1 + VAT_PERCENTAGE / 100);
       vat = amountValue - subtotal;
@@ -295,7 +305,7 @@ export async function generateInvoicePDF(
       { width: priceWidth, align: "right" }
     );
     doc.text(
-      formatCurrency(amountValue, currency),
+      formatCurrency(isCredit ? -amountValue : amountValue, currency),
       rightColumnStart + rightMargin + qtyWidth + descWidth + priceWidth,
       currentY,
       { width: amountWidth, align: "right" }
@@ -319,9 +329,10 @@ export async function generateInvoicePDF(
     );
     currentY += 15;
 
-    // Only show VAT if it's not a credit invoice
-    if (!isCredit) {
-      const vatPercentage = vatIncluded ? VAT_PERCENTAGE : 0;
+    // Show VAT if vatIncluded is true (for both debit and credit invoices)
+    // For credit invoices, VAT will be negative
+    if (vatIncluded) {
+      const vatPercentage = VAT_PERCENTAGE;
       doc.text(`${vatPercentage}% Tax`, totalsStartX, currentY, {
         width: priceWidth,
         align: "right",

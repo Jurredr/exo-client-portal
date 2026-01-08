@@ -226,9 +226,11 @@ export function ContractsTable() {
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.organization.name.localeCompare(
-            rowB.original.organization.name
-          );
+          const orgA = rowA.original.organizations?.[0] || rowA.original.organization;
+          const orgB = rowB.original.organizations?.[0] || rowB.original.organization;
+          const nameA = orgA?.name || "";
+          const nameB = orgB?.name || "";
+          return nameA.localeCompare(nameB);
         },
       },
       {

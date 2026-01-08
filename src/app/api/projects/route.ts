@@ -7,14 +7,10 @@ import {
   getTotalHoursByProject,
   deleteProject,
   getProjectById,
-  createInvoice,
-  getNextInvoiceNumber,
   isAdmin,
-  getAllInvoices,
   getOrCreateEXOOrganization,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
-import { calculatePaymentAmount } from "@/lib/utils/currency";
 import { getDefaultStage } from "@/lib/constants/stages";
 
 export async function GET() {
@@ -187,55 +183,6 @@ export async function PATCH(request: Request) {
       ...(updateData.currency && { currency: updateData.currency }),
       ...(updateData.type && { type: projectType }),
     });
-
-    // Auto-generate invoice when client project reaches payment stages (not for labs)
-    if (
-      projectType === "client" &&
-      newStage &&
-      oldStage !== newStage &&
-      (newStage === "pay_first" || newStage === "pay_final")
-    ) {
-      try {
-        // Check if invoice already exists for this project and stage
-        const allInvoices = await getAllInvoices();
-        const existingInvoice = allInvoices.find(
-          (inv) =>
-            inv.invoice.projectId === project.id &&
-            inv.invoice.type === "auto" &&
-            inv.invoice.description?.includes(
-              newStage === "pay_first" ? "First" : "Final"
-            )
-        );
-
-        if (!existingInvoice && project.subtotal) {
-          const paymentAmount = calculatePaymentAmount(
-            project.subtotal,
-            newStage,
-            project.currency || "EUR"
-          );
-          if (paymentAmount && project.organizationId) {
-            const invoiceNumber = await getNextInvoiceNumber();
-            const dueDate = new Date();
-            dueDate.setDate(dueDate.getDate() + 30); // 30 days from now
-
-            await createInvoice({
-              invoiceNumber,
-              projectId: project.id,
-              organizationId: project.organizationId,
-              amount: paymentAmount,
-              currency: project.currency || "EUR",
-              status: "sent",
-              type: "auto",
-              description: `Payment for ${project.title} - ${newStage === "pay_first" ? "First" : "Final"} payment`,
-              dueDate,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error auto-generating invoice:", error);
-        // Don't fail the project update if invoice generation fails
-      }
-    }
 
     return NextResponse.json(project);
   } catch (error) {

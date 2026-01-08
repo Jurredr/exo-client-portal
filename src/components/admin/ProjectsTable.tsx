@@ -493,10 +493,13 @@ export function ProjectsTable() {
     const description = formData.get("description") as string;
     const status = editStatus;
     const stage = editStage;
-    const subtotal = formData.get("subtotal") as string;
+    const subtotalValue = formData.get("subtotal") as string;
     const startDate = formData.get("startDate") as string;
     const deadline = formData.get("deadline") as string;
     const projectType = selectedProject.project.type;
+
+    // Convert empty string to null for subtotal
+    const subtotal = subtotalValue && subtotalValue.trim() ? subtotalValue.trim() : null;
 
     try {
       const response = await fetch("/api/projects", {
@@ -511,7 +514,7 @@ export function ProjectsTable() {
           status,
           stage,
           type: projectType,
-          subtotal: projectType === "labs" ? null : subtotal || null,
+          subtotal: projectType === "labs" ? null : subtotal,
           currency: editCurrency,
           startDate: startDate || null,
           deadline: projectType === "labs" ? null : deadline || null,
@@ -648,7 +651,6 @@ export function ProjectsTable() {
                 name="subtotal"
                 type="text"
                 defaultValue={selectedProject?.project.subtotal || ""}
-                required
               />
             </div>
             <div className="flex flex-col gap-3">
@@ -941,7 +943,6 @@ export function ProjectsTable() {
                           name="subtotal"
                           type="text"
                           defaultValue={selectedProject.project.subtotal || ""}
-                          required
                         />
                       </div>
                       <div className="space-y-2">

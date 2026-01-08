@@ -284,12 +284,25 @@ export async function deleteHourRegistration(registrationId: string) {
     .where(eq(hourRegistrations.id, registrationId));
 }
 
-export async function createOrganization(name: string, image?: string | null) {
+export async function createOrganization(data: {
+  name: string;
+  image?: string | null;
+  address?: string | null;
+  kvkNumber?: string | null;
+  btwNumber?: string | null;
+  email?: string | null;
+  telephone?: string | null;
+}) {
   const [organization] = await db
     .insert(organizations)
     .values({
-      name,
-      image: image || null,
+      name: data.name,
+      image: data.image || null,
+      address: data.address || null,
+      kvkNumber: data.kvkNumber || null,
+      btwNumber: data.btwNumber || null,
+      email: data.email || null,
+      telephone: data.telephone || null,
     })
     .returning();
 
@@ -301,6 +314,11 @@ export async function updateOrganization(
   data: {
     name: string;
     image: string | null;
+    address?: string | null;
+    kvkNumber?: string | null;
+    btwNumber?: string | null;
+    email?: string | null;
+    telephone?: string | null;
   }
 ) {
   const [updatedOrganization] = await db
@@ -997,9 +1015,32 @@ export async function getDashboardStats(
 }
 
 export async function getAllInvoices() {
+  // CRITICAL: Exclude pdfUrl from list queries to avoid transferring large base64 PDFs
+  // pdfUrl can be several MB per invoice, causing massive egress usage
+  // We'll use pdfFileName to check if a PDF exists, and only fetch pdfUrl when downloading
   const results = await db
     .select({
-      invoice: invoices,
+      invoice: {
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        projectId: invoices.projectId,
+        organizationId: invoices.organizationId,
+        amount: invoices.amount,
+        currency: invoices.currency,
+        status: invoices.status,
+        type: invoices.type,
+        transactionType: invoices.transactionType,
+        vatIncluded: invoices.vatIncluded,
+        isKOR: invoices.isKOR,
+        description: invoices.description,
+        dueDate: invoices.dueDate,
+        paidAt: invoices.paidAt,
+        pdfUrl: sql<string | null>`NULL`.as("pdfUrl"), // Explicitly set to null to avoid transferring data
+        pdfFileName: invoices.pdfFileName,
+        pdfFileType: invoices.pdfFileType,
+        createdAt: invoices.createdAt,
+        updatedAt: invoices.updatedAt,
+      },
       project: projects,
       organization: organizations,
     })
@@ -1020,9 +1061,12 @@ export async function getAllInvoices() {
       : [];
 
   // Convert decimal fields to strings for the form
+  // Quantity should always be an integer (whole number)
   const formattedAllLineItems = allLineItems.map((item) => ({
     ...item,
-    quantity: item.quantity?.toString() || "1",
+    quantity: item.quantity
+      ? Math.round(parseFloat(item.quantity.toString())).toString()
+      : "1",
     unitPrice: item.unitPrice?.toString() || "0",
     taxPercentage: item.taxPercentage?.toString() || "0",
   }));
@@ -1122,9 +1166,12 @@ export async function getInvoiceById(invoiceId: string) {
     .orderBy(invoiceLineItems.order);
 
   // Convert decimal fields to strings for the form
+  // Quantity should always be an integer (whole number)
   const formattedItems = items.map((item) => ({
     ...item,
-    quantity: item.quantity?.toString() || "1",
+    quantity: item.quantity
+      ? Math.round(parseFloat(item.quantity.toString())).toString()
+      : "1",
     unitPrice: item.unitPrice?.toString() || "0",
     taxPercentage: item.taxPercentage?.toString() || "0",
   }));
@@ -1229,6 +1276,7 @@ export async function createInvoice(data: {
   vatIncluded?: boolean | null;
   isKOR?: boolean;
   description?: string | null;
+  invoiceDate?: Date | null;
   dueDate?: Date | null;
   pdfUrl?: string | null;
   pdfFileName?: string | null;
@@ -1255,6 +1303,7 @@ export async function createInvoice(data: {
       vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : null,
       isKOR: data.isKOR || false,
       description: data.description || null,
+      invoiceDate: data.invoiceDate || null,
       dueDate: data.dueDate || null,
       pdfUrl: data.pdfUrl || null,
       pdfFileName: data.pdfFileName || null,
@@ -1291,6 +1340,7 @@ export async function updateInvoice(
     vatIncluded: boolean | null;
     isKOR: boolean;
     description: string | null;
+    invoiceDate: Date | null;
     dueDate: Date | null;
     paidAt: Date | null;
     pdfUrl: string | null;
@@ -1308,6 +1358,7 @@ export async function updateInvoice(
 ) {
   const { lineItems, ...invoiceData } = data;
 
+  // Always update updatedAt to invalidate download cache (ETag is based on updatedAt)
   const [invoice] = await db
     .update(invoices)
     .set({
@@ -1344,6 +1395,15 @@ export async function updateInvoice(
 
 export async function deleteInvoice(invoiceId: string) {
   await db.delete(invoices).where(eq(invoices.id, invoiceId));
+}
+
+export async function invalidateAllInvoiceCaches() {
+  // Update all invoices' updatedAt to force cache invalidation
+  // This changes the ETag for all invoices, invalidating browser/CDN cache
+  await db
+    .update(invoices)
+    .set({ updatedAt: new Date() })
+    .returning({ id: invoices.id });
 }
 
 // Contract queries (using legal_documents table with type='contract')

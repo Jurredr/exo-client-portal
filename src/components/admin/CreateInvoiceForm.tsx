@@ -48,6 +48,7 @@ interface Invoice {
   status: string;
   transactionType: string;
   description: string | null;
+  invoiceDate: string | null;
   dueDate: string | null;
   pdfUrl: string | null;
   pdfFileName: string | null;
@@ -88,10 +89,23 @@ export function CreateInvoiceForm({
   const [isKOR, setIsKOR] = useState<boolean>(
     invoice?.isKOR !== undefined ? invoice.isKOR : false
   );
+  
+  // Calculate default due date (current date + 7 days) for new invoices
+  const getDefaultDueDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 7);
+    return date.toISOString().split("T")[0];
+  };
+  
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate
       ? new Date(invoice.dueDate).toISOString().split("T")[0]
-      : ""
+      : getDefaultDueDate()
+  );
+  const [invoiceDate, setInvoiceDate] = useState(
+    invoice?.invoiceDate
+      ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0]
   );
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -301,6 +315,7 @@ export function CreateInvoiceForm({
             status,
             transactionType,
             isKOR,
+            invoiceDate: invoiceDate || null,
             dueDate: dueDate || null,
             pdfUrl,
             pdfFileName,
@@ -498,6 +513,18 @@ export function CreateInvoiceForm({
           />
         </div>
         <div className="space-y-2">
+          <Label htmlFor="invoice-date" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Invoice Date
+          </Label>
+          <Input
+            id="invoice-date"
+            type="date"
+            value={invoiceDate}
+            onChange={(e) => setInvoiceDate(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="invoice-due-date" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Due Date
@@ -568,12 +595,16 @@ export function CreateInvoiceForm({
                   <Label className="text-xs">Qty *</Label>
                   <Input
                     type="number"
-                    step="0.01"
-                    min="0"
+                    step="1"
+                    min="1"
                     value={item.quantity}
-                    onChange={(e) =>
-                      updateLineItem(index, "quantity", e.target.value)
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Only allow integers (whole numbers)
+                      if (value === "" || /^\d+$/.test(value)) {
+                        updateLineItem(index, "quantity", value);
+                      }
+                    }}
                     required
                     className="w-full"
                   />

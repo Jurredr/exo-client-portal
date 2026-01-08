@@ -155,6 +155,34 @@
       "when": 1767786233918,
       "tag": "0021_tiresome_hedge_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1767789515002,
+      "tag": "0022_sturdy_sasquatch",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1767789987160,
+      "tag": "0023_unique_talos",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1767790135560,
+      "tag": "0024_loving_master_mold",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1767795090976,
+      "tag": "0025_clumsy_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

@@ -7,11 +7,12 @@ import {
   deleteInvoice,
   updateInvoice,
   getInvoiceById,
+  invalidateAllInvoiceCaches,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { calculatePaymentAmount } from "@/lib/utils/currency";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const {
@@ -28,7 +29,13 @@ export async function GET() {
     }
 
     const invoices = await getAllInvoices();
-    return NextResponse.json(invoices);
+    
+    // Add caching headers to reduce database queries
+    return NextResponse.json(invoices, {
+      headers: {
+        "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+      },
+    });
   } catch (error) {
     console.error("Error fetching invoices:", error);
     return NextResponse.json(
@@ -66,6 +73,7 @@ export async function POST(request: Request) {
       vatIncluded,
       isKOR,
       description,
+      invoiceDate,
       dueDate,
       autoGenerate,
       pdfUrl,
@@ -112,6 +120,7 @@ export async function POST(request: Request) {
           vatIncluded: vatIncluded !== undefined ? vatIncluded : null,
           isKOR: isKOR || false,
           description: description || null,
+          invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
           dueDate: dueDate ? new Date(dueDate) : null,
           pdfUrl: pdfUrl || null,
           pdfFileName: pdfFileName || null,
@@ -255,6 +264,9 @@ export async function PATCH(request: Request) {
       ...(updateData.description !== undefined && {
         description: updateData.description?.trim() || null,
       }),
+      ...(updateData.invoiceDate !== undefined && {
+        invoiceDate: updateData.invoiceDate ? new Date(updateData.invoiceDate) : null,
+      }),
       ...(updateData.dueDate !== undefined && {
         dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null,
       }),
@@ -278,6 +290,45 @@ export async function PATCH(request: Request) {
     return NextResponse.json(invoice);
   } catch (error) {
     console.error("Error updating invoice:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+// Endpoint to invalidate all invoice caches
+export async function PUT(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isInEXO = await isUserInEXOOrganization(user.email);
+    if (!isInEXO) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    if (body.action !== "invalidate-cache") {
+      return NextResponse.json(
+        { error: "Invalid action" },
+        { status: 400 }
+      );
+    }
+
+    await invalidateAllInvoiceCaches();
+    return NextResponse.json({ 
+      success: true, 
+      message: "All invoice caches invalidated" 
+    });
+  } catch (error) {
+    console.error("Error invalidating invoice caches:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

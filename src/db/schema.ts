@@ -13,6 +13,11 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   image: text("image"),
+  address: text("address"),
+  kvkNumber: text("kvk_number"),
+  btwNumber: text("btw_number"),
+  email: text("email"),
+  telephone: text("telephone"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -132,6 +137,7 @@ export const invoices = pgTable("invoices", {
   vatIncluded: boolean("vat_included"), // Deprecated: whether 21% VAT is included in the total (kept for backward compatibility)
   isKOR: boolean("is_kor").notNull().default(false), // Kleine ondernemersregeling - if true, no tax is charged
   description: text("description"), // For manual invoices (deprecated, use line items instead)
+  invoiceDate: timestamp("invoice_date"), // Manual invoice date (defaults to createdAt if not set)
   dueDate: timestamp("due_date"),
   paidAt: timestamp("paid_at"),
   pdfUrl: text("pdf_url"), // URL to uploaded invoice PDF file

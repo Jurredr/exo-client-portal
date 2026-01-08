@@ -2,6 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getInvoiceById, isUserInEXOOrganization } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { generateInvoicePDF } from "@/lib/utils/invoice-pdf";
+import { createHash } from "crypto";
+
+// Force dynamic rendering to always fetch fresh organization data
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: Request,
@@ -38,6 +42,23 @@ export async function GET(
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
+    // Create ETag based on invoice ID and updatedAt for cache validation
+    const etag = createHash("md5")
+      .update(`${id}-${invoiceData.invoice.updatedAt}`)
+      .digest("hex");
+
+    // Check If-None-Match header for 304 Not Modified
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch === `"${etag}"`) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: `"${etag}"`,
+          "Cache-Control": "public, max-age=3600, must-revalidate",
+        },
+      });
+    }
+
     // Check if there's an uploaded PDF
     if (invoiceData.invoice.pdfUrl) {
       // If pdfUrl is a data URL (base64), extract and return it
@@ -56,6 +77,9 @@ export async function GET(
             headers: {
               "Content-Type": "application/pdf",
               "Content-Disposition": `attachment; filename="${filename}"`,
+              ETag: `"${etag}"`,
+              "Cache-Control": "public, max-age=3600, must-revalidate",
+              "Last-Modified": new Date(invoiceData.invoice.updatedAt).toUTCString(),
             },
           });
         }
@@ -63,7 +87,11 @@ export async function GET(
         // If it's a regular URL, redirect to it or fetch it
         // For now, we'll fetch it and return it
         try {
-          const response = await fetch(invoiceData.invoice.pdfUrl);
+          const response = await fetch(invoiceData.invoice.pdfUrl, {
+            // Add cache headers to the fetch request
+            cache: "force-cache",
+            next: { revalidate: 3600 },
+          });
           if (response.ok) {
             const arrayBuffer = await response.arrayBuffer();
             const filename = invoiceData.invoice.pdfFileName || `invoice-${invoiceData.invoice.invoiceNumber}.pdf`;
@@ -72,6 +100,9 @@ export async function GET(
               headers: {
                 "Content-Type": "application/pdf",
                 "Content-Disposition": `attachment; filename="${filename}"`,
+                ETag: `"${etag}"`,
+                "Cache-Control": "public, max-age=3600, must-revalidate",
+                "Last-Modified": new Date(invoiceData.invoice.updatedAt).toUTCString(),
               },
             });
           }
@@ -82,14 +113,18 @@ export async function GET(
       }
     }
 
-    // If no uploaded PDF or failed to fetch it, generate PDF
+    // If no uploaded PDF, generate PDF
+    // HTTP caching headers will handle browser/CDN caching
     const pdfBuffer = await generateInvoicePDF(invoiceData);
 
-    // Return PDF as response
+    // Return PDF as response with caching headers
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="invoice-${invoiceData.invoice.invoiceNumber}.pdf"`,
+        ETag: `"${etag}"`,
+        "Cache-Control": "public, max-age=3600, must-revalidate",
+        "Last-Modified": new Date(invoiceData.invoice.updatedAt).toUTCString(),
       },
     });
   } catch (error) {

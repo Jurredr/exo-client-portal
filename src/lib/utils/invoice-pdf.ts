@@ -35,6 +35,11 @@ interface InvoiceData {
   organization: {
     id: string;
     name: string;
+    address?: string | null;
+    kvkNumber?: string | null;
+    btwNumber?: string | null;
+    email?: string | null;
+    telephone?: string | null;
   };
   lineItems?: InvoiceLineItem[];
 }
@@ -91,7 +96,10 @@ export async function generateInvoicePDF(
       .filter((item) => item.quantity > 0 && item.unitPrice !== 0);
 
     // Calculate totals
-    let grandSubtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
+    let grandSubtotal = processedItems.reduce(
+      (sum, item) => sum + item.subtotal,
+      0
+    );
     let grandTotal = processedItems.reduce((sum, item) => sum + item.total, 0);
     let grandVat = grandTotal - grandSubtotal;
 
@@ -233,14 +241,63 @@ export async function generateInvoicePDF(
     doc
       .fontSize(11)
       .font("Helvetica-Bold")
-      .text("Billed To:", billedToX, startY);
-    const billedToY = startY + 20;
+      .text(isCredit ? "Credit To:" : "Billed To:", billedToX, startY);
+    let billedToY = startY + 20;
     doc.fontSize(10).font("Helvetica");
     doc.text(organization.name, billedToX, billedToY, { width: sectionWidth });
-    const billedToEndY = billedToY + 20;
+    billedToY += 20;
 
-    // Pay To section (right side, same Y position as Billed To)
-    doc.fontSize(11).font("Helvetica-Bold").text("Pay To:", payToX, startY);
+    // Add organization contact information under "Billed To"
+    if (organization.address) {
+      const addressLines = organization.address
+        .split(/\n|, /)
+        .filter((line) => line.trim());
+      addressLines.forEach((line) => {
+        doc.text(line.trim(), billedToX, billedToY, { width: sectionWidth });
+        billedToY += 15;
+      });
+    }
+
+    if (organization.kvkNumber) {
+      doc.fontSize(9);
+      doc.text(`KVK-number: ${organization.kvkNumber}`, billedToX, billedToY, {
+        width: sectionWidth,
+      });
+      billedToY += 12;
+    }
+
+    if (organization.btwNumber) {
+      doc.fontSize(9);
+      doc.text(`BTW-number: ${organization.btwNumber}`, billedToX, billedToY, {
+        width: sectionWidth,
+      });
+      billedToY += 12;
+    }
+
+    if (organization.email) {
+      doc.fontSize(9);
+      doc.text(`Email: ${organization.email}`, billedToX, billedToY, {
+        width: sectionWidth,
+      });
+      billedToY += 12;
+    }
+
+    if (organization.telephone) {
+      doc.fontSize(9);
+      doc.text(`Phone: ${organization.telephone}`, billedToX, billedToY, {
+        width: sectionWidth,
+      });
+      billedToY += 12;
+    }
+
+    const billedToEndY = billedToY;
+
+    // Pay To / From section (right side, same Y position as Billed To)
+    // EXO's contact information is always the same (default values)
+    doc
+      .fontSize(11)
+      .font("Helvetica-Bold")
+      .text(isCredit ? "From:" : "Pay To:", payToX, startY);
     let payToY = startY + 20;
     doc.fontSize(10).font("Helvetica");
     doc.text("EXO", payToX, payToY, { width: sectionWidth });
@@ -249,14 +306,14 @@ export async function generateInvoicePDF(
       width: sectionWidth,
     });
     payToY += 15;
-    doc.text("1112ZL,", payToX, payToY, { width: sectionWidth });
-    payToY += 15;
-    doc.text("Diemen, Nederland", payToX, payToY, { width: sectionWidth });
+    doc.text("1112ZL, Diemen, Nederland", payToX, payToY, {
+      width: sectionWidth,
+    });
     payToY += 20;
     doc.fontSize(9);
-    doc.text("KVK-nummer: 90251695", payToX, payToY, { width: sectionWidth });
+    doc.text("KVK-number: 90251695", payToX, payToY, { width: sectionWidth });
     payToY += 12;
-    doc.text("BTW-nummer: NL004799795B92", payToX, payToY, {
+    doc.text("BTW-number: NL004799795B92", payToX, payToY, {
       width: sectionWidth,
     });
     payToY += 12;
@@ -298,7 +355,12 @@ export async function generateInvoicePDF(
     );
     doc.text(
       "Amount",
-      rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth + priceWidth,
+      rightColumnStart +
+        rightMargin +
+        qtyWidth +
+        descWidth +
+        taxPctWidth +
+        priceWidth,
       tableStartY,
       { width: amountWidth, align: "right" }
     );
@@ -349,7 +411,12 @@ export async function generateInvoicePDF(
       );
       doc.text(
         formatCurrency(itemPrice, currency),
-        rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth + priceWidth,
+        rightColumnStart +
+          rightMargin +
+          qtyWidth +
+          descWidth +
+          taxPctWidth +
+          priceWidth,
         currentY,
         { width: amountWidth, align: "right" }
       );
@@ -386,7 +453,12 @@ export async function generateInvoicePDF(
         );
         doc.text(
           formatCurrency(itemTotal, currency),
-          rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth + priceWidth,
+          rightColumnStart +
+            rightMargin +
+            qtyWidth +
+            descWidth +
+            taxPctWidth +
+            priceWidth,
           currentY,
           { width: amountWidth, align: "right" }
         );
@@ -397,7 +469,8 @@ export async function generateInvoicePDF(
     currentY += 15;
 
     // Totals section
-    const totalsStartX = rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth;
+    const totalsStartX =
+      rightColumnStart + rightMargin + qtyWidth + descWidth + taxPctWidth;
 
     doc.fontSize(9).font("Helvetica");
     doc.text("Sub Total", totalsStartX, currentY, {

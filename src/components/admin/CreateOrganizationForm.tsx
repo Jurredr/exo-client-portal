@@ -11,19 +11,32 @@ import { Plus, X } from "lucide-react";
 interface Organization {
   id: string;
   name: string;
+  image?: string | null;
+  address?: string | null;
+  kvkNumber?: string | null;
+  btwNumber?: string | null;
+  email?: string | null;
+  telephone?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export function CreateOrganizationForm({
   onSuccess,
+  organization,
 }: {
   onSuccess?: () => void;
+  organization?: Organization;
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(organization?.name || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(organization?.image || null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [address, setAddress] = useState(organization?.address || "");
+  const [kvkNumber, setKvkNumber] = useState(organization?.kvkNumber || "");
+  const [btwNumber, setBtwNumber] = useState(organization?.btwNumber || "");
+  const [email, setEmail] = useState(organization?.email || "");
+  const [telephone, setTelephone] = useState(organization?.telephone || "");
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,15 +73,35 @@ export function CreateOrganizationForm({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/organizations", {
-        method: "POST",
+      const url = "/api/organizations";
+      const method = organization ? "PATCH" : "POST";
+      const body = organization
+        ? {
+            id: organization.id,
+            name: name.trim(),
+            image: imageBase64 || organization.image || null,
+            address: address.trim() || null,
+            kvkNumber: kvkNumber.trim() || null,
+            btwNumber: btwNumber.trim() || null,
+            email: email.trim() || null,
+            telephone: telephone.trim() || null,
+          }
+        : {
+            name: name.trim(),
+            image: imageBase64 || null,
+            address: address.trim() || null,
+            kvkNumber: kvkNumber.trim() || null,
+            btwNumber: btwNumber.trim() || null,
+            email: email.trim() || null,
+            telephone: telephone.trim() || null,
+          };
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: name.trim(),
-          image: imageBase64 || null,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -76,10 +109,17 @@ export function CreateOrganizationForm({
         throw new Error(error.error || "Failed to create organization");
       }
 
-      toast.success("Organization created successfully");
-      setName("");
-      setImagePreview(null);
-      setImageBase64(null);
+      toast.success(`Organization ${organization ? "updated" : "created"} successfully`);
+      if (!organization) {
+        setName("");
+        setImagePreview(null);
+        setImageBase64(null);
+        setAddress("");
+        setKvkNumber("");
+        setBtwNumber("");
+        setEmail("");
+        setTelephone("");
+      }
       onSuccess?.();
     } catch (error) {
       toast.error(
@@ -145,9 +185,73 @@ export function CreateOrganizationForm({
           )}
         </div>
       </div>
+      {/* Contact Information Section */}
+      <div className="space-y-4 border rounded-lg p-4">
+        <Label className="text-base font-semibold">Contact Information (Optional)</Label>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="org-address">Address</Label>
+            <Input
+              id="org-address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Street address, city, postal code, country"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="org-kvk">KVK Number</Label>
+              <Input
+                id="org-kvk"
+                value={kvkNumber}
+                onChange={(e) => setKvkNumber(e.target.value)}
+                placeholder="e.g., 90251695"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-btw">BTW Number</Label>
+              <Input
+                id="org-btw"
+                value={btwNumber}
+                onChange={(e) => setBtwNumber(e.target.value)}
+                placeholder="e.g., NL004799795B92"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="org-email">Email</Label>
+              <Input
+                id="org-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-telephone">Telephone</Label>
+              <Input
+                id="org-telephone"
+                type="tel"
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+                placeholder="e.g., +31 6 13458011"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <Button type="submit" disabled={isSubmitting} className="w-full">
         <Plus className="h-4 w-4 mr-2" />
-        {isSubmitting ? "Creating..." : "Create Organization"}
+        {isSubmitting
+          ? organization
+            ? "Updating..."
+            : "Creating..."
+          : organization
+            ? "Update Organization"
+            : "Create Organization"}
       </Button>
     </form>
   );

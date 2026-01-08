@@ -57,6 +57,7 @@ interface InvoiceData {
     vatIncluded: boolean | null;
     isKOR: boolean;
     description: string | null;
+    invoiceDate: string | null;
     dueDate: string | null;
     paidAt: string | null;
     pdfUrl: string | null;
@@ -360,7 +361,7 @@ export function InvoicesTable() {
                 }}
               >
                 <Download className="mr-2 h-4 w-4" />
-                {row.original.invoice.pdfUrl ? "Download" : "Generate"}
+                {row.original.invoice.pdfFileName ? "Download" : "Generate"}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={(e) => {
@@ -515,6 +516,7 @@ export function InvoicesTable() {
       </div>
 
       <EnhancedDataTable
+        key="invoices-table"
         columns={columns}
         data={invoices}
         searchPlaceholder="Search invoices by number, organization, or project..."
@@ -627,6 +629,7 @@ export function InvoicesTable() {
                     vatIncluded: editingInvoice.invoice.vatIncluded ?? null,
                     isKOR: editingInvoice.invoice.isKOR || false,
                     description: editingInvoice.invoice.description,
+                    invoiceDate: editingInvoice.invoice.invoiceDate,
                     dueDate: editingInvoice.invoice.dueDate,
                     pdfUrl: editingInvoice.invoice.pdfUrl || null,
                     pdfFileName: editingInvoice.invoice.pdfFileName || null,
@@ -661,6 +664,7 @@ export function InvoicesTable() {
                   vatIncluded: editingInvoice.invoice.vatIncluded ?? null,
                   isKOR: editingInvoice.invoice.isKOR || false,
                   description: editingInvoice.invoice.description,
+                  invoiceDate: editingInvoice.invoice.invoiceDate,
                   dueDate: editingInvoice.invoice.dueDate,
                   pdfUrl: editingInvoice.invoice.pdfUrl || null,
                   pdfFileName: editingInvoice.invoice.pdfFileName || null,

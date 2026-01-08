@@ -49,6 +49,11 @@ interface Organization {
   id: string;
   name: string;
   image: string | null;
+  address?: string | null;
+  kvkNumber?: string | null;
+  btwNumber?: string | null;
+  email?: string | null;
+  telephone?: string | null;
   createdAt: string;
   updatedAt: string;
   userCount?: number;
@@ -64,6 +69,11 @@ export function OrganizationsTable() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [address, setAddress] = useState<string>("");
+  const [kvkNumber, setKvkNumber] = useState<string>("");
+  const [btwNumber, setBtwNumber] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [telephone, setTelephone] = useState<string>("");
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<Organization>[] = useMemo(
@@ -240,12 +250,19 @@ export function OrganizationsTable() {
   };
 
   useEffect(() => {
-    if (selectedOrg?.image) {
-      setImagePreview(selectedOrg.image);
-      setImageBase64(null);
-    } else {
-      setImagePreview(null);
-      setImageBase64(null);
+    if (selectedOrg) {
+      if (selectedOrg.image) {
+        setImagePreview(selectedOrg.image);
+        setImageBase64(null);
+      } else {
+        setImagePreview(null);
+        setImageBase64(null);
+      }
+      setAddress(selectedOrg.address || "");
+      setKvkNumber(selectedOrg.kvkNumber || "");
+      setBtwNumber(selectedOrg.btwNumber || "");
+      setEmail(selectedOrg.email || "");
+      setTelephone(selectedOrg.telephone || "");
     }
   }, [selectedOrg]);
 
@@ -296,6 +313,11 @@ export function OrganizationsTable() {
           id: selectedOrg.id,
           name: name.trim(),
           image: imageBase64 || selectedOrg.image || null,
+          address: address.trim() || null,
+          kvkNumber: kvkNumber.trim() || null,
+          btwNumber: btwNumber.trim() || null,
+          email: email.trim() || null,
+          telephone: telephone.trim() || null,
         }),
       });
 
@@ -308,6 +330,11 @@ export function OrganizationsTable() {
       setIsEditOpen(false);
       setImagePreview(null);
       setImageBase64(null);
+      setAddress("");
+      setKvkNumber("");
+      setBtwNumber("");
+      setEmail("");
+      setTelephone("");
       fetchOrganizations();
     } catch (error) {
       toast.error(
@@ -403,6 +430,63 @@ export function OrganizationsTable() {
                 <X className="h-4 w-4" />
               </Button>
             )}
+          </div>
+        </div>
+        {/* Contact Information Section */}
+        <div className="space-y-4 border rounded-lg p-4">
+          <Label className="text-base font-semibold">Contact Information (Optional)</Label>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-address">Address</Label>
+              <Input
+                id="edit-address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Street address, city, postal code, country"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-kvk">KVK Number</Label>
+                <Input
+                  id="edit-kvk"
+                  value={kvkNumber}
+                  onChange={(e) => setKvkNumber(e.target.value)}
+                  placeholder="e.g., 90251695"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-btw">BTW Number</Label>
+                <Input
+                  id="edit-btw"
+                  value={btwNumber}
+                  onChange={(e) => setBtwNumber(e.target.value)}
+                  placeholder="e.g., NL004799795B92"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-telephone">Telephone</Label>
+                <Input
+                  id="edit-telephone"
+                  type="tel"
+                  value={telephone}
+                  onChange={(e) => setTelephone(e.target.value)}
+                  placeholder="e.g., +31 6 13458011"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </form>
@@ -553,6 +637,63 @@ export function OrganizationsTable() {
                       )}
                     </div>
                   </div>
+                  {/* Contact Information Section */}
+                  <div className="space-y-4 border rounded-lg p-4">
+                    <Label className="text-base font-semibold">Contact Information (Optional)</Label>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-address-dialog">Address</Label>
+                        <Input
+                          id="edit-address-dialog"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="Street address, city, postal code, country"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-kvk-dialog">KVK Number</Label>
+                          <Input
+                            id="edit-kvk-dialog"
+                            value={kvkNumber}
+                            onChange={(e) => setKvkNumber(e.target.value)}
+                            placeholder="e.g., 90251695"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-btw-dialog">BTW Number</Label>
+                          <Input
+                            id="edit-btw-dialog"
+                            value={btwNumber}
+                            onChange={(e) => setBtwNumber(e.target.value)}
+                            placeholder="e.g., NL004799795B92"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-email-dialog">Email</Label>
+                          <Input
+                            id="edit-email-dialog"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-telephone-dialog">Telephone</Label>
+                          <Input
+                            id="edit-telephone-dialog"
+                            type="tel"
+                            value={telephone}
+                            onChange={(e) => setTelephone(e.target.value)}
+                            placeholder="e.g., +31 6 13458011"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex justify-end gap-2">
                     <Button
                       type="button"
@@ -561,6 +702,11 @@ export function OrganizationsTable() {
                         setIsEditOpen(false);
                         setImagePreview(null);
                         setImageBase64(null);
+                        setAddress("");
+                        setKvkNumber("");
+                        setBtwNumber("");
+                        setEmail("");
+                        setTelephone("");
                       }}
                     >
                       Cancel

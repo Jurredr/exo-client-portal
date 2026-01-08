@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, image } = body;
+    const { name, image, address, kvkNumber, btwNumber, email, telephone } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -61,7 +61,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const organization = await createOrganization(name.trim(), image || null);
+    const organization = await createOrganization({
+      name: name.trim(),
+      image: image || null,
+      address: address?.trim() || null,
+      kvkNumber: kvkNumber?.trim() || null,
+      btwNumber: btwNumber?.trim() || null,
+      email: email?.trim() || null,
+      telephone: telephone?.trim() || null,
+    });
     return NextResponse.json(organization, { status: 201 });
   } catch (error) {
     console.error("Error creating organization:", error);
@@ -126,7 +134,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, image } = body;
+    const { id, name, image, address, kvkNumber, btwNumber, email, telephone } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -145,6 +153,11 @@ export async function PATCH(request: Request) {
     const organization = await updateOrganization(id, {
       name: name.trim(),
       image: image || null,
+      address: address?.trim() || null,
+      kvkNumber: kvkNumber?.trim() || null,
+      btwNumber: btwNumber?.trim() || null,
+      email: email?.trim() || null,
+      telephone: telephone?.trim() || null,
     });
 
     return NextResponse.json(organization);

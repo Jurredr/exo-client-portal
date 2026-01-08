@@ -632,7 +632,10 @@ export function InvoicesTable() {
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DrawerContent>
             <DrawerHeader>
-              <DrawerTitle>Edit Invoice</DrawerTitle>
+              <DrawerTitle>
+                Edit Invoice
+                {editingInvoice && ` (${editingInvoice.invoice.invoiceNumber})`}
+              </DrawerTitle>
               <DrawerDescription>Update invoice details</DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
@@ -668,7 +671,10 @@ export function InvoicesTable() {
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent className="!max-w-4xl !sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Invoice</DialogTitle>
+              <DialogTitle>
+                Edit Invoice
+                {editingInvoice && ` (${editingInvoice.invoice.invoiceNumber})`}
+              </DialogTitle>
               <DialogDescription>Update invoice details</DialogDescription>
             </DialogHeader>
             {editingInvoice && (

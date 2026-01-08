@@ -447,7 +447,7 @@ export function InvoicesTable() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `invoice-${invoice.invoice.invoiceNumber}.pdf`;
+      a.download = `${invoice.invoice.invoiceNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

@@ -208,27 +208,48 @@ export function InvoicesTable() {
               }
               className="-ml-3 h-8"
             >
-              Amount
+              Total
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           );
         },
         cell: ({ row }) => {
-          const { amount, currency } = row.original.invoice;
+          const { amount, currency, transactionType } = row.original.invoice;
           const symbol = currency === "USD" ? "$" : "€";
-          // If amount already has a symbol, use it as is, otherwise prepend the currency symbol
-          const displayAmount =
-            amount.startsWith("$") || amount.startsWith("€")
-              ? amount
-              : `${symbol}${amount}`;
+          
+          // Parse the amount, removing any existing currency symbols
+          let numericAmount = parseFloat(
+            amount.replace(/[€$,]/g, "")
+          ) || 0;
+          
+          // Make credit invoices negative
+          if (transactionType === "credit") {
+            numericAmount = -Math.abs(numericAmount);
+          }
+          
+          // Format with currency symbol
+          const displayAmount = `${symbol}${numericAmount.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`;
+          
           return <div className="font-medium">{displayAmount}</div>;
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          const a =
-            parseFloat(rowA.original.invoice.amount.replace(/[€,]/g, "")) || 0;
-          const b =
-            parseFloat(rowB.original.invoice.amount.replace(/[€,]/g, "")) || 0;
+          let a =
+            parseFloat(rowA.original.invoice.amount.replace(/[€$,]/g, "")) || 0;
+          let b =
+            parseFloat(rowB.original.invoice.amount.replace(/[€$,]/g, "")) || 0;
+          
+          // Make credit invoices negative for sorting
+          if (rowA.original.invoice.transactionType === "credit") {
+            a = -Math.abs(a);
+          }
+          if (rowB.original.invoice.transactionType === "credit") {
+            b = -Math.abs(b);
+          }
+          
           return a - b;
         },
       },

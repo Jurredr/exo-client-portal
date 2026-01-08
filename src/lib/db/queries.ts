@@ -8,6 +8,7 @@ import {
   invoices,
   invoiceLineItems,
   legalDocuments,
+  contractProjects,
   expenses,
 } from "@/db/schema";
 import { eq, desc, sql, inArray, gte, lte, and } from "drizzle-orm";
@@ -1432,8 +1433,8 @@ export async function getContractById(contractId: string) {
       signedByUser: users,
     })
     .from(legalDocuments)
-    .innerJoin(projects, eq(legalDocuments.projectId, projects.id))
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .leftJoin(projects, eq(legalDocuments.projectId, projects.id))
+    .leftJoin(organizations, eq(projects.organizationId, organizations.id))
     .leftJoin(users, eq(legalDocuments.signedBy, users.id))
     .where(
       and(
@@ -1443,24 +1444,72 @@ export async function getContractById(contractId: string) {
     )
     .limit(1);
 
-  return result[0] || null;
+  if (!result[0]) return null;
+
+  // Get all projects from junction table
+  const projectAssociations = await db
+    .select({
+      project: projects,
+      organization: organizations,
+    })
+    .from(contractProjects)
+    .innerJoin(projects, eq(contractProjects.projectId, projects.id))
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .where(eq(contractProjects.contractId, contractId));
+
+  // If no projects from junction table but has legacy projectId, use that
+  if (projectAssociations.length === 0 && result[0].project) {
+    return {
+      ...result[0],
+      projects: [result[0].project],
+      organizations: result[0].organization ? [result[0].organization] : [],
+    };
+  }
+
+  return {
+    ...result[0],
+    projects: projectAssociations.map((a) => a.project),
+    organizations: projectAssociations.map((a) => a.organization),
+  };
 }
 
 export async function createContract(data: {
-  projectId: string;
+  projectIds: string[];
   name: string;
   fileUrl?: string | null;
+  requiresPortalSignature?: boolean;
 }) {
+  const requiresPortalSignature = data.requiresPortalSignature ?? true;
+  
+  // If contract doesn't require portal signature and has a file, mark it as signed
+  const signed = !requiresPortalSignature && data.fileUrl ? true : false;
+  const signedAt = signed ? new Date() : null;
+
+  // Use the first project ID for backward compatibility (deprecated field)
+  const firstProjectId = data.projectIds.length > 0 ? data.projectIds[0] : null;
+
   const [contract] = await db
     .insert(legalDocuments)
     .values({
-      projectId: data.projectId,
+      projectId: firstProjectId,
       name: data.name,
       type: "contract",
       fileUrl: data.fileUrl || null,
-      signed: false,
+      requiresPortalSignature,
+      signed,
+      signedAt,
     })
     .returning();
+
+  // Create junction table entries for all selected projects
+  if (data.projectIds.length > 0) {
+    await db.insert(contractProjects).values(
+      data.projectIds.map((projectId) => ({
+        contractId: contract.id,
+        projectId,
+      }))
+    );
+  }
 
   return contract;
 }
@@ -1470,6 +1519,7 @@ export async function updateContract(
   data: Partial<{
     name: string;
     fileUrl: string | null;
+    requiresPortalSignature: boolean;
     signed: boolean;
     signedAt: Date | null;
     signature: string | null;

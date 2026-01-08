@@ -1,0 +1,1 @@
+ALTER TABLE "legal_documents" ADD COLUMN "requires_portal_signature" boolean DEFAULT true NOT NULL;

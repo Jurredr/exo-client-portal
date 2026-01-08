@@ -16,19 +16,28 @@ interface ContractData {
     name: string;
     type: string;
     fileUrl: string | null;
+    requiresPortalSignature: boolean;
     signed: boolean;
     signedAt: string | null;
     signature: string | null;
     createdAt: string;
   };
-  project: {
+  project?: {
     id: string;
     title: string;
   };
-  organization: {
+  projects?: Array<{
+    id: string;
+    title: string;
+  }>;
+  organization?: {
     id: string;
     name: string;
   };
+  organizations?: Array<{
+    id: string;
+    name: string;
+  }>;
   signedByUser: {
     id: string;
     name: string | null;
@@ -180,7 +189,13 @@ export default function ContractPage() {
           <div>
             <h1 className="text-3xl font-bold">{contract.contract.name}</h1>
             <p className="text-muted-foreground mt-1">
-              Project: {contract.project.title} • {contract.organization.name}
+              {(() => {
+                const projects = contract.projects || (contract.project ? [contract.project] : []);
+                const organizations = contract.organizations || (contract.organization ? [contract.organization] : []);
+                const projectTitles = projects.map((p) => p.title).join(", ");
+                const orgNames = Array.from(new Set(organizations.map((o) => o.name))).join(", ");
+                return `Projects: ${projectTitles || "—"} • ${orgNames || "—"}`;
+              })()}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -189,8 +204,10 @@ export default function ContractPage() {
                 <Check className="h-4 w-4 mr-1" />
                 Signed
               </Badge>
-            ) : (
+            ) : contract.contract.requiresPortalSignature ? (
               <Badge variant="secondary">Pending Signature</Badge>
+            ) : (
+              <Badge variant="outline">Archived</Badge>
             )}
             <Button variant="outline" onClick={handleDownload}>
               <Download className="h-4 w-4 mr-2" />
@@ -203,7 +220,7 @@ export default function ContractPage() {
       <div className="bg-card border rounded-lg p-6 mb-6">
         {contract.contract.fileUrl ? (
           <iframe
-            src={contract.contract.fileUrl}
+            src={`/api/contracts/${contract.contract.id}/view`}
             className="w-full h-[600px] border rounded"
             title={contract.contract.name}
           />
@@ -255,6 +272,18 @@ export default function ContractPage() {
                   />
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : !contract.contract.requiresPortalSignature ? (
+        <div className="bg-muted border rounded-lg p-6">
+          <div className="flex items-start gap-4">
+            <FileText className="h-6 w-6 text-muted-foreground mt-1" />
+            <div>
+              <h3 className="font-semibold mb-1">Archived Contract</h3>
+              <p className="text-sm text-muted-foreground">
+                This contract is stored for administrative purposes and does not require signing through the portal.
+              </p>
             </div>
           </div>
         </div>

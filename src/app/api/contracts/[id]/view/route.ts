@@ -45,7 +45,7 @@ export async function GET(
           return new NextResponse(new Uint8Array(pdfBuffer), {
             headers: {
               "Content-Type": "application/pdf",
-              "Content-Disposition": `attachment; filename="${contractData.contract.name}.pdf"`,
+              "Content-Disposition": `inline; filename="${contractData.contract.name}.pdf"`,
             },
           });
         }
@@ -55,14 +55,13 @@ export async function GET(
       }
     }
 
-    // Otherwise return contract data (could generate PDF here if needed)
-    return NextResponse.json({
-      contract: contractData.contract,
-      project: contractData.project,
-      organization: contractData.organization,
-    });
+    // Otherwise return error
+    return NextResponse.json(
+      { error: "Contract file not found" },
+      { status: 404 }
+    );
   } catch (error) {
-    console.error("Error downloading contract:", error);
+    console.error("Error viewing contract:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

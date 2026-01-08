@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { FileText, Upload, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ProjectCombobox } from "@/components/project-combobox";
 
 interface Project {
   id: string;
@@ -20,9 +22,10 @@ interface Project {
 }
 
 export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [projectId, setProjectId] = useState<string>("");
+  const [projectIds, setProjectIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [contractFile, setContractFile] = useState<File | null>(null);
+  const [requiresPortalSignature, setRequiresPortalSignature] = useState<boolean>(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -50,8 +53,8 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!projectId) {
-      toast.error("Project is required");
+    if (projectIds.length === 0) {
+      toast.error("At least one project is required");
       return;
     }
 
@@ -82,9 +85,10 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          projectId,
+          projectIds,
           name: name.trim(),
           fileUrl,
+          requiresPortalSignature,
         }),
       });
 
@@ -94,9 +98,10 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
       }
 
       toast.success("Contract created successfully");
-      setProjectId("");
+      setProjectIds([]);
       setName("");
       setContractFile(null);
+      setRequiresPortalSignature(true);
       onSuccess?.();
     } catch (error) {
       toast.error(
@@ -110,24 +115,17 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="contract-project">Project *</Label>
-        <Select
-          value={projectId}
-          onValueChange={setProjectId}
+        <Label htmlFor="contract-projects">Projects *</Label>
+        <ProjectCombobox
+          projects={projects}
+          selectedIds={projectIds}
+          onSelectionChange={setProjectIds}
+          placeholder="Select projects..."
           disabled={isLoadingProjects}
-          required
-        >
-          <SelectTrigger id="contract-project" className="w-full">
-            <SelectValue placeholder="Select a project" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
+        <p className="text-xs text-muted-foreground">
+          Select one or more projects for this contract (e.g., for NDAs shared across multiple projects).
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="contract-name">Contract Name *</Label>
@@ -139,12 +137,13 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
           required
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="contract-file" className="flex items-center gap-2">
-          <Upload className="h-4 w-4" />
-          Contract PDF (Optional)
-        </Label>
+      <div className="space-y-4">
         <div className="space-y-2">
+          <Label htmlFor="contract-file" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Contract PDF (Optional)
+          </Label>
+          <div className="space-y-2">
           <Input
             id="contract-file"
             type="file"
@@ -183,7 +182,26 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
           <p className="text-xs text-muted-foreground">
             Max 10MB. PDF files only.
           </p>
+          </div>
         </div>
+        <div className="flex items-center space-x-2 p-3 border rounded-md bg-muted/50">
+          <Checkbox
+            id="requires-portal-signature"
+            checked={requiresPortalSignature}
+            onCheckedChange={(checked) => setRequiresPortalSignature(checked === true)}
+          />
+          <Label
+            htmlFor="requires-portal-signature"
+            className="text-sm font-normal cursor-pointer"
+          >
+            Requires client signature through portal
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {requiresPortalSignature
+            ? "Client will need to sign this contract through the portal."
+            : "This contract is already signed or doesn't require portal signing. It will be marked as signed automatically."}
+        </p>
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
         <FileText className="h-4 w-4 mr-2" />

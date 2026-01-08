@@ -77,15 +77,26 @@ export const clientAssets = pgTable("client_assets", {
 export const legalDocuments = pgTable("legal_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
-    .references(() => projects.id)
-    .notNull(),
+    .references(() => projects.id), // Deprecated: kept for backward compatibility, use contractProjects junction table
   name: text("name").notNull(),
   type: text("type").notNull(), // 'agreement', 'nda', 'contract', etc.
   fileUrl: text("file_url"),
+  requiresPortalSignature: boolean("requires_portal_signature").default(true).notNull(), // If false, contract is already signed or doesn't need portal signing
   signed: boolean("signed").default(false).notNull(),
   signedAt: timestamp("signed_at"),
   signature: text("signature"), // Base64 encoded signature image
   signedBy: uuid("signed_by").references(() => users.id), // User who signed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const contractProjects = pgTable("contract_projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contractId: uuid("contract_id")
+    .references(() => legalDocuments.id, { onDelete: "cascade" })
+    .notNull(),
+  projectId: uuid("project_id")
+    .references(() => projects.id, { onDelete: "cascade" })
+    .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

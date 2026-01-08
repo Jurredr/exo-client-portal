@@ -51,11 +51,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { projectId, name, fileUrl } = body;
+    const { projectIds, projectId, name, fileUrl, requiresPortalSignature } = body;
 
-    if (!projectId || typeof projectId !== "string") {
+    // Support both new format (projectIds array) and legacy format (projectId string)
+    const finalProjectIds = projectIds || (projectId ? [projectId] : []);
+
+    if (!Array.isArray(finalProjectIds) || finalProjectIds.length === 0) {
       return NextResponse.json(
-        { error: "Project ID is required" },
+        { error: "At least one project ID is required" },
         { status: 400 }
       );
     }
@@ -68,9 +71,10 @@ export async function POST(request: Request) {
     }
 
     const contract = await createContract({
-      projectId,
+      projectIds: finalProjectIds,
       name: name.trim(),
       fileUrl: fileUrl || null,
+      requiresPortalSignature: requiresPortalSignature !== undefined ? requiresPortalSignature : true,
     });
 
     return NextResponse.json(contract, { status: 201 });

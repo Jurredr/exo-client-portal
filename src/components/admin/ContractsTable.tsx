@@ -49,19 +49,28 @@ interface ContractData {
     name: string;
     type: string;
     fileUrl: string | null;
+    requiresPortalSignature: boolean;
     signed: boolean;
     signedAt: string | null;
     signature: string | null;
     createdAt: string;
   };
-  project: {
+  project?: {
     id: string;
     title: string;
   };
-  organization: {
+  projects?: Array<{
+    id: string;
+    title: string;
+  }>;
+  organization?: {
     id: string;
     name: string;
   };
+  organizations?: Array<{
+    id: string;
+    name: string;
+  }>;
   signedByUser: {
     id: string;
     name: string | null;
@@ -167,16 +176,26 @@ export function ContractsTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {row.original.project.title}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const projects = row.original.projects || (row.original.project ? [row.original.project] : []);
+          if (projects.length === 0) return <div className="text-muted-foreground">—</div>;
+          if (projects.length === 1) {
+            return <div className="text-muted-foreground">{projects[0].title}</div>;
+          }
+          return (
+            <div className="text-muted-foreground">
+              {projects.map((p) => p.title).join(", ")}
+              <span className="ml-1 text-xs">({projects.length})</span>
+            </div>
+          );
+        },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.project.title.localeCompare(
-            rowB.original.project.title
-          );
+          const projectsA = rowA.original.projects || (rowA.original.project ? [rowA.original.project] : []);
+          const projectsB = rowB.original.projects || (rowB.original.project ? [rowB.original.project] : []);
+          const titleA = projectsA.length > 0 ? projectsA[0].title : "";
+          const titleB = projectsB.length > 0 ? projectsB[0].title : "";
+          return titleA.localeCompare(titleB);
         },
       },
       {
@@ -196,11 +215,13 @@ export function ContractsTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {row.original.organization.name}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const organizations = row.original.organizations || (row.original.organization ? [row.original.organization] : []);
+          if (organizations.length === 0) return <div className="text-muted-foreground">—</div>;
+          // If all projects are from the same organization, show it once
+          const uniqueOrgs = Array.from(new Set(organizations.map((o) => o.name)));
+          return <div className="text-muted-foreground">{uniqueOrgs.join(", ")}</div>;
+        },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
           return rowA.original.organization.name.localeCompare(
@@ -227,11 +248,15 @@ export function ContractsTable() {
         },
         cell: ({ row }) => {
           const signed = row.original.contract.signed;
-          return (
-            <Badge variant={signed ? "default" : "secondary"}>
-              {signed ? "Signed" : "Pending"}
-            </Badge>
-          );
+          const requiresPortalSignature = row.original.contract.requiresPortalSignature;
+          
+          if (signed) {
+            return <Badge variant="default">Signed</Badge>;
+          } else if (!requiresPortalSignature) {
+            return <Badge variant="outline">Archived</Badge>;
+          } else {
+            return <Badge variant="secondary">Pending Signature</Badge>;
+          }
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
@@ -281,12 +306,22 @@ export function ContractsTable() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
-                <Link href={`/contract/${row.original.contract.id}`}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  View & Sign
-                </Link>
-              </DropdownMenuItem>
+              {row.original.contract.requiresPortalSignature && (
+                <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
+                  <Link href={`/contract/${row.original.contract.id}`}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    View & Sign
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {!row.original.contract.requiresPortalSignature && (
+                <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
+                  <Link href={`/contract/${row.original.contract.id}`}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    View
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();

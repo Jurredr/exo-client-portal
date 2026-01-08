@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, DollarSign, Calendar, Upload, X, Plus, Trash2 } from "lucide-react";
+import { FileText, DollarSign, Calendar, Upload, X, Plus, Trash2, Download } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -227,6 +227,14 @@ export function CreateInvoiceForm({
     }
   }, [isKOR]);
 
+  // Reset PDF state when invoice changes (e.g., when opening edit modal)
+  useEffect(() => {
+    if (invoice) {
+      setPdfFile(null);
+      setRemovePdf(false);
+    }
+  }, [invoice?.id]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -240,6 +248,10 @@ export function CreateInvoiceForm({
       }
       setPdfFile(file);
       setRemovePdf(false);
+    } else {
+      // If file input is cleared, reset to show existing PDF if available
+      setPdfFile(null);
+      // Don't set removePdf to true here - we want to preserve existing PDF
     }
   };
 
@@ -308,6 +320,7 @@ export function CreateInvoiceForm({
       let pdfFileType: string | null = null;
 
       if (pdfFile) {
+        // New file uploaded
         const reader = new FileReader();
         pdfUrl = await new Promise<string>((resolve, reject) => {
           reader.onloadend = () => {
@@ -318,11 +331,14 @@ export function CreateInvoiceForm({
         });
         pdfFileName = pdfFile.name;
         pdfFileType = pdfFile.type;
-      } else if (invoice?.pdfUrl && !removePdf) {
-        pdfUrl = invoice.pdfUrl;
-        pdfFileName = invoice.pdfFileName;
-        pdfFileType = invoice.pdfFileType;
+      } else if (removePdf) {
+        // PDF is being removed
+        pdfUrl = null;
+        pdfFileName = null;
+        pdfFileType = null;
       }
+      // If neither pdfFile nor removePdf, we don't set pdfUrl/pdfFileName/pdfFileType
+      // This means the API will preserve the existing PDF (if any)
 
       const url = "/api/invoices";
       const method = invoice ? "PATCH" : "POST";
@@ -338,9 +354,15 @@ export function CreateInvoiceForm({
             isKOR,
             invoiceDate: invoiceDate || null,
             dueDate: dueDate || null,
-            pdfUrl,
-            pdfFileName,
-            pdfFileType,
+            // Only include PDF fields if they're explicitly set (new file or removal)
+            // If undefined, the API will preserve the existing PDF
+            ...(pdfFile || removePdf
+              ? {
+                  pdfUrl: pdfUrl ?? null,
+                  pdfFileName: pdfFileName ?? null,
+                  pdfFileType: pdfFileType ?? null,
+                }
+              : {}),
             lineItems: lineItems.map((item, index) => ({
               ...item,
               order: index,
@@ -711,12 +733,24 @@ export function CreateInvoiceForm({
             onChange={handleFileChange}
             className="cursor-pointer"
           />
-          {invoice?.pdfUrl && !pdfFile && !removePdf && (
+          {invoice?.pdfFileName && !pdfFile && !removePdf && (
             <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
               <FileText className="h-4 w-4" />
               <span className="text-sm flex-1">
                 {invoice.pdfFileName || "Existing PDF"}
               </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  // Download the PDF via the API endpoint
+                  window.open(`/api/invoices/${invoice.id}/download`, "_blank");
+                }}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                View
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -727,6 +761,23 @@ export function CreateInvoiceForm({
                 }}
               >
                 <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {invoice?.pdfFileName && removePdf && (
+            <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded-md border border-destructive/20">
+              <span className="text-sm text-destructive flex-1">
+                PDF will be removed on save
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRemovePdf(false);
+                }}
+              >
+                Undo
               </Button>
             </div>
           )}
@@ -741,6 +792,11 @@ export function CreateInvoiceForm({
                 className="h-6 w-6"
                 onClick={() => {
                   setPdfFile(null);
+                  // Reset file input
+                  const fileInput = document.getElementById("invoice-pdf") as HTMLInputElement;
+                  if (fileInput) {
+                    fileInput.value = "";
+                  }
                 }}
               >
                 <X className="h-4 w-4" />

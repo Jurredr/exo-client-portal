@@ -76,6 +76,9 @@ export const clientAssets = pgTable("client_assets", {
 
 export const legalDocuments = pgTable("legal_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
   projectId: uuid("project_id")
     .references(() => projects.id), // Deprecated: kept for backward compatibility, use contractProjects junction table
   name: text("name").notNull(),

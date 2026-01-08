@@ -93,8 +93,10 @@ export function ContractsTable() {
   const [deleteContract, setDeleteContract] = useState<ContractData | null>(
     null
   );
+  const [editContract, setEditContract] = useState<ContractData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const handleDownload = async (contract: ContractData) => {
@@ -333,6 +335,17 @@ export function ContractsTable() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditContract(row.original);
+                  setIsEditOpen(true);
+                }}
+              >
+                <Pen className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 variant="destructive"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -406,6 +419,12 @@ export function ContractsTable() {
     fetchContracts();
   };
 
+  const handleEditSuccess = () => {
+    setIsEditOpen(false);
+    setEditContract(null);
+    fetchContracts();
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -426,12 +445,14 @@ export function ContractsTable() {
         searchPlaceholder="Search contracts by name, project, or organization..."
         searchFn={(row, query) => {
           const name = row.contract.name.toLowerCase();
-          const project = row.project.title.toLowerCase();
-          const org = row.organization.name.toLowerCase();
+          const projects = row.projects || (row.project ? [row.project] : []);
+          const projectTitles = projects.map((p) => p.title.toLowerCase()).join(" ");
+          const organizations = row.organizations || (row.organization ? [row.organization] : []);
+          const orgNames = organizations.map((o) => o.name.toLowerCase()).join(" ");
           return (
             name.includes(query) ||
-            project.includes(query) ||
-            org.includes(query)
+            projectTitles.includes(query) ||
+            orgNames.includes(query)
           );
         }}
         filterConfig={{
@@ -489,6 +510,58 @@ export function ContractsTable() {
           )
         }
       />
+
+      {isMobile ? (
+        <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Edit Contract</DrawerTitle>
+              <DrawerDescription>
+                Update contract details and projects
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4">
+              {editContract && (
+                <CreateContractForm
+                  contract={{
+                    id: editContract.contract.id,
+                    name: editContract.contract.name,
+                    organizationId: editContract.organizations?.[0]?.id || editContract.organization?.id || "",
+                    fileUrl: editContract.contract.fileUrl,
+                    requiresPortalSignature: editContract.contract.requiresPortalSignature,
+                    projects: editContract.projects || (editContract.project ? [editContract.project] : []),
+                  }}
+                  onSuccess={handleEditSuccess}
+                />
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Contract</DialogTitle>
+              <DialogDescription>
+                Update contract details and projects
+              </DialogDescription>
+            </DialogHeader>
+            {editContract && (
+              <CreateContractForm
+                contract={{
+                  id: editContract.contract.id,
+                  name: editContract.contract.name,
+                  organizationId: editContract.organizations?.[0]?.id || editContract.organization?.id || "",
+                  fileUrl: editContract.contract.fileUrl,
+                  requiresPortalSignature: editContract.contract.requiresPortalSignature,
+                  projects: editContract.projects || (editContract.project ? [editContract.project] : []),
+                }}
+                onSuccess={handleEditSuccess}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
       <DeleteConfirmationDialog
         open={isDeleteOpen}

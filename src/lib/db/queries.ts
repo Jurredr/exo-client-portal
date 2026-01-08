@@ -1409,32 +1409,81 @@ export async function invalidateAllInvoiceCaches() {
 
 // Contract queries (using legal_documents table with type='contract')
 export async function getAllContracts() {
-  return await db
+  // Get all contracts with their organization and first project (for backward compatibility)
+  const contracts = await db
     .select({
       contract: legalDocuments,
-      project: projects,
       organization: organizations,
+      project: projects,
       signedByUser: users,
     })
     .from(legalDocuments)
-    .innerJoin(projects, eq(legalDocuments.projectId, projects.id))
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(organizations, eq(legalDocuments.organizationId, organizations.id))
+    .leftJoin(projects, eq(legalDocuments.projectId, projects.id))
     .leftJoin(users, eq(legalDocuments.signedBy, users.id))
     .where(eq(legalDocuments.type, "contract"))
     .orderBy(desc(legalDocuments.createdAt));
+
+  // Get all project associations from junction table
+  const allContractProjectIds = contracts.map((c) => c.contract.id);
+  const projectAssociations = allContractProjectIds.length > 0
+    ? await db
+        .select({
+          contractId: contractProjects.contractId,
+          project: projects,
+          organization: organizations,
+        })
+        .from(contractProjects)
+        .innerJoin(projects, eq(contractProjects.projectId, projects.id))
+        .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+        .where(inArray(contractProjects.contractId, allContractProjectIds))
+    : [];
+
+  // Group projects by contract ID
+  const projectsByContract = new Map<string, typeof projectAssociations>();
+  projectAssociations.forEach((assoc) => {
+    if (!projectsByContract.has(assoc.contractId)) {
+      projectsByContract.set(assoc.contractId, []);
+    }
+    projectsByContract.get(assoc.contractId)!.push(assoc);
+  });
+
+  // Attach projects to each contract
+  return contracts.map((contract) => {
+    const associatedProjects = projectsByContract.get(contract.contract.id) || [];
+    // If no projects from junction table but has legacy projectId, use that
+    if (associatedProjects.length === 0 && contract.project) {
+      return {
+        ...contract,
+        projects: [contract.project],
+        organizations: [contract.organization], // Always has organization now
+      };
+    }
+    // Always include the contract's organization, plus any from projects
+    const allOrganizations = new Map();
+    allOrganizations.set(contract.organization.id, contract.organization);
+    associatedProjects.forEach((a) => {
+      allOrganizations.set(a.organization.id, a.organization);
+    });
+    return {
+      ...contract,
+      projects: associatedProjects.map((a) => a.project),
+      organizations: Array.from(allOrganizations.values()),
+    };
+  });
 }
 
 export async function getContractById(contractId: string) {
   const result = await db
     .select({
       contract: legalDocuments,
-      project: projects,
       organization: organizations,
+      project: projects,
       signedByUser: users,
     })
     .from(legalDocuments)
+    .innerJoin(organizations, eq(legalDocuments.organizationId, organizations.id))
     .leftJoin(projects, eq(legalDocuments.projectId, projects.id))
-    .leftJoin(organizations, eq(projects.organizationId, organizations.id))
     .leftJoin(users, eq(legalDocuments.signedBy, users.id))
     .where(
       and(
@@ -1457,24 +1506,32 @@ export async function getContractById(contractId: string) {
     .innerJoin(organizations, eq(projects.organizationId, organizations.id))
     .where(eq(contractProjects.contractId, contractId));
 
+  // Always include the contract's organization, plus any from projects
+  const allOrganizations = new Map();
+  allOrganizations.set(result[0].organization.id, result[0].organization);
+  projectAssociations.forEach((a) => {
+    allOrganizations.set(a.organization.id, a.organization);
+  });
+
   // If no projects from junction table but has legacy projectId, use that
   if (projectAssociations.length === 0 && result[0].project) {
     return {
       ...result[0],
       projects: [result[0].project],
-      organizations: result[0].organization ? [result[0].organization] : [],
+      organizations: Array.from(allOrganizations.values()),
     };
   }
 
   return {
     ...result[0],
     projects: projectAssociations.map((a) => a.project),
-    organizations: projectAssociations.map((a) => a.organization),
+    organizations: Array.from(allOrganizations.values()),
   };
 }
 
 export async function createContract(data: {
-  projectIds: string[];
+  organizationId: string;
+  projectIds?: string[];
   name: string;
   fileUrl?: string | null;
   requiresPortalSignature?: boolean;
@@ -1486,11 +1543,12 @@ export async function createContract(data: {
   const signedAt = signed ? new Date() : null;
 
   // Use the first project ID for backward compatibility (deprecated field)
-  const firstProjectId = data.projectIds.length > 0 ? data.projectIds[0] : null;
+  const firstProjectId = data.projectIds && data.projectIds.length > 0 ? data.projectIds[0] : null;
 
   const [contract] = await db
     .insert(legalDocuments)
     .values({
+      organizationId: data.organizationId,
       projectId: firstProjectId,
       name: data.name,
       type: "contract",
@@ -1502,7 +1560,7 @@ export async function createContract(data: {
     .returning();
 
   // Create junction table entries for all selected projects
-  if (data.projectIds.length > 0) {
+  if (data.projectIds && data.projectIds.length > 0) {
     await db.insert(contractProjects).values(
       data.projectIds.map((projectId) => ({
         contractId: contract.id,
@@ -1524,13 +1582,43 @@ export async function updateContract(
     signedAt: Date | null;
     signature: string | null;
     signedBy: string | null;
+    organizationId?: string;
+    projectIds?: string[];
   }>
 ) {
+  // Extract projectIds if provided
+  const { projectIds, ...updateData } = data;
+
   const [contract] = await db
     .update(legalDocuments)
-    .set(data)
+    .set(updateData)
     .where(eq(legalDocuments.id, contractId))
     .returning();
+
+  // Update project associations if projectIds is provided
+  if (projectIds !== undefined) {
+    // Delete existing associations
+    await db.delete(contractProjects).where(eq(contractProjects.contractId, contractId));
+    
+    // Create new associations
+    if (projectIds.length > 0) {
+      await db.insert(contractProjects).values(
+        projectIds.map((projectId) => ({
+          contractId: contract.id,
+          projectId,
+        }))
+      );
+    }
+
+    // Update legacy projectId field for backward compatibility
+    const firstProjectId = projectIds.length > 0 ? projectIds[0] : null;
+    if (firstProjectId !== null || projectIds.length === 0) {
+      await db
+        .update(legalDocuments)
+        .set({ projectId: firstProjectId })
+        .where(eq(legalDocuments.id, contractId));
+    }
+  }
 
   return contract;
 }

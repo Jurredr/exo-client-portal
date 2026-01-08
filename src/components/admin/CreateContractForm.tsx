@@ -15,30 +15,109 @@ import { toast } from "sonner";
 import { FileText, Upload, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProjectCombobox } from "@/components/project-combobox";
+import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
 
 interface Project {
   id: string;
   title: string;
 }
 
-export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
-  const [projectIds, setProjectIds] = useState<string[]>([]);
-  const [name, setName] = useState("");
+interface Organization {
+  id: string;
+  name: string;
+}
+
+interface Contract {
+  id: string;
+  name: string;
+  organizationId: string;
+  fileUrl: string | null;
+  requiresPortalSignature: boolean;
+  projects?: Array<{ id: string; title: string }>;
+}
+
+export function CreateContractForm({ 
+  onSuccess, 
+  contract 
+}: { 
+  onSuccess?: () => void;
+  contract?: Contract;
+}) {
+  const [organizationId, setOrganizationId] = useState<string>(
+    contract?.organizationId || ""
+  );
+  const [projectIds, setProjectIds] = useState<string[]>(
+    contract?.projects?.map((p) => p.id) || []
+  );
+  const [name, setName] = useState(contract?.name || "");
   const [contractFile, setContractFile] = useState<File | null>(null);
-  const [requiresPortalSignature, setRequiresPortalSignature] = useState<boolean>(true);
+  const [requiresPortalSignature, setRequiresPortalSignature] = useState<boolean>(
+    contract?.requiresPortalSignature !== undefined ? contract.requiresPortalSignature : true
+  );
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
   useEffect(() => {
+    const fetchOrganizations = async () => {
+      try {
+        const response = await fetch("/api/organizations");
+        if (response.ok) {
+          const data = await response.json();
+          const filteredData = data.filter(
+            (org: Organization) => org.name !== EXO_ORGANIZATION_NAME
+          );
+          setOrganizations(filteredData);
+        }
+      } catch (error) {
+        console.error("Error fetching organizations:", error);
+      } finally {
+        setIsLoadingOrgs(false);
+      }
+    };
+
+    fetchOrganizations();
+  }, []);
+
+  useEffect(() => {
     const fetchProjects = async () => {
+      if (!organizationId) {
+        // If editing and contract has projects from other orgs, still show them
+        if (contract?.projects && contract.projects.length > 0) {
+          setProjects(contract.projects);
+          setIsLoadingProjects(false);
+        } else {
+          setProjects([]);
+          setIsLoadingProjects(false);
+        }
+        return;
+      }
+
+      setIsLoadingProjects(true);
       try {
         const response = await fetch("/api/projects");
         if (response.ok) {
           const data = await response.json();
-          setProjects(
-            data.map((p: any) => ({ id: p.project.id, title: p.project.title }))
-          );
+          const filteredProjects = data
+            .filter((p: any) => p.project.organizationId === organizationId)
+            .map((p: any) => ({
+              id: p.project.id,
+              title: p.project.title,
+            }));
+          
+          // If editing, also include projects from other organizations that are already associated
+          if (contract?.projects) {
+            const existingProjectIds = new Set(filteredProjects.map((p: Project) => p.id));
+            contract.projects.forEach((p) => {
+              if (!existingProjectIds.has(p.id)) {
+                filteredProjects.push(p);
+              }
+            });
+          }
+          
+          setProjects(filteredProjects);
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -48,13 +127,13 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
     };
 
     fetchProjects();
-  }, []);
+  }, [organizationId, contract]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (projectIds.length === 0) {
-      toast.error("At least one project is required");
+    if (!organizationId) {
+      toast.error("Organization is required");
       return;
     }
 
@@ -79,29 +158,46 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
         });
       }
 
-      const response = await fetch("/api/contracts", {
-        method: "POST",
+      const url = "/api/contracts";
+      const method = contract ? "PATCH" : "POST";
+      const body = contract
+        ? {
+            id: contract.id,
+            organizationId,
+            projectIds,
+            name: name.trim(),
+            fileUrl: contractFile ? fileUrl : undefined, // Only send fileUrl if a new file was uploaded
+            requiresPortalSignature,
+          }
+        : {
+            organizationId,
+            projectIds,
+            name: name.trim(),
+            fileUrl,
+            requiresPortalSignature,
+          };
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          projectIds,
-          name: name.trim(),
-          fileUrl,
-          requiresPortalSignature,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create contract");
+        throw new Error(error.error || `Failed to ${contract ? "update" : "create"} contract`);
       }
 
-      toast.success("Contract created successfully");
-      setProjectIds([]);
-      setName("");
-      setContractFile(null);
-      setRequiresPortalSignature(true);
+      toast.success(`Contract ${contract ? "updated" : "created"} successfully`);
+      if (!contract) {
+        setOrganizationId("");
+        setProjectIds([]);
+        setName("");
+        setContractFile(null);
+        setRequiresPortalSignature(true);
+      }
       onSuccess?.();
     } catch (error) {
       toast.error(
@@ -115,16 +211,39 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="contract-projects">Projects *</Label>
+        <Label htmlFor="contract-org">Organization *</Label>
+        <Select
+          value={organizationId}
+          onValueChange={(value) => {
+            setOrganizationId(value);
+            setProjectIds([]);
+          }}
+          disabled={isLoadingOrgs}
+          required
+        >
+          <SelectTrigger id="contract-org" className="w-full">
+            <SelectValue placeholder="Select an organization" />
+          </SelectTrigger>
+          <SelectContent>
+            {organizations.map((org) => (
+              <SelectItem key={org.id} value={org.id}>
+                {org.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="contract-projects">Projects (Optional)</Label>
         <ProjectCombobox
           projects={projects}
           selectedIds={projectIds}
           onSelectionChange={setProjectIds}
-          placeholder="Select projects..."
-          disabled={isLoadingProjects}
+          placeholder={organizationId ? "Select projects (optional)..." : "Select an organization first"}
+          disabled={isLoadingProjects || !organizationId}
         />
         <p className="text-xs text-muted-foreground">
-          Select one or more projects for this contract (e.g., for NDAs shared across multiple projects).
+          Select one or more projects for this contract (e.g., for NDAs shared across multiple projects). Leave empty if the project is not in the portal.
         </p>
       </div>
       <div className="space-y-2">
@@ -205,7 +324,9 @@ export function CreateContractForm({ onSuccess }: { onSuccess?: () => void }) {
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
         <FileText className="h-4 w-4 mr-2" />
-        {isSubmitting ? "Creating..." : "Create Contract"}
+        {isSubmitting 
+          ? (contract ? "Updating..." : "Creating...") 
+          : (contract ? "Update Contract" : "Create Contract")}
       </Button>
     </form>
   );

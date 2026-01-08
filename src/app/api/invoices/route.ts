@@ -28,6 +28,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check if requesting next invoice number
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get("nextNumber") === "true") {
+      const nextNumber = await getNextInvoiceNumber();
+      return NextResponse.json({ invoiceNumber: nextNumber });
+    }
+
     const invoices = await getAllInvoices();
     
     // Add caching headers to reduce database queries

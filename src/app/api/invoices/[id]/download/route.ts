@@ -71,7 +71,7 @@ export async function GET(
           const pdfBuffer = Buffer.from(base64Data, "base64");
           
           // Use original filename if available, otherwise generate one
-          const filename = invoiceData.invoice.pdfFileName || `invoice-${invoiceData.invoice.invoiceNumber}.pdf`;
+          const filename = invoiceData.invoice.pdfFileName || `${invoiceData.invoice.invoiceNumber}.pdf`;
           
           return new NextResponse(new Uint8Array(pdfBuffer), {
             headers: {
@@ -94,7 +94,7 @@ export async function GET(
           });
           if (response.ok) {
             const arrayBuffer = await response.arrayBuffer();
-            const filename = invoiceData.invoice.pdfFileName || `invoice-${invoiceData.invoice.invoiceNumber}.pdf`;
+            const filename = invoiceData.invoice.pdfFileName || `${invoiceData.invoice.invoiceNumber}.pdf`;
             
             return new NextResponse(new Uint8Array(arrayBuffer), {
               headers: {
@@ -121,7 +121,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="invoice-${invoiceData.invoice.invoiceNumber}.pdf"`,
+        "Content-Disposition": `attachment; filename="${invoiceData.invoice.invoiceNumber}.pdf"`,
         ETag: `"${etag}"`,
         "Cache-Control": "public, max-age=3600, must-revalidate",
         "Last-Modified": new Date(invoiceData.invoice.updatedAt).toUTCString(),

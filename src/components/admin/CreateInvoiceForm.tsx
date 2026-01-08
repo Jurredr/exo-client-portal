@@ -117,6 +117,7 @@ export function CreateInvoiceForm({
   const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
     invoice?.invoiceNumber || ""
   );
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>("");
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     invoice?.lineItems && invoice.lineItems.length > 0
       ? invoice.lineItems
@@ -162,6 +163,26 @@ export function CreateInvoiceForm({
 
     fetchOrganizations();
   }, []);
+
+  // Fetch next invoice number for new invoices
+  useEffect(() => {
+    const fetchNextInvoiceNumber = async () => {
+      if (!invoice) {
+        try {
+          const response = await fetch("/api/invoices?nextNumber=true");
+          if (response.ok) {
+            const data = await response.json();
+            setNextInvoiceNumber(data.invoiceNumber);
+            setInvoiceNumberOverride(data.invoiceNumber);
+          }
+        } catch (error) {
+          console.error("Error fetching next invoice number:", error);
+        }
+      }
+    };
+
+    fetchNextInvoiceNumber();
+  }, [invoice]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -398,15 +419,15 @@ export function CreateInvoiceForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {!invoice && (
         <div className="space-y-2">
-          <Label htmlFor="invoice-number">Invoice Number (Optional)</Label>
+          <Label htmlFor="invoice-number">Invoice Number</Label>
           <Input
             id="invoice-number"
             value={invoiceNumberOverride}
             onChange={(e) => setInvoiceNumberOverride(e.target.value)}
-            placeholder="Leave empty to auto-generate (e.g., INV-2025-0001)"
+            placeholder={nextInvoiceNumber || "Leave empty to auto-generate"}
           />
           <p className="text-xs text-muted-foreground">
-            Leave empty to auto-generate. Format: INV-YYYY-NNNN
+            {nextInvoiceNumber ? `Default: ${nextInvoiceNumber}` : "Leave empty to auto-generate. Format: INV-YYYY-NNNN"}
           </p>
         </div>
       )}

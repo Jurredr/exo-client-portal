@@ -124,6 +124,8 @@ export default function DashboardStats() {
   const [loading, setLoading] = useState(true);
   const [revenueTimeRange, setRevenueTimeRange] = useState("year");
   const [hoursTimeRange, setHoursTimeRange] = useState("30d");
+  const [currency, setCurrency] = useState<"EUR" | "USD">("EUR");
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -136,6 +138,51 @@ export default function DashboardStats() {
   useEffect(() => {
     fetchStats();
   }, [revenueTimeRange, hoursTimeRange]);
+
+  // Fetch exchange rate when USD is selected
+  useEffect(() => {
+    if (currency === "USD") {
+      if (!exchangeRate) {
+        fetchExchangeRate();
+      }
+    } else {
+      // Reset exchange rate when switching back to EUR
+      setExchangeRate(null);
+    }
+  }, [currency]);
+
+  const fetchExchangeRate = async () => {
+    try {
+      const response = await fetch(
+        'https://api.exchangerate-api.com/v4/latest/EUR'
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch exchange rate');
+      }
+
+      const data = await response.json();
+      const rate = data.rates?.USD;
+
+      if (rate && typeof rate === 'number') {
+        setExchangeRate(rate);
+      } else {
+        throw new Error('Invalid exchange rate data');
+      }
+    } catch (error) {
+      console.error('Error fetching EUR to USD rate:', error);
+      // Fallback to approximate rate if API fails
+      setExchangeRate(1.08);
+    }
+  };
+
+  // Convert EUR amount to USD if currency is USD
+  const convertAmount = (amountInEUR: number): number => {
+    if (currency === "USD" && exchangeRate) {
+      return amountInEUR * exchangeRate;
+    }
+    return amountInEUR;
+  };
 
   const fetchStats = async () => {
     try {
@@ -182,6 +229,23 @@ export default function DashboardStats() {
     <div className="space-y-8">
       {/* Revenue Section */}
       <div className="space-y-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Revenue</h2>
+          <ToggleGroup
+            type="single"
+            value={currency}
+            onValueChange={(value) => {
+              if (value === "EUR" || value === "USD") {
+                setCurrency(value);
+              }
+            }}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="EUR">EUR</ToggleGroupItem>
+            <ToggleGroupItem value="USD">USD</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 w-full">
           <Card className="p-6 py-4 w-full">
             <CardContent className="p-0">
@@ -195,16 +259,16 @@ export default function DashboardStats() {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p>
-                        Amounts are estimates based on a fixed exchange rate
-                        (1 USD = 0.92 EUR). USD invoices are converted to EUR
-                        for display.
+                        {currency === "EUR" 
+                          ? "USD invoices are converted to EUR using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."
+                          : "All amounts are converted to USD using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."}
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </dt>
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
-                {formatCurrency(stats.revenue.total)}
+                {formatCurrency(convertAmount(stats.revenue.total), currency)}
               </dd>
             </CardContent>
           </Card>
@@ -220,9 +284,9 @@ export default function DashboardStats() {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p>
-                        Amounts are estimates based on a fixed exchange rate
-                        (1 USD = 0.92 EUR). USD invoices are converted to EUR
-                        for display.
+                        {currency === "EUR" 
+                          ? "USD invoices are converted to EUR using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."
+                          : "All amounts are converted to USD using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -249,7 +313,7 @@ export default function DashboardStats() {
                 </Badge>
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
-                {formatCurrency(stats.revenue.thisMonth)}
+                {formatCurrency(convertAmount(stats.revenue.thisMonth), currency)}
               </dd>
             </CardContent>
           </Card>
@@ -303,7 +367,12 @@ export default function DashboardStats() {
               config={revenueChartConfig}
               className="aspect-auto h-[250px] w-full"
             >
-              <AreaChart data={stats.revenue.chartData}>
+              <AreaChart
+                data={stats.revenue.chartData.map((item) => ({
+                  ...item,
+                  revenue: convertAmount(item.revenue),
+                }))}
+              >
                 <defs>
                   <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop
@@ -330,14 +399,14 @@ export default function DashboardStats() {
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  tickFormatter={(value) => formatCurrency(value)}
+                  tickFormatter={(value) => formatCurrency(convertAmount(value), currency)}
                 />
                 <ChartTooltip
                   cursor={false}
                   content={
                     <ChartTooltipContent
                       labelFormatter={(value) => value}
-                      formatter={(value) => formatCurrency(Number(value))}
+                      formatter={(value) => formatCurrency(convertAmount(Number(value)), currency)}
                       indicator="dot"
                     />
                   }

@@ -634,8 +634,52 @@ export async function deleteProject(projectId: string) {
   await db.delete(projects).where(eq(projects.id, projectId));
 }
 
-// Estimated USD to EUR conversion rate
-const USD_TO_EUR_RATE = 0.92; // 1 USD = 0.92 EUR (approximate rate)
+// Exchange rate caching
+let eurToUsdRate: number | null = null;
+let rateCacheTimestamp: number = 0;
+const RATE_CACHE_DURATION = 3600000; // 1 hour in milliseconds
+
+// Fetch EUR to USD exchange rate from free API
+async function getEurToUsdRate(): Promise<number> {
+  const now = Date.now();
+
+  // Return cached rate if still valid
+  if (eurToUsdRate && now - rateCacheTimestamp < RATE_CACHE_DURATION) {
+    return eurToUsdRate;
+  }
+
+  try {
+    // Using exchangerate-api.com free endpoint (no auth required)
+    const response = await fetch(
+      'https://api.exchangerate-api.com/v4/latest/EUR',
+      {
+        next: { revalidate: 3600 }, // Revalidate every hour
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch exchange rate');
+    }
+
+    const data = await response.json();
+    const rate = data.rates?.USD;
+
+    if (!rate || typeof rate !== 'number') {
+      throw new Error('Invalid exchange rate data');
+    }
+
+    eurToUsdRate = rate;
+    rateCacheTimestamp = now;
+    return rate;
+  } catch (error) {
+    console.error('Error fetching EUR to USD rate:', error);
+    // Fallback to approximate rate if API fails
+    if (!eurToUsdRate) {
+      eurToUsdRate = 1.08; // Approximate fallback rate
+    }
+    return eurToUsdRate;
+  }
+}
 
 // Helper function to parse invoice amount (removes currency symbols, commas, spaces)
 function parseInvoiceAmount(amount: string): number {
@@ -647,9 +691,12 @@ function parseInvoiceAmount(amount: string): number {
 }
 
 // Helper function to convert amount to EUR
-function convertToEUR(amount: number, currency: string): number {
+async function convertToEUR(amount: number, currency: string, usdToEurRate?: number): Promise<number> {
   if (currency === "USD") {
-    return amount * USD_TO_EUR_RATE;
+    // If rate is provided, use it; otherwise fetch it
+    const rate = usdToEurRate ?? await getEurToUsdRate();
+    // Convert USD to EUR: divide by EUR/USD rate (e.g., if 1 EUR = 1.08 USD, then 1 USD = 1/1.08 EUR)
+    return amount / rate;
   }
   return amount; // Already in EUR or default to EUR
 }
@@ -671,6 +718,9 @@ export async function getDashboardStats(
     999
   );
 
+  // Fetch exchange rate once at the beginning to avoid multiple API calls
+  const usdToEurRate = await getEurToUsdRate();
+
   // Get all paid invoices with their amounts and transaction types
   // Only require status = "paid", paidAt is optional
   const paidInvoices = await db
@@ -690,10 +740,10 @@ export async function getDashboardStats(
   let revenueThisMonth = 0;
   let revenueLastMonth = 0;
 
-  paidInvoices.forEach((invoice) => {
+  for (const invoice of paidInvoices) {
     const amount = parseInvoiceAmount(invoice.amount);
     // Convert to EUR if needed
-    const amountInEUR = convertToEUR(amount, invoice.currency || "EUR");
+    const amountInEUR = await convertToEUR(amount, invoice.currency || "EUR", usdToEurRate);
     // Default to debit if transactionType is null (for invoices created before migration)
     const isDebit = (invoice.transactionType || "debit") === "debit";
     const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
@@ -716,7 +766,7 @@ export async function getDashboardStats(
     ) {
       revenueLastMonth += value;
     }
-  });
+  }
 
   // Get total hours
   const totalHoursResult = await db
@@ -820,7 +870,7 @@ export async function getDashboardStats(
 
   // Group revenue by date/month (debits add, credits subtract)
   const revenueByDate: { [key: string]: number } = {};
-  revenueOverTime.forEach((row) => {
+  for (const row of revenueOverTime) {
     // Use dueDate if available, otherwise use paidAt, then createdAt as fallback
     const dateForChart = row.dueDate
       ? new Date(row.dueDate)
@@ -840,13 +890,13 @@ export async function getDashboardStats(
       }
       const amount = parseInvoiceAmount(row.amount);
       // Convert to EUR if needed
-      const amountInEUR = convertToEUR(amount, row.currency || "EUR");
+      const amountInEUR = await convertToEUR(amount, row.currency || "EUR", usdToEurRate);
       // Default to debit if transactionType is null
       const isDebit = (row.transactionType || "debit") === "debit";
       const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
       revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + value;
     }
-  });
+  }
 
   // Generate revenue chart data
   const revenueChartData: { date: string; revenue: number }[] = [];

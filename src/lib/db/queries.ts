@@ -198,7 +198,8 @@ export async function createHourRegistration(
     | "research"
     | "labs"
     | "client_acquisition"
-    | "content_creation" = "client"
+    | "content_creation"
+    | "traveling" = "client"
 ) {
   const [registration] = await db
     .insert(hourRegistrations)

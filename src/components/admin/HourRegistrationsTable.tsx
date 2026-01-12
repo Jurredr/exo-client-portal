@@ -355,14 +355,15 @@ export function HourRegistrationsTable() {
     hours: "",
     minutes: "",
     description: "",
-      category: "client" as
-        | "client"
-        | "administration"
-        | "brainstorming"
-        | "research"
-        | "labs"
-        | "client_acquisition"
-        | "content_creation",
+    category: "client" as
+      | "client"
+      | "administration"
+      | "brainstorming"
+      | "research"
+      | "labs"
+      | "client_acquisition"
+      | "content_creation"
+      | "traveling",
     projectId: undefined as string | undefined,
   });
 
@@ -490,13 +491,14 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation, traveling) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
       "client_acquisition",
       "content_creation",
+      "traveling",
     ];
     if (
       nonProjectCategories.includes(manualEntry.category) &&
@@ -566,14 +568,14 @@ export function HourRegistrationsTable() {
       hours: hours.toString(),
       minutes: minutes.toString(),
       description: registration.description,
-        category: (registration.category || "client") as
-          | "client"
-          | "administration"
-          | "brainstorming"
-          | "research"
-          | "labs"
-          | "client_acquisition"
-          | "content_creation",
+      category: (registration.category || "client") as
+        | "client"
+        | "administration"
+        | "brainstorming"
+        | "research"
+        | "labs"
+        | "client_acquisition"
+        | "content_creation",
       projectId: registration.projectId || undefined,
     });
     setIsEditOpen(true);
@@ -596,13 +598,14 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation) should not have a project
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation, traveling) should not have a project
     const nonProjectCategories = [
       "administration",
       "brainstorming",
       "research",
       "client_acquisition",
       "content_creation",
+      "traveling",
     ];
     if (
       nonProjectCategories.includes(manualEntry.category) &&
@@ -758,7 +761,9 @@ export function HourRegistrationsTable() {
                           | "brainstorming"
                           | "research"
                           | "labs"
-                          | "client_acquisition",
+                          | "client_acquisition"
+                          | "content_creation"
+                          | "traveling",
                       })
                     }
                   >
@@ -778,7 +783,10 @@ export function HourRegistrationsTable() {
                         Client Acquisition
                       </SelectItem>
                       <SelectItem value="labs">EXO Labs</SelectItem>
-                      <SelectItem value="content_creation">Content Creation</SelectItem>
+                      <SelectItem value="content_creation">
+                        Content Creation
+                      </SelectItem>
+                      <SelectItem value="traveling">Traveling</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -863,7 +871,9 @@ export function HourRegistrationsTable() {
                               ? "Describe the client acquisition activities..."
                               : manualEntry.category === "content_creation"
                                 ? "Describe the content you created..."
-                                : "Describe the work you did..."
+                                : manualEntry.category === "traveling"
+                                  ? "Describe your travel activities..."
+                                  : "Describe the work you did..."
                     }
                     value={manualEntry.description}
                     onChange={(e) =>
@@ -930,7 +940,8 @@ export function HourRegistrationsTable() {
                       | "research"
                       | "labs"
                       | "client_acquisition"
-                      | "content_creation",
+                      | "content_creation"
+                      | "traveling",
                   })
                 }
               >
@@ -946,7 +957,10 @@ export function HourRegistrationsTable() {
                     Client Acquisition
                   </SelectItem>
                   <SelectItem value="labs">EXO Labs</SelectItem>
-                  <SelectItem value="content_creation">Content Creation</SelectItem>
+                  <SelectItem value="content_creation">
+                    Content Creation
+                  </SelectItem>
+                  <SelectItem value="traveling">Traveling</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1025,7 +1039,9 @@ export function HourRegistrationsTable() {
                           ? "Describe the client acquisition activities..."
                           : manualEntry.category === "content_creation"
                             ? "Describe the content you created..."
-                            : "Describe the work you did..."
+                            : manualEntry.category === "traveling"
+                              ? "Describe your travel activities..."
+                              : "Describe the work you did..."
                 }
                 value={manualEntry.description}
                 onChange={(e) =>

@@ -55,7 +55,8 @@ interface SplitEntry {
     | "research"
     | "labs"
     | "client_acquisition"
-    | "content_creation";
+    | "content_creation"
+    | "traveling";
   projectId?: string;
   duration: number; // in seconds
   isBreak: boolean;
@@ -78,6 +79,7 @@ export function HourRegistrationTimer() {
     | "labs"
     | "client_acquisition"
     | "content_creation"
+    | "traveling"
   >("client");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -264,6 +266,7 @@ export function HourRegistrationTimer() {
       "research",
       "client_acquisition",
       "content_creation",
+      "traveling",
     ];
     if (nonProjectCategories.includes(category) && projectId) {
       toast.error(
@@ -505,6 +508,7 @@ export function HourRegistrationTimer() {
       "research",
       "client_acquisition",
       "content_creation",
+      "traveling",
     ];
     if (nonProjectCategories.includes(category)) {
       setProjects([]);
@@ -610,6 +614,7 @@ export function HourRegistrationTimer() {
     client_acquisition: "Client Acquisition",
     labs: "EXO Labs",
     content_creation: "Content Creation",
+    traveling: "Traveling",
   };
 
   return (
@@ -880,6 +885,7 @@ export function HourRegistrationTimer() {
                       | "labs"
                       | "client_acquisition"
                       | "content_creation"
+                      | "traveling"
                   )
                 }
               >
@@ -896,6 +902,7 @@ export function HourRegistrationTimer() {
                   </SelectItem>
                   <SelectItem value="labs">EXO Labs</SelectItem>
                   <SelectItem value="content_creation">Content Creation</SelectItem>
+                  <SelectItem value="traveling">Traveling</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -939,7 +946,9 @@ export function HourRegistrationTimer() {
                           ? "Describe the client acquisition activities..."
                           : category === "content_creation"
                             ? "Describe the content you created..."
-                            : "Describe the work you did..."
+                            : category === "traveling"
+                              ? "Describe your travel activities..."
+                              : "Describe the work you did..."
                 }
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

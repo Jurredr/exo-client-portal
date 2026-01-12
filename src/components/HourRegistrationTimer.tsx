@@ -698,9 +698,9 @@ export function HourRegistrationTimer() {
           )}
         </div>
 
-        <div className="flex gap-2 justify-center mb-4">
+        <div className="flex flex-wrap gap-2 justify-center mb-4">
           {!isRunning && elapsedSeconds === 0 ? (
-            <Button onClick={handleStart} size="lg" className="flex-1">
+            <Button onClick={handleStart} size="lg" className="flex-1 min-w-[120px]">
               <Play className="h-4 w-4 mr-2" />
               Start
             </Button>
@@ -712,7 +712,7 @@ export function HourRegistrationTimer() {
                     onClick={handlePause}
                     size="lg"
                     variant="secondary"
-                    className="flex-1"
+                    className="flex-1 min-w-[100px]"
                   >
                     <Pause className="h-4 w-4 mr-2" />
                     Pause
@@ -721,7 +721,7 @@ export function HourRegistrationTimer() {
                     onClick={handleSplit}
                     size="lg"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 min-w-[100px]"
                     disabled={isBreakMode}
                   >
                     <Split className="h-4 w-4 mr-2" />
@@ -731,7 +731,7 @@ export function HourRegistrationTimer() {
                     onClick={handleBreak}
                     size="lg"
                     variant={isBreakMode ? "default" : "outline"}
-                    className="flex-1"
+                    className="flex-1 min-w-[100px]"
                   >
                     <Coffee className="h-4 w-4 mr-2" />
                     {isBreakMode ? "End Break" : "Break"}
@@ -743,7 +743,7 @@ export function HourRegistrationTimer() {
                     onClick={handleStart}
                     size="lg"
                     variant="secondary"
-                    className="flex-1"
+                    className="flex-1 min-w-[100px]"
                   >
                     <Play className="h-4 w-4 mr-2" />
                     Continue
@@ -752,7 +752,7 @@ export function HourRegistrationTimer() {
                     onClick={handleSplit}
                     size="lg"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 min-w-[100px]"
                     disabled={isBreakMode}
                   >
                     <Split className="h-4 w-4 mr-2" />
@@ -762,7 +762,7 @@ export function HourRegistrationTimer() {
                     onClick={handleBreak}
                     size="lg"
                     variant={isBreakMode ? "default" : "outline"}
-                    className="flex-1"
+                    className="flex-1 min-w-[100px]"
                   >
                     <Coffee className="h-4 w-4 mr-2" />
                     {isBreakMode ? "End Break" : "Break"}
@@ -773,7 +773,7 @@ export function HourRegistrationTimer() {
                 onClick={handleSubmit}
                 size="lg"
                 variant="default"
-                className="flex-1"
+                className="flex-1 min-w-[100px]"
                 disabled={splits.filter((s) => !s.isBreak).length === 0}
               >
                 <Check className="h-4 w-4 mr-2" />
@@ -783,7 +783,7 @@ export function HourRegistrationTimer() {
                 onClick={handleCancel}
                 size="lg"
                 variant="destructive"
-                className="flex-1"
+                className="flex-1 min-w-[100px]"
               >
                 <X className="h-4 w-4 mr-2" />
                 Cancel

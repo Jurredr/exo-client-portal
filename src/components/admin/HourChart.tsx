@@ -151,7 +151,7 @@ export function HourChart() {
       // Daily view for 7d, 30d, 90d
       let daysToSubtract = 30;
       if (timeRange === "90d") daysToSubtract = 90;
-      else if (timeRange === "7d") daysToSubtract = 7;
+      else if (timeRange === "7d") daysToSubtract = 6; // 7 days total: today + 6 previous days
 
       const startDate = new Date(now);
       startDate.setDate(startDate.getDate() - daysToSubtract);

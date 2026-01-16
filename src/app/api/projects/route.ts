@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import {
   createProject,
   getAllProjects,
+  getAllProjectsPaginated,
+  getAllProjectsCount,
   isUserInEXOOrganization,
   updateProject,
   getTotalHoursByProject,
@@ -13,7 +15,7 @@ import {
 import { NextResponse } from "next/server";
 import { getDefaultStage } from "@/lib/constants/stages";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const {
@@ -29,6 +31,45 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const usePagination = searchParams.get("paginate") === "true";
+
+    if (usePagination) {
+      // Validate pagination
+      const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
+      const offset = (page - 1) * limit;
+
+      const projects = await getAllProjectsPaginated({ limit, offset });
+      const hoursByProject = await getTotalHoursByProject();
+      const totalCount = await getAllProjectsCount();
+
+      // Add hours to each project
+      const projectsWithHours = projects.map((p) => ({
+        ...p,
+        totalHours: hoursByProject[p.project.id] || 0,
+      }));
+
+      return NextResponse.json(
+        {
+          data: projectsWithHours,
+          pagination: {
+            page,
+            pageSize: limit,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+          },
+        }
+      );
+    }
+
+    // Fallback to non-paginated for backward compatibility
     const projects = await getAllProjects();
     const hoursByProject = await getTotalHoursByProject();
 
@@ -38,7 +79,11 @@ export async function GET() {
       totalHours: hoursByProject[p.project.id] || 0,
     }));
 
-    return NextResponse.json(projectsWithHours);
+    return NextResponse.json(projectsWithHours, {
+      headers: {
+        "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+      },
+    });
   } catch (error) {
     console.error("Error fetching projects:", error);
     return NextResponse.json(

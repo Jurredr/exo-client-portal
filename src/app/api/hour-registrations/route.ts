@@ -3,12 +3,17 @@ import {
   createHourRegistration,
   getUserByEmail,
   getHourRegistrationsByUser,
+  getHourRegistrationsCountByUser,
+  getAllHourRegistrations,
+  getAllHourRegistrationsCount,
   deleteHourRegistration,
   updateHourRegistration,
+  isAdmin,
+  isUserInEXOOrganization,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const {
@@ -19,13 +24,63 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const dbUser = await getUserByEmail(user.email);
-    if (!dbUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const isInEXO = await isUserInEXOOrganization(user.email);
+    if (!isInEXO) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const registrations = await getHourRegistrationsByUser(dbUser.id);
-    return NextResponse.json(registrations);
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const search = searchParams.get("search") || undefined;
+    const all = searchParams.get("all") === "true"; // For admin to get all registrations
+
+    // Validate pagination
+    const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
+    const offset = (page - 1) * limit;
+
+    let registrations;
+    let totalCount;
+
+    if (all && isAdmin(user.email)) {
+      // Admin can fetch all registrations
+      registrations = await getAllHourRegistrations({
+        limit,
+        offset,
+        search,
+      });
+      totalCount = await getAllHourRegistrationsCount(search);
+    } else {
+      // Regular users get only their registrations
+      const dbUser = await getUserByEmail(user.email);
+      if (!dbUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      registrations = await getHourRegistrationsByUser(dbUser.id, {
+        limit,
+        offset,
+        search,
+      });
+      totalCount = await getHourRegistrationsCountByUser(dbUser.id, search);
+    }
+
+    return NextResponse.json(
+      {
+        data: registrations,
+        pagination: {
+          page,
+          pageSize: limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=30, must-revalidate", // Cache for 30 seconds
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching hour registrations:", error);
     return NextResponse.json(

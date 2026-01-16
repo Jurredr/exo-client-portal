@@ -25,7 +25,11 @@ export async function GET() {
     }
 
     const organizations = await getAllOrganizations();
-    return NextResponse.json(organizations);
+    return NextResponse.json(organizations, {
+      headers: {
+        "Cache-Control": "private, max-age=120, must-revalidate", // Cache for 2 minutes
+      },
+    });
   } catch (error) {
     console.error("Error fetching organizations:", error);
     return NextResponse.json(

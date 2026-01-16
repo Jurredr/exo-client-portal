@@ -368,12 +368,12 @@ export function HourRegistrationsTable() {
   });
 
   useEffect(() => {
-    fetchRegistrations();
+    fetchRegistrations(1);
     fetchProjects();
 
     // Listen for hour registration saved events
     const handleRefresh = () => {
-      fetchRegistrations();
+      fetchRegistrations(1);
     };
     window.addEventListener("hour-registration-saved", handleRefresh);
     return () =>
@@ -443,12 +443,23 @@ export function HourRegistrationsTable() {
     }
   };
 
-  const fetchRegistrations = async () => {
+  const fetchRegistrations = async (page: number = 1, search?: string) => {
     try {
-      const response = await fetch("/api/hour-registrations");
+      setLoading(true);
+      // For admin, fetch all registrations; otherwise just user's
+      const isAdmin = true; // You can check admin status if needed
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: "100", // Fetch 100 at a time to reduce data transfer
+        ...(search && { search }),
+        ...(isAdmin && { all: "true" }),
+      });
+      const response = await fetch(`/api/hour-registrations?${params}`);
       if (response.ok) {
-        const data = await response.json();
-        setRegistrations(data);
+        const result = await response.json();
+        setRegistrations(result.data || []);
+        // Store pagination info if needed
+        return result.pagination;
       }
     } catch (error) {
       console.error("Error fetching hour registrations:", error);
@@ -468,7 +479,7 @@ export function HourRegistrationsTable() {
       }
 
       toast.success("Hour registration deleted successfully");
-      fetchRegistrations();
+      fetchRegistrations(1);
     } catch (error) {
       console.error("Error deleting hour registration:", error);
       toast.error("Failed to delete hour registration");
@@ -546,7 +557,7 @@ export function HourRegistrationsTable() {
         category: "client",
         projectId: undefined,
       });
-      fetchRegistrations();
+      fetchRegistrations(1);
       window.dispatchEvent(new Event("hour-registration-saved"));
     } catch (error) {
       console.error("Error saving hour registration:", error);
@@ -655,7 +666,7 @@ export function HourRegistrationsTable() {
         category: "client",
         projectId: undefined,
       });
-      fetchRegistrations();
+      fetchRegistrations(1);
       window.dispatchEvent(new Event("hour-registration-saved"));
     } catch (error) {
       console.error("Error updating hour registration:", error);

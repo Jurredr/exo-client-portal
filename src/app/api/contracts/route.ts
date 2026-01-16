@@ -26,7 +26,11 @@ export async function GET() {
     }
 
     const contracts = await getAllContracts();
-    return NextResponse.json(contracts);
+    return NextResponse.json(contracts, {
+      headers: {
+        "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+      },
+    });
   } catch (error) {
     console.error("Error fetching contracts:", error);
     return NextResponse.json(

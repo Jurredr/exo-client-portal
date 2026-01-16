@@ -424,16 +424,25 @@ export function ProjectsTable() {
   );
 
   useEffect(() => {
-    fetchProjects();
+    fetchProjects(1);
     fetchOrganizations();
   }, []);
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (page: number = 1) => {
     try {
-      const response = await fetch("/api/projects");
+      setLoading(true);
+      // Use pagination to reduce data transfer (fetch 100 items at a time)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: "100",
+        paginate: "true",
+      });
+      const response = await fetch(`/api/projects?${params}`);
       if (response.ok) {
-        const data = await response.json();
-        setProjects(data);
+        const result = await response.json();
+        setProjects(result.data || []);
+        // Store pagination info if needed for future use
+        return result.pagination;
       } else {
         const errorData = await response
           .json()
@@ -527,7 +536,7 @@ export function ProjectsTable() {
 
       toast.success("Project updated successfully");
       setIsEditOpen(false);
-      fetchProjects();
+      fetchProjects(1);
     } catch (error) {
       toast.error("Failed to update project");
     }
@@ -535,7 +544,7 @@ export function ProjectsTable() {
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchProjects();
+    fetchProjects(1);
   };
 
   const handleDelete = async () => {
@@ -554,7 +563,7 @@ export function ProjectsTable() {
       }
 
       toast.success("Project deleted successfully");
-      fetchProjects();
+      fetchProjects(1);
       setDeleteProject(null);
     } catch (error) {
       console.error("Error deleting project:", error);

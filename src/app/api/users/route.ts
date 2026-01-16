@@ -2,13 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import {
   createUser,
   getAllUsers,
+  getAllUsersPaginated,
+  getAllUsersCount,
   isUserInEXOOrganization,
   updateUser,
   deleteUser,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const {
@@ -24,8 +26,44 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const usePagination = searchParams.get("paginate") === "true";
+
+    if (usePagination) {
+      // Validate pagination
+      const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
+      const offset = (page - 1) * limit;
+
+      const users = await getAllUsersPaginated({ limit, offset });
+      const totalCount = await getAllUsersCount();
+
+      return NextResponse.json(
+        {
+          data: users,
+          pagination: {
+            page,
+            pageSize: limit,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=120, must-revalidate", // Cache for 2 minutes (users change less frequently)
+          },
+        }
+      );
+    }
+
+    // Fallback to non-paginated for backward compatibility
     const users = await getAllUsers();
-    return NextResponse.json(users);
+    return NextResponse.json(users, {
+      headers: {
+        "Cache-Control": "private, max-age=120, must-revalidate", // Cache for 2 minutes (users change less frequently)
+      },
+    });
   } catch (error) {
     console.error("Error fetching users:", error);
     return NextResponse.json(

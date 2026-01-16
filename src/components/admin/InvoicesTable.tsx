@@ -416,15 +416,24 @@ export function InvoicesTable() {
   );
 
   useEffect(() => {
-    fetchInvoices();
+    fetchInvoices(1);
   }, []);
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = async (page: number = 1) => {
     try {
-      const response = await fetch("/api/invoices");
+      setLoading(true);
+      // Use pagination to reduce data transfer (fetch 100 items at a time)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: "100",
+        paginate: "true",
+      });
+      const response = await fetch(`/api/invoices?${params}`);
       if (response.ok) {
-        const data = await response.json();
-        setInvoices(data);
+        const result = await response.json();
+        setInvoices(result.data || []);
+        // Store pagination info if needed for future use
+        return result.pagination;
       } else {
         const errorData = await response
           .json()
@@ -498,7 +507,7 @@ export function InvoicesTable() {
       }
 
       toast.success("Invoice deleted successfully");
-      fetchInvoices();
+      fetchInvoices(1);
       setDeleteInvoice(null);
     } catch (error) {
       console.error("Error deleting invoice:", error);
@@ -508,13 +517,13 @@ export function InvoicesTable() {
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchInvoices();
+    fetchInvoices(1);
   };
 
   const handleEditSuccess = () => {
     setIsEditOpen(false);
     setEditingInvoice(null);
-    fetchInvoices();
+    fetchInvoices(1);
   };
 
   const handleEditCancel = () => {

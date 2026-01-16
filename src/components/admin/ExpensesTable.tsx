@@ -322,15 +322,24 @@ export function ExpensesTable() {
   );
 
   useEffect(() => {
-    fetchExpenses();
+    fetchExpenses(1);
   }, []);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (page: number = 1) => {
     try {
-      const response = await fetch("/api/expenses");
+      setLoading(true);
+      // Use pagination to reduce data transfer (fetch 100 items at a time)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: "100",
+        paginate: "true",
+      });
+      const response = await fetch(`/api/expenses?${params}`);
       if (response.ok) {
-        const data = await response.json();
-        setExpenses(data);
+        const result = await response.json();
+        setExpenses(result.data || []);
+        // Store pagination info if needed for future use
+        return result.pagination;
       } else {
         const errorData = await response
           .json()
@@ -348,7 +357,7 @@ export function ExpensesTable() {
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchExpenses();
+    fetchExpenses(1);
   };
 
   const handleDelete = async () => {
@@ -367,7 +376,7 @@ export function ExpensesTable() {
       }
 
       toast.success("Expense deleted successfully");
-      fetchExpenses();
+      fetchExpenses(1);
       setDeleteExpense(null);
     } catch (error) {
       console.error("Error deleting expense:", error);
@@ -463,7 +472,7 @@ export function ExpensesTable() {
                   onSuccess={() => {
                     setIsEditOpen(false);
                     setSelectedExpense(null);
-                    fetchExpenses();
+                    fetchExpenses(1);
                   }}
                   onCancel={() => {
                     setIsEditOpen(false);

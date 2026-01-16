@@ -316,7 +316,7 @@ export function UsersTable() {
   );
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(1);
     fetchOrganizations();
     fetchCurrentUser();
   }, []);
@@ -335,12 +335,21 @@ export function UsersTable() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (page: number = 1) => {
     try {
-      const response = await fetch("/api/users");
+      setLoading(true);
+      // Use pagination to reduce data transfer (fetch 100 items at a time)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: "100",
+        paginate: "true",
+      });
+      const response = await fetch(`/api/users?${params}`);
       if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
+        const result = await response.json();
+        setUsers(result.data || []);
+        // Store pagination info if needed for future use
+        return result.pagination;
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -451,7 +460,7 @@ export function UsersTable() {
       setIsEditOpen(false);
       setImagePreview(null);
       setImageBase64(null);
-      fetchUsers();
+      fetchUsers(1);
 
       // Refresh sidebar user data
       window.dispatchEvent(new Event("user-updated"));
@@ -464,7 +473,7 @@ export function UsersTable() {
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchUsers();
+    fetchUsers(1);
   };
 
   const handleDelete = async () => {
@@ -480,7 +489,7 @@ export function UsersTable() {
       }
 
       toast.success("User deleted successfully");
-      fetchUsers();
+      fetchUsers(1);
       setDeleteUser(null);
     } catch (error) {
       console.error("Error deleting user:", error);

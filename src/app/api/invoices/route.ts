@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   getAllInvoices,
+  getAllInvoicesPaginated,
+  getAllInvoicesCount,
   isUserInEXOOrganization,
   createInvoice,
   getNextInvoiceNumber,
@@ -28,13 +30,46 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if requesting next invoice number
     const { searchParams } = new URL(request.url);
+    
+    // Check if requesting next invoice number
     if (searchParams.get("nextNumber") === "true") {
       const nextNumber = await getNextInvoiceNumber();
       return NextResponse.json({ invoiceNumber: nextNumber });
     }
 
+    // Support pagination
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const usePagination = searchParams.get("paginate") === "true";
+
+    if (usePagination) {
+      // Validate pagination
+      const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
+      const offset = (page - 1) * limit;
+
+      const invoices = await getAllInvoicesPaginated({ limit, offset });
+      const totalCount = await getAllInvoicesCount();
+
+      return NextResponse.json(
+        {
+          data: invoices,
+          pagination: {
+            page,
+            pageSize: limit,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+          },
+        }
+      );
+    }
+
+    // Fallback to non-paginated for backward compatibility
     const invoices = await getAllInvoices();
     
     // Add caching headers to reduce database queries

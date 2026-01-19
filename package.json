@@ -12,9 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:push": "drizzle-kit push",
-    "db:import": "tsx scripts/import-backup.ts",
-    "db:update-invoices": "tsx scripts/update-invoices.ts"
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import {
+  useHourRegistrations,
+  useCreateHourRegistration,
+  useUpdateHourRegistration,
+  useDeleteHourRegistration,
+} from "@/hooks/use-hour-registrations";
+import { useAllProjects } from "@/hooks/use-projects";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -339,17 +345,23 @@ interface Project {
 }
 
 export function HourRegistrationsTable() {
-  const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [allProjects, setAllProjects] = useState<
-    Array<Project & { type?: string }>
-  >([]);
-  const [loading, setLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: registrationsData, isLoading: isLoadingRegistrations } =
+    useHourRegistrations(1, undefined, true);
+  const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
+  const createMutation = useCreateHourRegistration();
+  const updateMutation = useUpdateHourRegistration();
+  const deleteMutation = useDeleteHourRegistration();
+
+  const registrations = registrationsData?.data || [];
+  const loading = isLoadingRegistrations || isLoadingProjects;
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+
+  // Local state
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingRegistration, setEditingRegistration] =
     useState<HourRegistration | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [manualEntry, setManualEntry] = useState({
     date: new Date().toISOString().split("T")[0],
     hours: "",
@@ -367,20 +379,50 @@ export function HourRegistrationsTable() {
     projectId: undefined as string | undefined,
   });
 
-  useEffect(() => {
-    fetchRegistrations(1);
-    fetchProjects();
+  // Process projects data
+  const allProjects = useMemo(() => {
+    if (!projectsData) return [];
+    return projectsData.map(
+      (item: { project: Project & { type?: string } }) => ({
+        id: item.project.id,
+        title: item.project.title,
+        type: item.project.type || "client",
+      })
+    );
+  }, [projectsData]);
 
-    // Listen for hour registration saved events
-    const handleRefresh = () => {
-      fetchRegistrations(1);
-    };
-    window.addEventListener("hour-registration-saved", handleRefresh);
-    return () =>
-      window.removeEventListener("hour-registration-saved", handleRefresh);
-  }, []);
+  // Projects filtered by category - computed with useMemo
+  const projects = useMemo(() => {
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+      "client_acquisition",
+      "content_creation",
+    ];
 
-  // Filter projects based on category
+    if (nonProjectCategories.includes(manualEntry.category)) {
+      return [];
+    } else if (manualEntry.category === "labs") {
+      return allProjects
+        .filter((p: Project & { type?: string }) => p.type === "labs")
+        .map((p: Project & { type?: string }) => ({
+          id: p.id,
+          title: p.title,
+        }));
+    } else {
+      // client
+      return allProjects
+        .filter((p: Project & { type?: string }) => p.type === "client")
+        .map((p: Project & { type?: string }) => ({
+          id: p.id,
+          title: p.title,
+        }));
+    }
+  }, [manualEntry.category, allProjects]);
+
+  // Clear projectId when category changes
+  const prevCategoryRef = useRef(manualEntry.category);
   useEffect(() => {
     const nonProjectCategories = [
       "administration",
@@ -389,102 +431,48 @@ export function HourRegistrationsTable() {
       "client_acquisition",
       "content_creation",
     ];
-    if (nonProjectCategories.includes(manualEntry.category)) {
-      setProjects([]);
-      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
-    } else if (manualEntry.category === "labs") {
-      setProjects(
-        allProjects
-          .filter((p) => p.type === "labs")
-          .map((p) => ({
-            id: p.id,
-            title: p.title,
-          }))
-      );
-    } else {
-      // client
-      setProjects(
-        allProjects
-          .filter((p) => p.type === "client")
-          .map((p) => ({
-            id: p.id,
-            title: p.title,
-          }))
-      );
-      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
+    if (
+      prevCategoryRef.current !== manualEntry.category &&
+      (nonProjectCategories.includes(manualEntry.category) ||
+        manualEntry.category === "client")
+    ) {
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => {
+        setManualEntry((prev) => ({ ...prev, projectId: undefined }));
+      }, 0);
+      prevCategoryRef.current = manualEntry.category;
     }
-  }, [manualEntry.category, allProjects]);
+  }, [manualEntry.category]);
 
-  const fetchProjects = async () => {
-    try {
-      const response = await fetch("/api/projects");
-      if (response.ok) {
-        const data = await response.json();
-        const projectsData = data.map(
-          (item: { project: Project & { type?: string } }) => ({
-            id: item.project.id,
-            title: item.project.title,
-            type: item.project.type || "client",
-          })
-        );
-        setAllProjects(projectsData);
-        // Set initial projects (client projects)
-        setProjects(
-          projectsData
-            .filter((p: Project & { type?: string }) => p.type === "client")
-            .map((p: Project & { type?: string }) => ({
-              id: p.id,
-              title: p.title,
-            }))
-        );
+  // Listen for hour registration saved events (for components not using React Query)
+  useEffect(() => {
+    const handleRefresh = () => {
+      // React Query will automatically refetch, but we can trigger it manually if needed
+      // The mutation hooks already handle invalidation
+    };
+    window.addEventListener("hour-registration-saved", handleRefresh);
+    return () =>
+      window.removeEventListener("hour-registration-saved", handleRefresh);
+  }, []);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (!confirm("Are you sure you want to delete this hour registration?")) {
+        return;
       }
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    }
-  };
 
-  const fetchRegistrations = async (page: number = 1, search?: string) => {
-    try {
-      setLoading(true);
-      // For admin, fetch all registrations; otherwise just user's
-      const isAdmin = true; // You can check admin status if needed
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "100", // Fetch 100 at a time to reduce data transfer
-        ...(search && { search }),
-        ...(isAdmin && { all: "true" }),
+      deleteMutation.mutate(id, {
+        onSuccess: () => {
+          toast.success("Hour registration deleted successfully");
+        },
+        onError: (error: Error) => {
+          console.error("Error deleting hour registration:", error);
+          toast.error("Failed to delete hour registration");
+        },
       });
-      const response = await fetch(`/api/hour-registrations?${params}`);
-      if (response.ok) {
-        const result = await response.json();
-        setRegistrations(result.data || []);
-        // Store pagination info if needed
-        return result.pagination;
-      }
-    } catch (error) {
-      console.error("Error fetching hour registrations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const response = await fetch(`/api/hour-registrations?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete hour registration");
-      }
-
-      toast.success("Hour registration deleted successfully");
-      fetchRegistrations(1);
-    } catch (error) {
-      console.error("Error deleting hour registration:", error);
-      toast.error("Failed to delete hour registration");
-    }
-  };
+    },
+    [deleteMutation]
+  );
 
   const handleManualEntry = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -524,50 +512,40 @@ export function HourRegistrationsTable() {
     // Convert hours and minutes to decimal hours
     const totalHours = hoursNum + minutesNum / 60;
 
-    setIsSubmitting(true);
-    try {
-      const response = await fetch("/api/hour-registrations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    createMutation.mutate(
+      {
+        description: manualEntry.description.trim(),
+        hours: totalHours,
+        projectId:
+          manualEntry.projectId && manualEntry.projectId !== "none"
+            ? manualEntry.projectId
+            : null,
+        date: manualEntry.date,
+        category: manualEntry.category,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Hour registration added successfully");
+          setIsManualEntryOpen(false);
+          setManualEntry({
+            date: new Date().toISOString().split("T")[0],
+            hours: "",
+            minutes: "",
+            description: "",
+            category: "client",
+            projectId: undefined,
+          });
+          window.dispatchEvent(new Event("hour-registration-saved"));
         },
-        body: JSON.stringify({
-          description: manualEntry.description.trim(),
-          hours: totalHours,
-          projectId:
-            manualEntry.projectId && manualEntry.projectId !== "none"
-              ? manualEntry.projectId
-              : null,
-          date: manualEntry.date,
-          category: manualEntry.category,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save hour registration");
+        onError: (error: Error) => {
+          console.error("Error saving hour registration:", error);
+          toast.error("Failed to save hour registration");
+        },
       }
-
-      toast.success("Hour registration added successfully");
-      setIsManualEntryOpen(false);
-      setManualEntry({
-        date: new Date().toISOString().split("T")[0],
-        hours: "",
-        minutes: "",
-        description: "",
-        category: "client",
-        projectId: undefined,
-      });
-      fetchRegistrations(1);
-      window.dispatchEvent(new Event("hour-registration-saved"));
-    } catch (error) {
-      console.error("Error saving hour registration:", error);
-      toast.error("Failed to save hour registration");
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
-  const handleEdit = (registration: HourRegistration) => {
+  const handleEdit = useCallback((registration: HourRegistration) => {
     setEditingRegistration(registration);
     // Convert hours to hours and minutes
     const totalHours = parseFloat(registration.hours);
@@ -590,7 +568,7 @@ export function HourRegistrationsTable() {
       projectId: registration.projectId || undefined,
     });
     setIsEditOpen(true);
-  };
+  }, []);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -631,49 +609,39 @@ export function HourRegistrationsTable() {
     // Convert hours and minutes to decimal hours
     const totalHours = hoursNum + minutesNum / 60;
 
-    setIsSubmitting(true);
-    try {
-      const response = await fetch("/api/hour-registrations", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+    updateMutation.mutate(
+      {
+        id: editingRegistration.id,
+        description: manualEntry.description.trim(),
+        hours: totalHours,
+        projectId:
+          manualEntry.projectId && manualEntry.projectId !== "none"
+            ? manualEntry.projectId
+            : null,
+        date: manualEntry.date,
+        category: manualEntry.category,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Hour registration updated successfully");
+          setIsEditOpen(false);
+          setEditingRegistration(null);
+          setManualEntry({
+            date: new Date().toISOString().split("T")[0],
+            hours: "",
+            minutes: "",
+            description: "",
+            category: "client",
+            projectId: undefined,
+          });
+          window.dispatchEvent(new Event("hour-registration-saved"));
         },
-        body: JSON.stringify({
-          id: editingRegistration.id,
-          description: manualEntry.description.trim(),
-          hours: totalHours,
-          projectId:
-            manualEntry.projectId && manualEntry.projectId !== "none"
-              ? manualEntry.projectId
-              : null,
-          date: manualEntry.date,
-          category: manualEntry.category,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update hour registration");
+        onError: (error: Error) => {
+          console.error("Error updating hour registration:", error);
+          toast.error("Failed to update hour registration");
+        },
       }
-
-      toast.success("Hour registration updated successfully");
-      setIsEditOpen(false);
-      setEditingRegistration(null);
-      setManualEntry({
-        date: new Date().toISOString().split("T")[0],
-        hours: "",
-        minutes: "",
-        description: "",
-        category: "client",
-        projectId: undefined,
-      });
-      fetchRegistrations(1);
-      window.dispatchEvent(new Event("hour-registration-saved"));
-    } catch (error) {
-      console.error("Error updating hour registration:", error);
-      toast.error("Failed to update hour registration");
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   const columns = useMemo(
@@ -682,7 +650,7 @@ export function HourRegistrationsTable() {
   );
 
   const projectFilterOptions = useMemo(() => {
-    return projects.map((project) => ({
+    return projects.map((project: Project) => ({
       label: project.title,
       value: project.id,
     }));
@@ -823,7 +791,7 @@ export function HourRegistrationsTable() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {projects.map((project) => (
+                        {projects.map((project: Project) => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.title}
                           </SelectItem>
@@ -997,7 +965,7 @@ export function HourRegistrationsTable() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
-                    {projects.map((project) => (
+                    {projects.map((project: Project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.title}
                       </SelectItem>

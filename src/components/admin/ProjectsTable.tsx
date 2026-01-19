@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import {
+  useProjects,
+  useDeleteProject,
+} from "@/hooks/use-projects";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,11 +150,15 @@ const formatHours = (decimalHours: number) => {
 };
 
 export function ProjectsTable() {
-  const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [organizations, setOrganizations] = useState<
-    { id: string; name: string }[]
-  >([]);
-  const [loading, setLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: projectsData, isLoading: isLoadingProjects } = useProjects(1);
+  const { data: organizationsData, isLoading: isLoadingOrganizations } = useOrganizations();
+  const deleteMutation = useDeleteProject();
+
+  const projects = projectsData?.data || [];
+  const organizations = organizationsData?.map((org) => ({ id: org.id, name: org.name })) || [];
+  const loading = isLoadingProjects || isLoadingOrganizations;
+
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(
     null
   );
@@ -423,52 +432,7 @@ export function ProjectsTable() {
     []
   );
 
-  useEffect(() => {
-    fetchProjects(1);
-    fetchOrganizations();
-  }, []);
-
-  const fetchProjects = async (page: number = 1) => {
-    try {
-      setLoading(true);
-      // Use pagination to reduce data transfer (fetch 100 items at a time)
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "100",
-        paginate: "true",
-      });
-      const response = await fetch(`/api/projects?${params}`);
-      if (response.ok) {
-        const result = await response.json();
-        setProjects(result.data || []);
-        // Store pagination info if needed for future use
-        return result.pagination;
-      } else {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        console.error("Error fetching projects:", errorData);
-        toast.error(errorData.error || "Failed to load projects");
-      }
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-      toast.error("Failed to load projects");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchOrganizations = async () => {
-    try {
-      const response = await fetch("/api/organizations");
-      if (response.ok) {
-        const data = await response.json();
-        setOrganizations(data);
-      }
-    } catch (error) {
-      console.error("Error fetching organizations:", error);
-    }
-  };
+  // Projects and organizations are now fetched via TanStack Query
 
   const handleRowClick = (project: ProjectData) => {
     setSelectedProject(project);
@@ -536,7 +500,7 @@ export function ProjectsTable() {
 
       toast.success("Project updated successfully");
       setIsEditOpen(false);
-      fetchProjects(1);
+      // React Query will automatically refetch projects
     } catch (error) {
       toast.error("Failed to update project");
     }
@@ -544,31 +508,22 @@ export function ProjectsTable() {
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchProjects(1);
+    // React Query will automatically refetch projects
   };
 
   const handleDelete = async () => {
     if (!deleteProject) return;
 
-    try {
-      const response = await fetch(
-        `/api/projects?id=${deleteProject.project.id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete project");
-      }
-
-      toast.success("Project deleted successfully");
-      fetchProjects(1);
-      setDeleteProject(null);
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      toast.error("Failed to delete project");
-    }
+    deleteMutation.mutate(deleteProject.project.id, {
+      onSuccess: () => {
+        toast.success("Project deleted successfully");
+        setDeleteProject(null);
+      },
+      onError: (error: Error) => {
+        console.error("Error deleting project:", error);
+        toast.error("Failed to delete project");
+      },
+    });
   };
 
   const EditContent = () => (

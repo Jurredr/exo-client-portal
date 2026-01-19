@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import {
+  useExpenses,
+  useDeleteExpense,
+} from "@/hooks/use-expenses";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
-  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -30,7 +32,6 @@ import {
   Plus,
   ArrowUpDown,
   MoreVertical,
-  FileText,
   Pencil,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
@@ -85,8 +86,13 @@ const formatAmount = (amount: string, currency: string = "EUR") => {
 };
 
 export function ExpensesTable() {
-  const [expenses, setExpenses] = useState<ExpenseData[]>([]);
-  const [loading, setLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: expensesData, isLoading: isLoadingExpenses } = useExpenses(1);
+  const deleteMutation = useDeleteExpense();
+
+  const expenses = expensesData?.data || [];
+  const loading = isLoadingExpenses;
+
   const [deleteExpense, setDeleteExpense] = useState<ExpenseData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -321,67 +327,26 @@ export function ExpensesTable() {
     []
   );
 
-  useEffect(() => {
-    fetchExpenses(1);
-  }, []);
-
-  const fetchExpenses = async (page: number = 1) => {
-    try {
-      setLoading(true);
-      // Use pagination to reduce data transfer (fetch 100 items at a time)
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "100",
-        paginate: "true",
-      });
-      const response = await fetch(`/api/expenses?${params}`);
-      if (response.ok) {
-        const result = await response.json();
-        setExpenses(result.data || []);
-        // Store pagination info if needed for future use
-        return result.pagination;
-      } else {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        console.error("Error fetching expenses:", errorData);
-        toast.error(errorData.error || "Failed to load expenses");
-      }
-    } catch (error) {
-      console.error("Error fetching expenses:", error);
-      toast.error("Failed to load expenses");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Expenses are now fetched via TanStack Query
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchExpenses(1);
+    // React Query will automatically refetch expenses
   };
 
   const handleDelete = async () => {
     if (!deleteExpense) return;
 
-    try {
-      const response = await fetch(
-        `/api/expenses?id=${deleteExpense.expense.id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete expense");
-      }
-
-      toast.success("Expense deleted successfully");
-      fetchExpenses(1);
-      setDeleteExpense(null);
-    } catch (error) {
-      console.error("Error deleting expense:", error);
-      toast.error("Failed to delete expense");
-    }
+    deleteMutation.mutate(deleteExpense.expense.id, {
+      onSuccess: () => {
+        toast.success("Expense deleted successfully");
+        setDeleteExpense(null);
+      },
+      onError: (error: Error) => {
+        console.error("Error deleting expense:", error);
+        toast.error("Failed to delete expense");
+      },
+    });
   };
 
   return (
@@ -472,7 +437,7 @@ export function ExpensesTable() {
                   onSuccess={() => {
                     setIsEditOpen(false);
                     setSelectedExpense(null);
-                    fetchExpenses(1);
+                    // React Query will automatically refetch
                   }}
                   onCancel={() => {
                     setIsEditOpen(false);
@@ -496,7 +461,7 @@ export function ExpensesTable() {
                 onSuccess={() => {
                   setIsEditOpen(false);
                   setSelectedExpense(null);
-                  fetchExpenses();
+                  // React Query will automatically refetch
                 }}
                 onCancel={() => {
                   setIsEditOpen(false);

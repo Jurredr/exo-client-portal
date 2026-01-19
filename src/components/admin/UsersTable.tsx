@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import {
+  useUsers,
+  useDeleteUser,
+  useUpdateUser,
+} from "@/hooks/use-users";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,11 +84,20 @@ interface UserData {
 }
 
 export function UsersTable() {
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [organizations, setOrganizations] = useState<
-    { id: string; name: string; image?: string | null }[]
-  >([]);
-  const [loading, setLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: usersData, isLoading: isLoadingUsers } = useUsers(1);
+  const { data: organizationsData, isLoading: isLoadingOrganizations } = useOrganizations();
+  const deleteMutation = useDeleteUser();
+  const updateMutation = useUpdateUser();
+
+  const users = usersData?.data || [];
+  const organizations = organizationsData?.map((org) => ({
+    id: org.id,
+    name: org.name,
+    image: org.image,
+  })) || [];
+  const loading = isLoadingUsers || isLoadingOrganizations;
+
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
     string[]
@@ -316,60 +331,24 @@ export function UsersTable() {
   );
 
   useEffect(() => {
-    fetchUsers(1);
-    fetchOrganizations();
+    // Fetch current user email
+    const fetchCurrentUser = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.email) {
+          setCurrentUserEmail(user.email);
+        }
+      } catch (error) {
+        console.error("Error fetching current user:", error);
+      }
+    };
     fetchCurrentUser();
   }, []);
 
-  const fetchCurrentUser = async () => {
-    try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.email) {
-        setCurrentUserEmail(user.email);
-      }
-    } catch (error) {
-      console.error("Error fetching current user:", error);
-    }
-  };
-
-  const fetchUsers = async (page: number = 1) => {
-    try {
-      setLoading(true);
-      // Use pagination to reduce data transfer (fetch 100 items at a time)
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "100",
-        paginate: "true",
-      });
-      const response = await fetch(`/api/users?${params}`);
-      if (response.ok) {
-        const result = await response.json();
-        setUsers(result.data || []);
-        // Store pagination info if needed for future use
-        return result.pagination;
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      toast.error("Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchOrganizations = async () => {
-    try {
-      const response = await fetch("/api/organizations");
-      if (response.ok) {
-        const data = await response.json();
-        setOrganizations(data);
-      }
-    } catch (error) {
-      console.error("Error fetching organizations:", error);
-    }
-  };
+  // Users and organizations are now fetched via TanStack Query
 
   const handleRowClick = (user: UserData) => {
     setSelectedUser(user);
@@ -434,67 +413,50 @@ export function UsersTable() {
     const phone = formData.get("phone") as string;
     const note = formData.get("note") as string;
 
-    try {
-      const response = await fetch("/api/users", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+    updateMutation.mutate(
+      {
+        id: selectedUser.user.id,
+        name: name.trim() || null,
+        phone: phone.trim() || null,
+        note: note.trim() || null,
+        organizationIds:
+          selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
+        image: imageBase64 || selectedUser.user.image || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("User updated successfully");
+          setIsEditOpen(false);
+          setImagePreview(null);
+          setImageBase64(null);
+          // Refresh sidebar user data
+          window.dispatchEvent(new Event("user-updated"));
         },
-        body: JSON.stringify({
-          id: selectedUser.user.id,
-          name: name.trim() || null,
-          phone: phone.trim() || null,
-          note: note.trim() || null,
-          organizationIds:
-            selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
-          image: imageBase64 || selectedUser.user.image || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update user");
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to update user");
+        },
       }
-
-      toast.success("User updated successfully");
-      setIsEditOpen(false);
-      setImagePreview(null);
-      setImageBase64(null);
-      fetchUsers(1);
-
-      // Refresh sidebar user data
-      window.dispatchEvent(new Event("user-updated"));
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update user"
-      );
-    }
+    );
   };
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchUsers(1);
+    // React Query will automatically refetch users
   };
 
   const handleDelete = async () => {
     if (!deleteUser) return;
 
-    try {
-      const response = await fetch(`/api/users?id=${deleteUser.user.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete user");
-      }
-
-      toast.success("User deleted successfully");
-      fetchUsers(1);
-      setDeleteUser(null);
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      toast.error("Failed to delete user");
-    }
+    deleteMutation.mutate(deleteUser.user.id, {
+      onSuccess: () => {
+        toast.success("User deleted successfully");
+        setDeleteUser(null);
+      },
+      onError: (error: Error) => {
+        console.error("Error deleting user:", error);
+        toast.error("Failed to delete user");
+      },
+    });
   };
 
   const EditContent = () => (

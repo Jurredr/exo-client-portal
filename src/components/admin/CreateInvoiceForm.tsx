@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useNextInvoiceNumber } from "@/hooks/use-invoices";
+import { useAllProjects } from "@/hooks/use-projects";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,17 +110,23 @@ export function CreateInvoiceForm({
       ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0]
   );
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  // TanStack Query hooks
+  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
+  const { data: nextInvoiceNumberData } = useNextInvoiceNumber();
+
+  const organizations = organizationsData
+    ?.filter((org) => org.name !== EXO_ORGANIZATION_NAME)
+    .map((org) => ({ id: org.id, name: org.name })) || [];
+  const nextInvoiceNumber = nextInvoiceNumberData?.invoiceNumber || "";
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [removePdf, setRemovePdf] = useState(false);
   const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
     invoice?.invoiceNumber || ""
   );
-  const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>("");
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     invoice?.lineItems && invoice.lineItems.length > 0
       ? invoice.lineItems
@@ -143,80 +152,31 @@ export function CreateInvoiceForm({
     }, 0);
   };
 
+  // Set invoice number override when next invoice number is fetched
   useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        const response = await fetch("/api/organizations");
-        if (response.ok) {
-          const data = await response.json();
-          const filteredData = data.filter(
-            (org: Organization) => org.name !== EXO_ORGANIZATION_NAME
-          );
-          setOrganizations(filteredData);
-        }
-      } catch (error) {
-        console.error("Error fetching organizations:", error);
-      } finally {
-        setIsLoadingOrgs(false);
-      }
-    };
+    if (!invoice && nextInvoiceNumber) {
+      setInvoiceNumberOverride(nextInvoiceNumber);
+    }
+  }, [invoice, nextInvoiceNumber]);
 
-    fetchOrganizations();
-  }, []);
-
-  // Fetch next invoice number for new invoices
+  // Filter projects by organization
   useEffect(() => {
-    const fetchNextInvoiceNumber = async () => {
-      if (!invoice) {
-        try {
-          const response = await fetch("/api/invoices?nextNumber=true");
-          if (response.ok) {
-            const data = await response.json();
-            setNextInvoiceNumber(data.invoiceNumber);
-            setInvoiceNumberOverride(data.invoiceNumber);
-          }
-        } catch (error) {
-          console.error("Error fetching next invoice number:", error);
-        }
-      }
-    };
+    if (!organizationId) {
+      setProjects([]);
+      return;
+    }
 
-    fetchNextInvoiceNumber();
-  }, [invoice]);
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      if (!organizationId) {
-        setProjects([]);
-        setIsLoadingProjects(false);
-        return;
-      }
-
-      setIsLoadingProjects(true);
-      try {
-        const response = await fetch("/api/projects");
-        if (response.ok) {
-          const data = await response.json();
-          const filteredProjects = data
-            .filter((p: any) => p.project.organizationId === organizationId)
-            .map((p: any) => ({
-              id: p.project.id,
-              title: p.project.title,
-              organizationId: p.project.organizationId,
-              subtotal: p.project.subtotal,
-              currency: p.project.currency,
-            }));
-          setProjects(filteredProjects);
-        }
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-      } finally {
-        setIsLoadingProjects(false);
-      }
-    };
-
-    fetchProjects();
-  }, [organizationId]);
+    const filteredProjects = projectsData
+      ?.filter((p) => p.project.organizationId === organizationId)
+      .map((p) => ({
+        id: p.project.id,
+        title: p.project.title,
+        organizationId: p.project.organizationId,
+        subtotal: p.project.subtotal,
+        currency: p.project.currency,
+      })) || [];
+    setProjects(filteredProjects);
+  }, [organizationId, projectsData]);
 
   // When KOR is enabled, set all tax percentages to 0
   useEffect(() => {

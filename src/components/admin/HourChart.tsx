@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { useAllHourRegistrations } from "@/hooks/use-hour-registrations";
 import {
   Card,
   CardAction,
@@ -45,8 +46,8 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function HourChart() {
-  const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: registrationsData, isLoading: loading } = useAllHourRegistrations(true);
+  const registrations = Array.isArray(registrationsData) ? registrationsData : [];
   const [timeRange, setTimeRange] = useState("30d");
   const isMobile = useIsMobile();
 
@@ -56,32 +57,6 @@ export function HourChart() {
     }
   }, [isMobile]);
 
-  useEffect(() => {
-    fetchRegistrations();
-
-    // Listen for hour registration saved events
-    const handleRefresh = () => {
-      fetchRegistrations();
-    };
-    window.addEventListener("hour-registration-saved", handleRefresh);
-    return () =>
-      window.removeEventListener("hour-registration-saved", handleRefresh);
-  }, []);
-
-  const fetchRegistrations = async () => {
-    try {
-      const response = await fetch("/api/hour-registrations");
-      if (response.ok) {
-        const data = await response.json();
-        setRegistrations(data);
-      }
-    } catch (error) {
-      console.error("Error fetching hour registrations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Helper function to format date as YYYY-MM-DD in local timezone (matching table display)
   const formatDateLocal = (date: Date): string => {
     const year = date.getFullYear();
@@ -90,89 +65,93 @@ export function HourChart() {
     return `${year}-${month}-${day}`;
   };
 
-  // Group hours by date (using the actual work date, not createdAt)
-  // Use local timezone to match table display
-  const groupByDate = () => {
-    const grouped: { [key: string]: number } = {};
-    registrations.forEach((reg) => {
-      // Ensure we're using the 'date' field (actual work date), not 'createdAt' (logged at)
-      const workDate = reg.date ? new Date(reg.date) : null;
-      if (!workDate || isNaN(workDate.getTime())) {
-        console.warn("Invalid date for registration:", reg.id);
-        return;
-      }
-      // Use local timezone to match how the table displays dates
-      const dateStr = formatDateLocal(workDate);
-      grouped[dateStr] = (grouped[dateStr] || 0) + parseFloat(reg.hours);
-    });
-    return grouped;
-  };
-
   // Generate chart data
-  const generateChartData = () => {
-    const grouped = groupByDate();
-    const now = new Date();
-
-    if (timeRange === "year") {
-      // Group by month for yearly view
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-      
-      // Group hours by month (using the actual work date, not createdAt)
-      const hoursByMonth: { [key: string]: number } = {};
+  const chartData = useMemo(() => {
+    // Group hours by date (using the actual work date, not createdAt)
+    // Use local timezone to match table display
+    const groupByDate = () => {
+      const grouped: { [key: string]: number } = {};
       registrations.forEach((reg) => {
         // Ensure we're using the 'date' field (actual work date), not 'createdAt' (logged at)
-        const regDate = reg.date ? new Date(reg.date) : null;
-        if (!regDate || isNaN(regDate.getTime())) {
+        const workDate = reg.date ? new Date(reg.date) : null;
+        if (!workDate || isNaN(workDate.getTime())) {
+          console.warn("Invalid date for registration:", reg.id);
           return;
         }
-        if (regDate >= startOfYear && regDate <= endOfYear) {
-          const monthStr = `${regDate.getFullYear()}-${String(regDate.getMonth() + 1).padStart(2, "0")}`;
-          hoursByMonth[monthStr] = (hoursByMonth[monthStr] || 0) + parseFloat(reg.hours);
-        }
+        // Use local timezone to match how the table displays dates
+        const dateStr = formatDateLocal(workDate);
+        grouped[dateStr] = (grouped[dateStr] || 0) + parseFloat(reg.hours);
       });
+      return grouped;
+    };
 
-      // Generate data for all months of the current year
-      const data: { date: string; hours: number }[] = [];
-      for (let month = 0; month < 12; month++) {
-        const date = new Date(now.getFullYear(), month, 1);
-        const monthStr = `${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`;
-        const monthName = date.toLocaleDateString("en-US", {
-          month: "short",
-          year: "numeric",
+    const generateChartData = () => {
+      const grouped = groupByDate();
+      const now = new Date();
+
+      if (timeRange === "year") {
+        // Group by month for yearly view
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        
+        // Group hours by month (using the actual work date, not createdAt)
+        const hoursByMonth: { [key: string]: number } = {};
+        registrations.forEach((reg) => {
+          // Ensure we're using the 'date' field (actual work date), not 'createdAt' (logged at)
+          const regDate = reg.date ? new Date(reg.date) : null;
+          if (!regDate || isNaN(regDate.getTime())) {
+            return;
+          }
+          if (regDate >= startOfYear && regDate <= endOfYear) {
+            const monthStr = `${regDate.getFullYear()}-${String(regDate.getMonth() + 1).padStart(2, "0")}`;
+            hoursByMonth[monthStr] = (hoursByMonth[monthStr] || 0) + parseFloat(reg.hours);
+          }
         });
-        data.push({
-          date: monthName,
-          hours: hoursByMonth[monthStr] || 0,
-        });
+
+        // Generate data for all months of the current year
+        const data: { date: string; hours: number }[] = [];
+        for (let month = 0; month < 12; month++) {
+          const date = new Date(now.getFullYear(), month, 1);
+          const monthStr = `${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`;
+          const monthName = date.toLocaleDateString("en-US", {
+            month: "short",
+            year: "numeric",
+          });
+          data.push({
+            date: monthName,
+            hours: hoursByMonth[monthStr] || 0,
+          });
+        }
+        return data;
+      } else {
+        // Daily view for 7d, 30d, 90d
+        let daysToSubtract = 30;
+        if (timeRange === "90d") daysToSubtract = 90;
+        else if (timeRange === "7d") daysToSubtract = 6; // 7 days total: today + 6 previous days
+
+        const startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - daysToSubtract);
+
+        const data: { date: string; hours: number }[] = [];
+        for (let i = 0; i <= daysToSubtract; i++) {
+          const date = new Date(startDate);
+          date.setDate(date.getDate() + i);
+          // Use local timezone to match table display
+          const dateStr = formatDateLocal(date);
+          const day = date.getDate().toString().padStart(2, "0");
+          const month = (date.getMonth() + 1).toString().padStart(2, "0");
+          const year = date.getFullYear();
+          data.push({
+            date: `${day}/${month}/${year}`,
+            hours: grouped[dateStr] || 0,
+          });
+        }
+        return data;
       }
-      return data;
-    } else {
-      // Daily view for 7d, 30d, 90d
-      let daysToSubtract = 30;
-      if (timeRange === "90d") daysToSubtract = 90;
-      else if (timeRange === "7d") daysToSubtract = 6; // 7 days total: today + 6 previous days
+    };
 
-      const startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - daysToSubtract);
-
-      const data: { date: string; hours: number }[] = [];
-      for (let i = 0; i <= daysToSubtract; i++) {
-        const date = new Date(startDate);
-        date.setDate(date.getDate() + i);
-        // Use local timezone to match table display
-        const dateStr = formatDateLocal(date);
-        const day = date.getDate().toString().padStart(2, "0");
-        const month = (date.getMonth() + 1).toString().padStart(2, "0");
-        const year = date.getFullYear();
-        data.push({
-          date: `${day}/${month}/${year}`,
-          hours: grouped[dateStr] || 0,
-        });
-      }
-      return data;
-    }
-  };
+    return generateChartData();
+  }, [registrations, timeRange]);
 
   // Format hours (as decimal) to "xhrs ymin" format
   const formatHours = (decimalHours: number) => {
@@ -195,8 +174,10 @@ export function HourChart() {
     return parts.join(" ");
   };
 
-  const chartData = generateChartData();
-  const totalHours = chartData.reduce((sum, item) => sum + item.hours, 0);
+  const totalHours = useMemo(
+    () => chartData.reduce((sum, item) => sum + item.hours, 0),
+    [chartData]
+  );
 
   if (loading) {
     return (

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { useAllProjects } from "@/hooks/use-projects";
 import {
   Card,
   CardAction,
@@ -63,8 +64,7 @@ const formatHours = (decimalHours: number) => {
 };
 
 export function ProjectHoursChart() {
-  const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading: loading } = useAllProjects();
   const [sortBy, setSortBy] = useState<"hours" | "name">("hours");
   const [limit, setLimit] = useState(10);
   const isMobile = useIsMobile();
@@ -75,33 +75,7 @@ export function ProjectHoursChart() {
     }
   }, [isMobile]);
 
-  useEffect(() => {
-    fetchProjects();
-
-    // Listen for hour registration saved events to refresh
-    const handleRefresh = () => {
-      fetchProjects();
-    };
-    window.addEventListener("hour-registration-saved", handleRefresh);
-    return () =>
-      window.removeEventListener("hour-registration-saved", handleRefresh);
-  }, []);
-
-  const fetchProjects = async () => {
-    try {
-      const response = await fetch("/api/projects");
-      if (response.ok) {
-        const data = await response.json();
-        setProjects(data);
-      }
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateChartData = () => {
+  const chartData = useMemo(() => {
     // Filter projects with hours and sort
     const projectsWithHours = projects
       .filter((p) => (p.totalHours || 0) > 0)
@@ -117,10 +91,12 @@ export function ProjectHoursChart() {
       project: p.project.title,
       hours: p.totalHours || 0,
     }));
-  };
+  }, [projects, sortBy, limit]);
 
-  const chartData = generateChartData();
-  const totalHours = chartData.reduce((sum, item) => sum + item.hours, 0);
+  const totalHours = useMemo(
+    () => chartData.reduce((sum, item) => sum + item.hours, 0),
+    [chartData]
+  );
 
   if (loading) {
     return (

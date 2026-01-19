@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -120,13 +121,17 @@ const projectsChartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardStats() {
-  const [stats, setStats] = useState<DashboardStatsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [revenueTimeRange, setRevenueTimeRange] = useState("year");
   const [hoursTimeRange, setHoursTimeRange] = useState("30d");
   const [currency, setCurrency] = useState<"EUR" | "USD">("EUR");
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const isMobile = useIsMobile();
+
+  // TanStack Query hook for dashboard stats
+  const { data: stats, isLoading: loading } = useDashboardStats(
+    revenueTimeRange,
+    hoursTimeRange
+  );
 
   useEffect(() => {
     if (isMobile) {
@@ -134,10 +139,6 @@ export default function DashboardStats() {
       setHoursTimeRange("30d");
     }
   }, [isMobile]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [revenueTimeRange, hoursTimeRange]);
 
   // Fetch exchange rate when USD is selected
   useEffect(() => {
@@ -182,24 +183,6 @@ export default function DashboardStats() {
       return amountInEUR * exchangeRate;
     }
     return amountInEUR;
-  };
-
-  const fetchStats = async () => {
-    try {
-      const params = new URLSearchParams({
-        revenueTimeRange,
-        hoursTimeRange,
-      });
-      const response = await fetch(`/api/dashboard/stats?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   if (loading || !stats) {

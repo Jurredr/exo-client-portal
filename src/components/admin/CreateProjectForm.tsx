@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,33 +44,20 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   const [stage, setStage] = useState(getDefaultStage("client"));
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  // TanStack Query hooks
+  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const organizations = organizationsData || [];
+
   const [exoOrgId, setExoOrgId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
 
+  // Find EXO organization
   useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        const response = await fetch("/api/organizations");
-        if (response.ok) {
-          const data = await response.json();
-          setOrganizations(data);
-          // Find EXO organization
-          const exoOrg = data.find((org: Organization) => org.name === "EXO");
-          if (exoOrg) {
-            setExoOrgId(exoOrg.id);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching organizations:", error);
-      } finally {
-        setIsLoadingOrgs(false);
-      }
-    };
-
-    fetchOrganizations();
-  }, []);
+    const exoOrg = organizations.find((org: Organization) => org.name === "EXO");
+    if (exoOrg) {
+      setExoOrgId(exoOrg.id);
+    }
+  }, [organizations]);
 
   // Auto-select EXO organization when EXO Labs is selected
   useEffect(() => {

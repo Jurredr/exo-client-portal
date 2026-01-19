@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Clock, TrendingUp, Calendar, Target } from "lucide-react";
+import { useAllHourRegistrations } from "@/hooks/use-hour-registrations";
 
 interface HourRegistration {
   id: string;
@@ -22,34 +23,8 @@ interface HourRegistration {
 }
 
 export function HourStatsCards() {
-  const [registrations, setRegistrations] = useState<HourRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchRegistrations();
-
-    // Listen for hour registration saved events
-    const handleRefresh = () => {
-      fetchRegistrations();
-    };
-    window.addEventListener("hour-registration-saved", handleRefresh);
-    return () =>
-      window.removeEventListener("hour-registration-saved", handleRefresh);
-  }, []);
-
-  const fetchRegistrations = async () => {
-    try {
-      const response = await fetch("/api/hour-registrations");
-      if (response.ok) {
-        const data = await response.json();
-        setRegistrations(data);
-      }
-    } catch (error) {
-      console.error("Error fetching hour registrations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: registrationsData, isLoading: loading } = useAllHourRegistrations(true);
+  const registrations = Array.isArray(registrationsData) ? registrationsData : [];
 
   // Format hours (as decimal) to "xhrs ymin" format
   const formatHours = (decimalHours: number) => {
@@ -72,7 +47,7 @@ export function HourStatsCards() {
     return parts.join(" ");
   };
 
-  const calculateStats = () => {
+  const stats = useMemo(() => {
     const now = new Date();
     // Calculate last 7 days (not start of week)
     const startOfWeek = new Date(now);
@@ -98,9 +73,7 @@ export function HourStatsCards() {
     });
 
     return { total, thisWeek, thisMonth, thisYear };
-  };
-
-  const stats = calculateStats();
+  }, [registrations]);
 
   if (loading) {
     return (

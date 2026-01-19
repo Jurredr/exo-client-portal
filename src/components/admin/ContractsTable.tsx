@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import {
+  useContracts,
+  useDeleteContract,
+} from "@/hooks/use-contracts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,8 +92,12 @@ const formatDate = (dateString: string | null) => {
 };
 
 export function ContractsTable() {
-  const [contracts, setContracts] = useState<ContractData[]>([]);
-  const [loading, setLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: contractsData = [], isLoading: loading } = useContracts();
+  const deleteMutation = useDeleteContract();
+
+  const contracts = contractsData;
+
   const [deleteContract, setDeleteContract] = useState<ContractData | null>(
     null
   );
@@ -367,64 +375,32 @@ export function ContractsTable() {
     []
   );
 
-  useEffect(() => {
-    fetchContracts();
-  }, []);
-
-  const fetchContracts = async () => {
-    try {
-      const response = await fetch("/api/contracts");
-      if (response.ok) {
-        const data = await response.json();
-        setContracts(data);
-      } else {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        console.error("Error fetching contracts:", errorData);
-        toast.error(errorData.error || "Failed to load contracts");
-      }
-    } catch (error) {
-      console.error("Error fetching contracts:", error);
-      toast.error("Failed to load contracts");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Contracts are now fetched via TanStack Query
 
   const handleDelete = async () => {
     if (!deleteContract) return;
 
-    try {
-      const response = await fetch(
-        `/api/contracts?id=${deleteContract.contract.id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete contract");
-      }
-
-      toast.success("Contract deleted successfully");
-      fetchContracts();
-      setDeleteContract(null);
-    } catch (error) {
-      console.error("Error deleting contract:", error);
-      toast.error("Failed to delete contract");
-    }
+    deleteMutation.mutate(deleteContract.contract.id, {
+      onSuccess: () => {
+        toast.success("Contract deleted successfully");
+        setDeleteContract(null);
+      },
+      onError: (error: Error) => {
+        console.error("Error deleting contract:", error);
+        toast.error("Failed to delete contract");
+      },
+    });
   };
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchContracts();
+    // React Query will automatically refetch contracts
   };
 
   const handleEditSuccess = () => {
     setIsEditOpen(false);
     setEditContract(null);
-    fetchContracts();
+    // React Query will automatically refetch contracts
   };
 
   return (

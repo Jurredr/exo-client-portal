@@ -1,0 +1,100 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+interface OrganizationData {
+  id: string;
+  name: string;
+  image: string | null;
+  address: string | null;
+  kvkNumber: string | null;
+  btwNumber: string | null;
+  email: string | null;
+  telephone: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userCount?: number;
+}
+
+export const organizationKeys = {
+  all: ["organizations"] as const,
+  lists: () => [...organizationKeys.all, "list"] as const,
+  detail: (id: string) => [...organizationKeys.all, "detail", id] as const,
+};
+
+async function fetchOrganizations(): Promise<OrganizationData[]> {
+  const response = await fetch("/api/organizations");
+  if (!response.ok) {
+    throw new Error("Failed to fetch organizations");
+  }
+  return response.json();
+}
+
+export function useOrganizations() {
+  return useQuery({
+    queryKey: organizationKeys.lists(),
+    queryFn: fetchOrganizations,
+    staleTime: 120 * 1000, // 120 seconds - matches API cache
+  });
+}
+
+export function useCreateOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch("/api/organizations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to create organization" }));
+        throw new Error(error.error || "Failed to create organization");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+    },
+  });
+}
+
+export function useUpdateOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { id: string; [key: string]: any }) => {
+      const response = await fetch("/api/organizations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to update organization" }));
+        throw new Error(error.error || "Failed to update organization");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+    },
+  });
+}
+
+export function useDeleteOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/organizations?id=${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to delete organization");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+    },
+  });
+}

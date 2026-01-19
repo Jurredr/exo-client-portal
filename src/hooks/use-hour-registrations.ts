@@ -38,10 +38,12 @@ export const hourRegistrationKeys = {
   lists: () => [...hourRegistrationKeys.all, "list"] as const,
   list: (filters: { page?: number; pageSize?: number; search?: string; all?: boolean }) =>
     [...hourRegistrationKeys.lists(), filters] as const,
+  allList: (filters: { all?: boolean }) =>
+    [...hourRegistrationKeys.all, "all", filters] as const,
   detail: (id: string) => [...hourRegistrationKeys.all, "detail", id] as const,
 };
 
-// Fetch hour registrations
+// Fetch hour registrations (paginated)
 async function fetchHourRegistrations(
   page: number = 1,
   search?: string,
@@ -61,7 +63,24 @@ async function fetchHourRegistrations(
   return response.json();
 }
 
-// Hook to fetch hour registrations
+// Fetch all hour registrations (non-paginated, for stats)
+async function fetchAllHourRegistrations(all: boolean = false): Promise<HourRegistration[]> {
+  const params = new URLSearchParams({
+    page: "1",
+    pageSize: "10000", // Large page size to get all records
+    ...(all && { all: "true" }),
+  });
+
+  const response = await fetch(`/api/hour-registrations?${params}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch hour registrations");
+  }
+  const result = await response.json();
+  // API returns paginated response, extract the data array
+  return result.data || [];
+}
+
+// Hook to fetch hour registrations (paginated)
 export function useHourRegistrations(
   page: number = 1,
   search?: string,
@@ -70,6 +89,15 @@ export function useHourRegistrations(
   return useQuery({
     queryKey: hourRegistrationKeys.list({ page, pageSize: 100, search, all }),
     queryFn: () => fetchHourRegistrations(page, search, all),
+    staleTime: 30 * 1000, // 30 seconds - matches API cache
+  });
+}
+
+// Hook to fetch all hour registrations (for stats/charts)
+export function useAllHourRegistrations(all: boolean = false) {
+  return useQuery({
+    queryKey: hourRegistrationKeys.allList({ all }),
+    queryFn: () => fetchAllHourRegistrations(all),
     staleTime: 30 * 1000, // 30 seconds - matches API cache
   });
 }

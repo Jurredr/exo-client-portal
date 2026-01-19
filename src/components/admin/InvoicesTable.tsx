@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import {
+  useInvoices,
+  useDeleteInvoice,
+} from "@/hooks/use-invoices";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,8 +118,13 @@ const formatDate = (dateString: string | null) => {
 };
 
 export function InvoicesTable() {
-  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
-  const [loading, setLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: invoicesData, isLoading: isLoadingInvoices } = useInvoices(1);
+  const deleteMutation = useDeleteInvoice();
+
+  const invoices = invoicesData?.data || [];
+  const loading = isLoadingInvoices;
+
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -415,39 +424,9 @@ export function InvoicesTable() {
     []
   );
 
-  useEffect(() => {
-    fetchInvoices(1);
-  }, []);
+  // Invoices are now fetched via TanStack Query
 
-  const fetchInvoices = async (page: number = 1) => {
-    try {
-      setLoading(true);
-      // Use pagination to reduce data transfer (fetch 100 items at a time)
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "100",
-        paginate: "true",
-      });
-      const response = await fetch(`/api/invoices?${params}`);
-      if (response.ok) {
-        const result = await response.json();
-        setInvoices(result.data || []);
-        // Store pagination info if needed for future use
-        return result.pagination;
-      } else {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        console.error("Error fetching invoices:", errorData);
-        toast.error(errorData.error || "Failed to load invoices");
-      }
-    } catch (error) {
-      console.error("Error fetching invoices:", error);
-      toast.error("Failed to load invoices");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Invoices are now fetched via TanStack Query
 
   const handleDownload = async (invoice: InvoiceData) => {
     try {
@@ -494,36 +473,27 @@ export function InvoicesTable() {
   const handleDelete = async () => {
     if (!deleteInvoice) return;
 
-    try {
-      const response = await fetch(
-        `/api/invoices?id=${deleteInvoice.invoice.id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete invoice");
-      }
-
-      toast.success("Invoice deleted successfully");
-      fetchInvoices(1);
-      setDeleteInvoice(null);
-    } catch (error) {
-      console.error("Error deleting invoice:", error);
-      toast.error("Failed to delete invoice");
-    }
+    deleteMutation.mutate(deleteInvoice.invoice.id, {
+      onSuccess: () => {
+        toast.success("Invoice deleted successfully");
+        setDeleteInvoice(null);
+      },
+      onError: (error: Error) => {
+        console.error("Error deleting invoice:", error);
+        toast.error("Failed to delete invoice");
+      },
+    });
   };
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchInvoices(1);
+    // React Query will automatically refetch invoices
   };
 
   const handleEditSuccess = () => {
     setIsEditOpen(false);
     setEditingInvoice(null);
-    fetchInvoices(1);
+    // React Query will automatically refetch invoices
   };
 
   const handleEditCancel = () => {

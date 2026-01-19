@@ -250,8 +250,17 @@ export async function getHourRegistrationsByUser(
       date: hourRegistrations.date,
       createdAt: hourRegistrations.createdAt,
       updatedAt: hourRegistrations.updatedAt,
-      project: projects,
-      user: users,
+      project: {
+        id: projects.id,
+        title: projects.title,
+        type: projects.type,
+      },
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        image: users.image,
+      },
     })
     .from(hourRegistrations)
     .leftJoin(projects, eq(hourRegistrations.projectId, projects.id))
@@ -261,10 +270,10 @@ export async function getHourRegistrationsByUser(
 
   // Add pagination
   if (options?.limit) {
-    query = query.limit(options.limit);
+    query = query.limit(options.limit) as typeof query;
   }
   if (options?.offset) {
-    query = query.offset(options.offset);
+    query = query.offset(options.offset) as typeof query;
   }
 
   return await query;
@@ -329,25 +338,34 @@ export async function getAllHourRegistrations(options?: {
       date: hourRegistrations.date,
       createdAt: hourRegistrations.createdAt,
       updatedAt: hourRegistrations.updatedAt,
-      project: projects,
-      user: users,
+      project: {
+        id: projects.id,
+        title: projects.title,
+        type: projects.type,
+      },
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        image: users.image,
+      },
     })
     .from(hourRegistrations)
     .leftJoin(projects, eq(hourRegistrations.projectId, projects.id))
     .innerJoin(users, eq(hourRegistrations.userId, users.id));
 
   if (whereClause) {
-    query = query.where(whereClause);
+    query = query.where(whereClause) as typeof query;
   }
 
-  query = query.orderBy(desc(hourRegistrations.date));
+  query = query.orderBy(desc(hourRegistrations.date)) as typeof query;
 
   // Add pagination
   if (options?.limit) {
-    query = query.limit(options.limit);
+    query = query.limit(options.limit) as typeof query;
   }
   if (options?.offset) {
-    query = query.offset(options.offset);
+    query = query.offset(options.offset) as typeof query;
   }
 
   return await query;
@@ -373,7 +391,7 @@ export async function getAllHourRegistrationsCount(search?: string) {
     .innerJoin(users, eq(hourRegistrations.userId, users.id));
 
   if (whereClause) {
-    query = query.where(whereClause);
+    query = query.where(whereClause) as typeof query;
   }
 
   const result = await query;
@@ -405,13 +423,21 @@ export async function updateHourRegistration(
       | "content_creation";
   }
 ) {
-  const updateData: any = {};
+  const updateData: {
+    description?: string;
+    hours?: string;
+    projectId?: string | null;
+    date?: Date;
+    category?: string;
+    updatedAt?: Date;
+  } = {
+    updatedAt: new Date(),
+  };
   if (data.description !== undefined) updateData.description = data.description;
   if (data.hours !== undefined) updateData.hours = data.hours.toString();
   if (data.projectId !== undefined) updateData.projectId = data.projectId;
   if (data.date !== undefined) updateData.date = data.date;
   if (data.category !== undefined) updateData.category = data.category;
-  updateData.updatedAt = new Date();
 
   const [registration] = await db
     .update(hourRegistrations)
@@ -612,8 +638,21 @@ export async function getAllUsers() {
   // Get all users with their primary organization (for backward compatibility)
   const usersWithPrimaryOrg = await db
     .select({
-      user: users,
-      organization: organizations,
+      user: {
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        note: users.note,
+        image: users.image,
+        organizationId: users.organizationId,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(users)
     .leftJoin(organizations, eq(users.organizationId, organizations.id))
@@ -623,7 +662,10 @@ export async function getAllUsers() {
   const allUserOrgs = await db
     .select({
       userId: userOrganizations.userId,
-      organization: organizations,
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(userOrganizations)
     .innerJoin(
@@ -632,8 +674,10 @@ export async function getAllUsers() {
     );
 
   // Group organizations by user ID
-  const orgsByUserId: Record<string, (typeof organizations.$inferSelect)[]> =
-    {};
+  const orgsByUserId: Record<
+    string,
+    Array<{ id: string; name: string }>
+  > = {};
   allUserOrgs.forEach((row) => {
     if (!orgsByUserId[row.userId]) {
       orgsByUserId[row.userId] = [];
@@ -657,18 +701,31 @@ export async function getAllUsersPaginated(options?: {
   // Get paginated users with their primary organization
   let query = db
     .select({
-      user: users,
-      organization: organizations,
+      user: {
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        note: users.note,
+        image: users.image,
+        organizationId: users.organizationId,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(users)
     .leftJoin(organizations, eq(users.organizationId, organizations.id))
     .orderBy(users.email);
 
   if (options?.limit) {
-    query = query.limit(options.limit);
+    query = query.limit(options.limit) as typeof query;
   }
   if (options?.offset) {
-    query = query.offset(options.offset);
+    query = query.offset(options.offset) as typeof query;
   }
 
   const usersWithPrimaryOrg = await query;
@@ -750,8 +807,25 @@ export async function createProject(data: {
 export async function getAllProjects() {
   return await db
     .select({
-      project: projects,
-      organization: organizations,
+      project: {
+        id: projects.id,
+        title: projects.title,
+        description: projects.description,
+        status: projects.status,
+        stage: projects.stage,
+        startDate: projects.startDate,
+        deadline: projects.deadline,
+        subtotal: projects.subtotal,
+        currency: projects.currency,
+        type: projects.type,
+        organizationId: projects.organizationId,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(projects)
     .innerJoin(organizations, eq(projects.organizationId, organizations.id))
@@ -765,18 +839,35 @@ export async function getAllProjectsPaginated(options?: {
 }) {
   let query = db
     .select({
-      project: projects,
-      organization: organizations,
+      project: {
+        id: projects.id,
+        title: projects.title,
+        description: projects.description,
+        status: projects.status,
+        stage: projects.stage,
+        startDate: projects.startDate,
+        deadline: projects.deadline,
+        subtotal: projects.subtotal,
+        currency: projects.currency,
+        type: projects.type,
+        organizationId: projects.organizationId,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(projects)
     .innerJoin(organizations, eq(projects.organizationId, organizations.id))
     .orderBy(desc(projects.createdAt));
 
   if (options?.limit) {
-    query = query.limit(options.limit);
+    query = query.limit(options.limit) as typeof query;
   }
   if (options?.offset) {
-    query = query.offset(options.offset);
+    query = query.offset(options.offset) as typeof query;
   }
 
   return await query;
@@ -793,8 +884,25 @@ export async function getAllProjectsCount() {
 export async function getClientProjects() {
   return await db
     .select({
-      project: projects,
-      organization: organizations,
+      project: {
+        id: projects.id,
+        title: projects.title,
+        description: projects.description,
+        status: projects.status,
+        stage: projects.stage,
+        startDate: projects.startDate,
+        deadline: projects.deadline,
+        subtotal: projects.subtotal,
+        currency: projects.currency,
+        type: projects.type,
+        organizationId: projects.organizationId,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(projects)
     .innerJoin(organizations, eq(projects.organizationId, organizations.id))
@@ -805,8 +913,25 @@ export async function getClientProjects() {
 export async function getEXOLabsProjects() {
   return await db
     .select({
-      project: projects,
-      organization: organizations,
+      project: {
+        id: projects.id,
+        title: projects.title,
+        description: projects.description,
+        status: projects.status,
+        stage: projects.stage,
+        startDate: projects.startDate,
+        deadline: projects.deadline,
+        subtotal: projects.subtotal,
+        currency: projects.currency,
+        type: projects.type,
+        organizationId: projects.organizationId,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(projects)
     .innerJoin(organizations, eq(projects.organizationId, organizations.id))
@@ -1334,8 +1459,14 @@ export async function getAllInvoices() {
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
       },
-      project: projects,
-      organization: organizations,
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
@@ -1463,8 +1594,14 @@ export async function getAllInvoicesPaginated(options?: {
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
       },
-      project: projects,
-      organization: organizations,
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
@@ -1472,10 +1609,10 @@ export async function getAllInvoicesPaginated(options?: {
     .orderBy(desc(invoices.createdAt));
 
   if (options?.limit) {
-    query = query.limit(options.limit);
+    query = query.limit(options.limit) as typeof query;
   }
   if (options?.offset) {
-    query = query.offset(options.offset);
+    query = query.offset(options.offset) as typeof query;
   }
 
   const results = await query;
@@ -1577,9 +1714,36 @@ export async function getAllInvoicesCount() {
 export async function getInvoiceById(invoiceId: string) {
   const result = await db
     .select({
-      invoice: invoices,
-      project: projects,
-      organization: organizations,
+      invoice: {
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        projectId: invoices.projectId,
+        organizationId: invoices.organizationId,
+        amount: invoices.amount,
+        currency: invoices.currency,
+        status: invoices.status,
+        type: invoices.type,
+        transactionType: invoices.transactionType,
+        vatIncluded: invoices.vatIncluded,
+        isKOR: invoices.isKOR,
+        description: invoices.description,
+        invoiceDate: invoices.invoiceDate,
+        dueDate: invoices.dueDate,
+        paidAt: invoices.paidAt,
+        pdfUrl: invoices.pdfUrl,
+        pdfFileName: invoices.pdfFileName,
+        pdfFileType: invoices.pdfFileType,
+        createdAt: invoices.createdAt,
+        updatedAt: invoices.updatedAt,
+      },
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
@@ -1844,10 +2008,32 @@ export async function getAllContracts() {
   // Get all contracts with their organization and first project (for backward compatibility)
   const contracts = await db
     .select({
-      contract: legalDocuments,
-      organization: organizations,
-      project: projects,
-      signedByUser: users,
+      contract: {
+        id: legalDocuments.id,
+        organizationId: legalDocuments.organizationId,
+        name: legalDocuments.name,
+        type: legalDocuments.type,
+        fileUrl: legalDocuments.fileUrl,
+        requiresPortalSignature: legalDocuments.requiresPortalSignature,
+        signed: legalDocuments.signed,
+        signedAt: legalDocuments.signedAt,
+        signature: legalDocuments.signature,
+        signedBy: legalDocuments.signedBy,
+        createdAt: legalDocuments.createdAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+      signedByUser: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
     })
     .from(legalDocuments)
     .innerJoin(organizations, eq(legalDocuments.organizationId, organizations.id))
@@ -1862,8 +2048,14 @@ export async function getAllContracts() {
     ? await db
         .select({
           contractId: contractProjects.contractId,
-          project: projects,
-          organization: organizations,
+          project: {
+            id: projects.id,
+            title: projects.title,
+          },
+          organization: {
+            id: organizations.id,
+            name: organizations.name,
+          },
         })
         .from(contractProjects)
         .innerJoin(projects, eq(contractProjects.projectId, projects.id))
@@ -1908,10 +2100,32 @@ export async function getAllContracts() {
 export async function getContractById(contractId: string) {
   const result = await db
     .select({
-      contract: legalDocuments,
-      organization: organizations,
-      project: projects,
-      signedByUser: users,
+      contract: {
+        id: legalDocuments.id,
+        organizationId: legalDocuments.organizationId,
+        name: legalDocuments.name,
+        type: legalDocuments.type,
+        fileUrl: legalDocuments.fileUrl,
+        requiresPortalSignature: legalDocuments.requiresPortalSignature,
+        signed: legalDocuments.signed,
+        signedAt: legalDocuments.signedAt,
+        signature: legalDocuments.signature,
+        signedBy: legalDocuments.signedBy,
+        createdAt: legalDocuments.createdAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+      signedByUser: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
     })
     .from(legalDocuments)
     .innerJoin(organizations, eq(legalDocuments.organizationId, organizations.id))
@@ -1930,8 +2144,14 @@ export async function getContractById(contractId: string) {
   // Get all projects from junction table
   const projectAssociations = await db
     .select({
-      project: projects,
-      organization: organizations,
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
     })
     .from(contractProjects)
     .innerJoin(projects, eq(contractProjects.projectId, projects.id))
@@ -2094,8 +2314,26 @@ export async function createExpense(data: {
 export async function getAllExpenses() {
   return await db
     .select({
-      expense: expenses,
-      user: users,
+      expense: {
+        id: expenses.id,
+        userId: expenses.userId,
+        description: expenses.description,
+        amount: expenses.amount,
+        currency: expenses.currency,
+        date: expenses.date,
+        category: expenses.category,
+        vendor: expenses.vendor,
+        invoiceUrl: expenses.invoiceUrl,
+        invoiceFileName: expenses.invoiceFileName,
+        invoiceFileType: expenses.invoiceFileType,
+        createdAt: expenses.createdAt,
+        updatedAt: expenses.updatedAt,
+      },
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
     })
     .from(expenses)
     .innerJoin(users, eq(expenses.userId, users.id))
@@ -2109,18 +2347,36 @@ export async function getAllExpensesPaginated(options?: {
 }) {
   let query = db
     .select({
-      expense: expenses,
-      user: users,
+      expense: {
+        id: expenses.id,
+        userId: expenses.userId,
+        description: expenses.description,
+        amount: expenses.amount,
+        currency: expenses.currency,
+        date: expenses.date,
+        category: expenses.category,
+        vendor: expenses.vendor,
+        invoiceUrl: expenses.invoiceUrl,
+        invoiceFileName: expenses.invoiceFileName,
+        invoiceFileType: expenses.invoiceFileType,
+        createdAt: expenses.createdAt,
+        updatedAt: expenses.updatedAt,
+      },
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
     })
     .from(expenses)
     .innerJoin(users, eq(expenses.userId, users.id))
     .orderBy(desc(expenses.date));
 
   if (options?.limit) {
-    query = query.limit(options.limit);
+    query = query.limit(options.limit) as typeof query;
   }
   if (options?.offset) {
-    query = query.offset(options.offset);
+    query = query.offset(options.offset) as typeof query;
   }
 
   return await query;
@@ -2137,8 +2393,26 @@ export async function getAllExpensesCount() {
 export async function getExpensesByUser(userId: string) {
   return await db
     .select({
-      expense: expenses,
-      user: users,
+      expense: {
+        id: expenses.id,
+        userId: expenses.userId,
+        description: expenses.description,
+        amount: expenses.amount,
+        currency: expenses.currency,
+        date: expenses.date,
+        category: expenses.category,
+        vendor: expenses.vendor,
+        invoiceUrl: expenses.invoiceUrl,
+        invoiceFileName: expenses.invoiceFileName,
+        invoiceFileType: expenses.invoiceFileType,
+        createdAt: expenses.createdAt,
+        updatedAt: expenses.updatedAt,
+      },
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
     })
     .from(expenses)
     .innerJoin(users, eq(expenses.userId, users.id))
@@ -2149,8 +2423,26 @@ export async function getExpensesByUser(userId: string) {
 export async function getExpenseById(expenseId: string) {
   const result = await db
     .select({
-      expense: expenses,
-      user: users,
+      expense: {
+        id: expenses.id,
+        userId: expenses.userId,
+        description: expenses.description,
+        amount: expenses.amount,
+        currency: expenses.currency,
+        date: expenses.date,
+        category: expenses.category,
+        vendor: expenses.vendor,
+        invoiceUrl: expenses.invoiceUrl,
+        invoiceFileName: expenses.invoiceFileName,
+        invoiceFileType: expenses.invoiceFileType,
+        createdAt: expenses.createdAt,
+        updatedAt: expenses.updatedAt,
+      },
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
     })
     .from(expenses)
     .innerJoin(users, eq(expenses.userId, users.id))

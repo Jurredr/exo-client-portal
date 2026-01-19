@@ -49,87 +49,55 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { X } from "lucide-react";
+import { useCurrentUser, useUpdateUser } from "@/hooks/use-users";
+import { useOrganizations } from "@/hooks/use-organizations";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
+  
+  // TanStack Query hooks
+  const { data: currentUserData, isLoading: isUserDataLoading } = useCurrentUser();
+  const { data: organizationsData = [] } = useOrganizations();
+  const updateUserMutation = useUpdateUser();
+
   const [user, setUser] = useState<User | null>(null);
-  const [userImage, setUserImage] = useState<string | undefined>(undefined);
-  const [userName, setUserName] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userOrganizationId, setUserOrganizationId] = useState<string | null>(
-    null
-  );
+  const userImage = currentUserData?.image || undefined;
+  const userName = currentUserData?.name || null;
+  const userId = currentUserData?.id || null;
+  const userOrganizationId = currentUserData?.organizationId || null;
+  
+  const organizations = organizationsData?.map((org) => ({ id: org.id, name: org.name })) || [];
+  
   const [isInEXO, setIsInEXO] = useState<boolean>(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-  const [organizations, setOrganizations] = useState<
-    { id: string; name: string }[]
-  >([]);
   const [accountImagePreview, setAccountImagePreview] = useState<string | null>(
     null
   );
   const [accountImageBase64, setAccountImageBase64] = useState<string | null>(
     null
   );
-  const [isUserDataLoading, setIsUserDataLoading] = useState(true);
 
-  const fetchUserData = async () => {
-    setIsUserDataLoading(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    setUser(user);
-
-    // Fetch user data from database
-    if (user?.email) {
-      try {
-        const response = await fetch("/api/users/me");
-        if (response.ok) {
-          const dbUser = await response.json();
-          if (dbUser?.image) {
-            setUserImage(dbUser.image);
-          }
-          if (dbUser?.name) {
-            setUserName(dbUser.name);
-          }
-          if (dbUser?.id) {
-            setUserId(dbUser.id);
-          }
-          if (dbUser?.organizationId) {
-            setUserOrganizationId(dbUser.organizationId);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      } finally {
-        setIsUserDataLoading(false);
-      }
-    } else {
-      setIsUserDataLoading(false);
-    }
-  };
-
+  // Fetch auth user for email check
   useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        const response = await fetch("/api/organizations");
-        if (response.ok) {
-          const data = await response.json();
-          setOrganizations(data);
-          // Check if user is in EXO organization
-          const exoOrg = data.find(
-            (org: { id: string; name: string }) => org.name === "EXO"
-          );
-          if (exoOrg && userOrganizationId === exoOrg.id) {
-            setIsInEXO(true);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching organizations:", error);
-      }
+    const fetchAuthUser = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
     };
-    fetchOrganizations();
-  }, [userOrganizationId]);
+    fetchAuthUser();
+  }, []);
+
+  // Check if user is in EXO organization
+  useEffect(() => {
+    const exoOrg = organizations.find((org) => org.name === "EXO");
+    if (exoOrg && userOrganizationId === exoOrg.id) {
+      setIsInEXO(true);
+    } else {
+      setIsInEXO(false);
+    }
+  }, [userOrganizationId, organizations]);
 
   useEffect(() => {
     if (isAccountModalOpen && userImage) {
@@ -170,49 +138,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const name = formData.get("name") as string;
     const organizationId = formData.get("organizationId") as string;
 
-    try {
-      const response = await fetch("/api/users", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+    updateUserMutation.mutate(
+      {
+        id: userId,
+        name: name.trim() || null,
+        organizationId:
+          organizationId && organizationId !== "none" ? organizationId : null,
+        image: accountImageBase64 || userImage || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Account updated successfully");
+          setIsAccountModalOpen(false);
+          setAccountImagePreview(null);
+          setAccountImageBase64(null);
+          window.dispatchEvent(new Event("user-updated"));
         },
-        body: JSON.stringify({
-          id: userId,
-          name: name.trim() || null,
-          organizationId:
-            organizationId && organizationId !== "none" ? organizationId : null,
-          image: accountImageBase64 || userImage || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update account");
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to update account");
+        },
       }
-
-      toast.success("Account updated successfully");
-      setIsAccountModalOpen(false);
-      setAccountImagePreview(null);
-      setAccountImageBase64(null);
-      fetchUserData();
-      window.dispatchEvent(new Event("user-updated"));
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update account"
-      );
-    }
+    );
   };
-
-  useEffect(() => {
-    fetchUserData();
-
-    // Listen for user update events
-    const handleUserUpdate = () => {
-      fetchUserData();
-    };
-    window.addEventListener("user-updated", handleUserUpdate);
-    return () => window.removeEventListener("user-updated", handleUserUpdate);
-  }, []);
 
   const navMain = [
     {

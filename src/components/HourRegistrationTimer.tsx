@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useAllProjects } from "@/hooks/use-projects";
+import { useCreateHourRegistration } from "@/hooks/use-hour-registrations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -82,11 +84,52 @@ export function HourRegistrationTimer() {
     | "traveling"
   >("client");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [allProjects, setAllProjects] = useState<
-    Array<Project & { type?: string }>
-  >([]);
-  const [isSaving, setIsSaving] = useState(false);
+  
+  // TanStack Query hooks
+  const { data: projectsData } = useAllProjects();
+  const createMutation = useCreateHourRegistration();
+
+  // Process projects data
+  const allProjects = projectsData?.map(
+    (item: { project: Project & { type?: string } }) => ({
+      id: item.project.id,
+      title: item.project.title,
+      type: item.project.type || "client",
+    })
+  ) || [];
+
+  // Filter projects based on category
+  const projects = (() => {
+    const nonProjectCategories = [
+      "administration",
+      "brainstorming",
+      "research",
+      "client_acquisition",
+      "content_creation",
+      "traveling",
+    ];
+    
+    if (nonProjectCategories.includes(category)) {
+      return [];
+    } else if (category === "labs") {
+      return allProjects
+        .filter((p: Project & { type?: string }) => p.type === "labs")
+        .map((p: Project & { type?: string }) => ({
+          id: p.id,
+          title: p.title,
+        }));
+    } else {
+      // client
+      return allProjects
+        .filter((p: Project & { type?: string }) => p.type === "client")
+        .map((p: Project & { type?: string }) => ({
+          id: p.id,
+          title: p.title,
+        }));
+    }
+  })();
+
+  const isSaving = createMutation.isPending;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const splitStartTimeRef = useRef<number | null>(null);
@@ -385,36 +428,23 @@ export function HourRegistrationTimer() {
       return;
     }
 
-    setIsSaving(true);
     setIsRunning(false);
 
     try {
       // Submit each split as a separate hour registration
-      const promises = workSplits.map(async (split) => {
+      const promises = workSplits.map((split) => {
         const hours = getHours(split.duration);
-        const response = await fetch("/api/hour-registrations", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            description: split.description,
-            hours,
-            category: split.category,
-            projectId:
-              (split.category === "client" || split.category === "labs") &&
-              split.projectId &&
-              split.projectId !== "none"
-                ? split.projectId
-                : null,
-          }),
+        return createMutation.mutateAsync({
+          description: split.description,
+          hours,
+          category: split.category,
+          projectId:
+            (split.category === "client" || split.category === "labs") &&
+            split.projectId &&
+            split.projectId !== "none"
+              ? split.projectId
+              : null,
         });
-
-        if (!response.ok) {
-          throw new Error(`Failed to save split: ${split.description}`);
-        }
-
-        return response.json();
       });
 
       await Promise.all(promises);
@@ -437,13 +467,11 @@ export function HourRegistrationTimer() {
       setCategory("client");
       setProjectId(undefined);
 
-      // Trigger refresh of hour registrations table
+      // Trigger refresh of hour registrations table (for components not using React Query)
       window.dispatchEvent(new Event("hour-registration-saved"));
     } catch (error) {
       console.error("Error saving hour registrations:", error);
       toast.error("Failed to save hour registrations. Please try again.");
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -468,39 +496,7 @@ export function HourRegistrationTimer() {
     setProjectId(undefined);
   };
 
-  // Fetch projects on mount
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const response = await fetch("/api/projects");
-        if (response.ok) {
-          const data = await response.json();
-          const projectsData = data.map(
-            (item: { project: Project & { type?: string } }) => ({
-              id: item.project.id,
-              title: item.project.title,
-              type: item.project.type || "client",
-            })
-          );
-          setAllProjects(projectsData);
-          // Set initial projects (client projects)
-          setProjects(
-            projectsData
-              .filter((p: Project & { type?: string }) => p.type === "client")
-              .map((p: Project & { type?: string }) => ({
-                id: p.id,
-                title: p.title,
-              }))
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-      }
-    };
-    fetchProjects();
-  }, []);
-
-  // Filter projects based on category
+  // Clear projectId when category changes to non-project category
   useEffect(() => {
     const nonProjectCategories = [
       "administration",
@@ -510,32 +506,10 @@ export function HourRegistrationTimer() {
       "content_creation",
       "traveling",
     ];
-    if (nonProjectCategories.includes(category)) {
-      setProjects([]);
-      setProjectId(undefined);
-    } else if (category === "labs") {
-      setProjects(
-        allProjects
-          .filter((p) => p.type === "labs")
-          .map((p) => ({
-            id: p.id,
-            title: p.title,
-          }))
-      );
-      setProjectId(undefined);
-    } else {
-      // client
-      setProjects(
-        allProjects
-          .filter((p) => p.type === "client")
-          .map((p) => ({
-            id: p.id,
-            title: p.title,
-          }))
-      );
+    if (nonProjectCategories.includes(category) || category === "client" || category === "labs") {
       setProjectId(undefined);
     }
-  }, [category, allProjects]);
+  }, [category]);
 
   // Close split dialog handler
   const handleCloseSplitDialog = (open: boolean) => {

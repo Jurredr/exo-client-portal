@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,9 +27,11 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
     string[]
   >([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  // TanStack Query hooks
+  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const organizations = organizationsData || [];
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
 
@@ -57,23 +60,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
     }
   };
 
-  useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        const response = await fetch("/api/organizations");
-        if (response.ok) {
-          const data = await response.json();
-          setOrganizations(data);
-        }
-      } catch (error) {
-        console.error("Error fetching organizations:", error);
-      } finally {
-        setIsLoadingOrgs(false);
-      }
-    };
-
-    fetchOrganizations();
-  }, []);
+  // Organizations are now fetched via TanStack Query
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

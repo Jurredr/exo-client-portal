@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FolderKanban, Clock, TrendingUp, Target } from "lucide-react";
+import { useAllProjects } from "@/hooks/use-projects";
 
 interface ProjectData {
   project: {
@@ -41,36 +42,9 @@ const formatHours = (decimalHours: number) => {
 };
 
 export function ProjectStatsCards() {
-  const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading: loading } = useAllProjects();
 
-  useEffect(() => {
-    fetchProjects();
-
-    // Listen for hour registration saved events to refresh
-    const handleRefresh = () => {
-      fetchProjects();
-    };
-    window.addEventListener("hour-registration-saved", handleRefresh);
-    return () =>
-      window.removeEventListener("hour-registration-saved", handleRefresh);
-  }, []);
-
-  const fetchProjects = async () => {
-    try {
-      const response = await fetch("/api/projects");
-      if (response.ok) {
-        const data = await response.json();
-        setProjects(data);
-      }
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculateStats = () => {
+  const stats = useMemo(() => {
     const totalProjects = projects.length;
     const activeProjects = projects.filter(
       (p) => p.project.status === "active"
@@ -84,9 +58,7 @@ export function ProjectStatsCards() {
     ).length;
 
     return { totalProjects, activeProjects, totalHours, completedProjects };
-  };
-
-  const stats = calculateStats();
+  }, [projects]);
 
   if (loading) {
     return (

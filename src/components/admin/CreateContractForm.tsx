@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { useAllProjects } from "@/hooks/use-projects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,80 +56,48 @@ export function CreateContractForm({
   const [requiresPortalSignature, setRequiresPortalSignature] = useState<boolean>(
     contract?.requiresPortalSignature !== undefined ? contract.requiresPortalSignature : true
   );
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  // TanStack Query hooks
+  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
+
+  const organizations = organizationsData?.filter(
+    (org) => org.name !== EXO_ORGANIZATION_NAME
+  ) || [];
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
+  // Filter projects by organization
   useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        const response = await fetch("/api/organizations");
-        if (response.ok) {
-          const data = await response.json();
-          const filteredData = data.filter(
-            (org: Organization) => org.name !== EXO_ORGANIZATION_NAME
-          );
-          setOrganizations(filteredData);
-        }
-      } catch (error) {
-        console.error("Error fetching organizations:", error);
-      } finally {
-        setIsLoadingOrgs(false);
+    if (!organizationId) {
+      // If editing and contract has projects from other orgs, still show them
+      if (contract?.projects && contract.projects.length > 0) {
+        setProjects(contract.projects);
+      } else {
+        setProjects([]);
       }
-    };
+      return;
+    }
 
-    fetchOrganizations();
-  }, []);
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      if (!organizationId) {
-        // If editing and contract has projects from other orgs, still show them
-        if (contract?.projects && contract.projects.length > 0) {
-          setProjects(contract.projects);
-          setIsLoadingProjects(false);
-        } else {
-          setProjects([]);
-          setIsLoadingProjects(false);
+    const filteredProjects = projectsData
+      ?.filter((p) => p.project.organizationId === organizationId)
+      .map((p) => ({
+        id: p.project.id,
+        title: p.project.title,
+      })) || [];
+    
+    // If editing, also include projects from other organizations that are already associated
+    if (contract?.projects) {
+      const existingProjectIds = new Set(filteredProjects.map((p: Project) => p.id));
+      contract.projects.forEach((p) => {
+        if (!existingProjectIds.has(p.id)) {
+          filteredProjects.push(p);
         }
-        return;
-      }
-
-      setIsLoadingProjects(true);
-      try {
-        const response = await fetch("/api/projects");
-        if (response.ok) {
-          const data = await response.json();
-          const filteredProjects = data
-            .filter((p: any) => p.project.organizationId === organizationId)
-            .map((p: any) => ({
-              id: p.project.id,
-              title: p.project.title,
-            }));
-          
-          // If editing, also include projects from other organizations that are already associated
-          if (contract?.projects) {
-            const existingProjectIds = new Set(filteredProjects.map((p: Project) => p.id));
-            contract.projects.forEach((p) => {
-              if (!existingProjectIds.has(p.id)) {
-                filteredProjects.push(p);
-              }
-            });
-          }
-          
-          setProjects(filteredProjects);
-        }
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-      } finally {
-        setIsLoadingProjects(false);
-      }
-    };
-
-    fetchProjects();
-  }, [organizationId, contract]);
+      });
+    }
+    
+    setProjects(filteredProjects);
+  }, [organizationId, contract, projectsData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

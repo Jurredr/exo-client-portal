@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import {
+  useOrganizations,
+  useDeleteOrganization,
+  useUpdateOrganization,
+} from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,8 +65,13 @@ interface Organization {
 }
 
 export function OrganizationsTable() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
+  // TanStack Query hooks
+  const { data: organizationsData = [], isLoading: loading } = useOrganizations();
+  const deleteMutation = useDeleteOrganization();
+  const updateMutation = useUpdateOrganization();
+
+  const organizations = organizationsData;
+
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -225,24 +235,7 @@ export function OrganizationsTable() {
     []
   );
 
-  useEffect(() => {
-    fetchOrganizations();
-  }, []);
-
-  const fetchOrganizations = async () => {
-    try {
-      const response = await fetch("/api/organizations");
-      if (response.ok) {
-        const data = await response.json();
-        setOrganizations(data);
-      }
-    } catch (error) {
-      console.error("Error fetching organizations:", error);
-      toast.error("Failed to load organizations");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Organizations are now fetched via TanStack Query
 
   const handleRowClick = (org: Organization) => {
     setSelectedOrg(org);
@@ -303,70 +296,54 @@ export function OrganizationsTable() {
       return;
     }
 
-    try {
-      const response = await fetch("/api/organizations", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+    updateMutation.mutate(
+      {
+        id: selectedOrg.id,
+        name: name.trim(),
+        image: imageBase64 || selectedOrg.image || null,
+        address: address.trim() || null,
+        kvkNumber: kvkNumber.trim() || null,
+        btwNumber: btwNumber.trim() || null,
+        email: email.trim() || null,
+        telephone: telephone.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Organization updated successfully");
+          setIsEditOpen(false);
+          setImagePreview(null);
+          setImageBase64(null);
+          setAddress("");
+          setKvkNumber("");
+          setBtwNumber("");
+          setEmail("");
+          setTelephone("");
         },
-        body: JSON.stringify({
-          id: selectedOrg.id,
-          name: name.trim(),
-          image: imageBase64 || selectedOrg.image || null,
-          address: address.trim() || null,
-          kvkNumber: kvkNumber.trim() || null,
-          btwNumber: btwNumber.trim() || null,
-          email: email.trim() || null,
-          telephone: telephone.trim() || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update organization");
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to update organization");
+        },
       }
-
-      toast.success("Organization updated successfully");
-      setIsEditOpen(false);
-      setImagePreview(null);
-      setImageBase64(null);
-      setAddress("");
-      setKvkNumber("");
-      setBtwNumber("");
-      setEmail("");
-      setTelephone("");
-      fetchOrganizations();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update organization"
-      );
-    }
+    );
   };
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    fetchOrganizations();
+    // React Query will automatically refetch organizations
   };
 
   const handleDelete = async () => {
     if (!deleteOrg) return;
 
-    try {
-      const response = await fetch(`/api/organizations?id=${deleteOrg.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete organization");
-      }
-
-      toast.success("Organization deleted successfully");
-      fetchOrganizations();
-      setDeleteOrg(null);
-    } catch (error) {
-      console.error("Error deleting organization:", error);
-      toast.error("Failed to delete organization");
-    }
+    deleteMutation.mutate(deleteOrg.id, {
+      onSuccess: () => {
+        toast.success("Organization deleted successfully");
+        setDeleteOrg(null);
+      },
+      onError: (error: Error) => {
+        console.error("Error deleting organization:", error);
+        toast.error("Failed to delete organization");
+      },
+    });
   };
 
   const EditContent = () => (

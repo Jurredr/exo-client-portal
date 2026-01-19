@@ -674,10 +674,7 @@ export async function getAllUsers() {
     );
 
   // Group organizations by user ID
-  const orgsByUserId: Record<
-    string,
-    Array<{ id: string; name: string }>
-  > = {};
+  const orgsByUserId: Record<string, Array<{ id: string; name: string }>> = {};
   allUserOrgs.forEach((row) => {
     if (!orgsByUserId[row.userId]) {
       orgsByUserId[row.userId] = [];
@@ -1018,28 +1015,28 @@ async function getEurToUsdRate(): Promise<number> {
   try {
     // Using exchangerate-api.com free endpoint (no auth required)
     const response = await fetch(
-      'https://api.exchangerate-api.com/v4/latest/EUR',
+      "https://api.exchangerate-api.com/v4/latest/EUR",
       {
         next: { revalidate: 3600 }, // Revalidate every hour
       }
     );
 
     if (!response.ok) {
-      throw new Error('Failed to fetch exchange rate');
+      throw new Error("Failed to fetch exchange rate");
     }
 
     const data = await response.json();
     const rate = data.rates?.USD;
 
-    if (!rate || typeof rate !== 'number') {
-      throw new Error('Invalid exchange rate data');
+    if (!rate || typeof rate !== "number") {
+      throw new Error("Invalid exchange rate data");
     }
 
     eurToUsdRate = rate;
     rateCacheTimestamp = now;
     return rate;
   } catch (error) {
-    console.error('Error fetching EUR to USD rate:', error);
+    console.error("Error fetching EUR to USD rate:", error);
     // Fallback to approximate rate if API fails
     if (!eurToUsdRate) {
       eurToUsdRate = 1.08; // Approximate fallback rate
@@ -1058,10 +1055,14 @@ function parseInvoiceAmount(amount: string): number {
 }
 
 // Helper function to convert amount to EUR
-async function convertToEUR(amount: number, currency: string, usdToEurRate?: number): Promise<number> {
+async function convertToEUR(
+  amount: number,
+  currency: string,
+  usdToEurRate?: number
+): Promise<number> {
   if (currency === "USD") {
     // If rate is provided, use it; otherwise fetch it
-    const rate = usdToEurRate ?? await getEurToUsdRate();
+    const rate = usdToEurRate ?? (await getEurToUsdRate());
     // Convert USD to EUR: divide by EUR/USD rate (e.g., if 1 EUR = 1.08 USD, then 1 USD = 1/1.08 EUR)
     return amount / rate;
   }
@@ -1110,7 +1111,11 @@ export async function getDashboardStats(
   for (const invoice of paidInvoices) {
     const amount = parseInvoiceAmount(invoice.amount);
     // Convert to EUR if needed
-    const amountInEUR = await convertToEUR(amount, invoice.currency || "EUR", usdToEurRate);
+    const amountInEUR = await convertToEUR(
+      amount,
+      invoice.currency || "EUR",
+      usdToEurRate
+    );
     // Default to debit if transactionType is null (for invoices created before migration)
     const isDebit = (invoice.transactionType || "debit") === "debit";
     const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
@@ -1257,7 +1262,11 @@ export async function getDashboardStats(
       }
       const amount = parseInvoiceAmount(row.amount);
       // Convert to EUR if needed
-      const amountInEUR = await convertToEUR(amount, row.currency || "EUR", usdToEurRate);
+      const amountInEUR = await convertToEUR(
+        amount,
+        row.currency || "EUR",
+        usdToEurRate
+      );
       // Default to debit if transactionType is null
       const isDebit = (row.transactionType || "debit") === "debit";
       const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
@@ -1739,6 +1748,8 @@ export async function getInvoiceById(invoiceId: string) {
       project: {
         id: projects.id,
         title: projects.title,
+        subtotal: projects.subtotal,
+        currency: projects.currency,
       },
       organization: {
         id: organizations.id,
@@ -2036,7 +2047,10 @@ export async function getAllContracts() {
       },
     })
     .from(legalDocuments)
-    .innerJoin(organizations, eq(legalDocuments.organizationId, organizations.id))
+    .innerJoin(
+      organizations,
+      eq(legalDocuments.organizationId, organizations.id)
+    )
     .leftJoin(projects, eq(legalDocuments.projectId, projects.id))
     .leftJoin(users, eq(legalDocuments.signedBy, users.id))
     .where(eq(legalDocuments.type, "contract"))
@@ -2044,24 +2058,28 @@ export async function getAllContracts() {
 
   // Get all project associations from junction table
   const allContractProjectIds = contracts.map((c) => c.contract.id);
-  const projectAssociations = allContractProjectIds.length > 0
-    ? await db
-        .select({
-          contractId: contractProjects.contractId,
-          project: {
-            id: projects.id,
-            title: projects.title,
-          },
-          organization: {
-            id: organizations.id,
-            name: organizations.name,
-          },
-        })
-        .from(contractProjects)
-        .innerJoin(projects, eq(contractProjects.projectId, projects.id))
-        .innerJoin(organizations, eq(projects.organizationId, organizations.id))
-        .where(inArray(contractProjects.contractId, allContractProjectIds))
-    : [];
+  const projectAssociations =
+    allContractProjectIds.length > 0
+      ? await db
+          .select({
+            contractId: contractProjects.contractId,
+            project: {
+              id: projects.id,
+              title: projects.title,
+            },
+            organization: {
+              id: organizations.id,
+              name: organizations.name,
+            },
+          })
+          .from(contractProjects)
+          .innerJoin(projects, eq(contractProjects.projectId, projects.id))
+          .innerJoin(
+            organizations,
+            eq(projects.organizationId, organizations.id)
+          )
+          .where(inArray(contractProjects.contractId, allContractProjectIds))
+      : [];
 
   // Group projects by contract ID
   const projectsByContract = new Map<string, typeof projectAssociations>();
@@ -2074,7 +2092,8 @@ export async function getAllContracts() {
 
   // Attach projects to each contract
   return contracts.map((contract) => {
-    const associatedProjects = projectsByContract.get(contract.contract.id) || [];
+    const associatedProjects =
+      projectsByContract.get(contract.contract.id) || [];
     // If no projects from junction table but has legacy projectId, use that
     if (associatedProjects.length === 0 && contract.project) {
       return {
@@ -2128,7 +2147,10 @@ export async function getContractById(contractId: string) {
       },
     })
     .from(legalDocuments)
-    .innerJoin(organizations, eq(legalDocuments.organizationId, organizations.id))
+    .innerJoin(
+      organizations,
+      eq(legalDocuments.organizationId, organizations.id)
+    )
     .leftJoin(projects, eq(legalDocuments.projectId, projects.id))
     .leftJoin(users, eq(legalDocuments.signedBy, users.id))
     .where(
@@ -2189,13 +2211,14 @@ export async function createContract(data: {
   requiresPortalSignature?: boolean;
 }) {
   const requiresPortalSignature = data.requiresPortalSignature ?? true;
-  
+
   // If contract doesn't require portal signature and has a file, mark it as signed
   const signed = !requiresPortalSignature && data.fileUrl ? true : false;
   const signedAt = signed ? new Date() : null;
 
   // Use the first project ID for backward compatibility (deprecated field)
-  const firstProjectId = data.projectIds && data.projectIds.length > 0 ? data.projectIds[0] : null;
+  const firstProjectId =
+    data.projectIds && data.projectIds.length > 0 ? data.projectIds[0] : null;
 
   const [contract] = await db
     .insert(legalDocuments)
@@ -2250,8 +2273,10 @@ export async function updateContract(
   // Update project associations if projectIds is provided
   if (projectIds !== undefined) {
     // Delete existing associations
-    await db.delete(contractProjects).where(eq(contractProjects.contractId, contractId));
-    
+    await db
+      .delete(contractProjects)
+      .where(eq(contractProjects.contractId, contractId));
+
     // Create new associations
     if (projectIds.length > 0) {
       await db.insert(contractProjects).values(

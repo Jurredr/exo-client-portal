@@ -8,7 +8,7 @@ export default function UnauthorizedPage() {
           Unauthorized Access
         </h1>
         <p className="text-white/80 mb-8">
-          You don't have permission to view this project.
+          You don&apos;t have permission to view this project.
         </p>
         <Link
           href="/login"

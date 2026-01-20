@@ -15,15 +15,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, DollarSign, Calendar, Upload, X, Plus, Trash2, Download } from "lucide-react";
+import {
+  FileText,
+  Calendar,
+  Upload,
+  X,
+  Plus,
+  Trash2,
+  Download,
+} from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
 import { Checkbox } from "@/components/ui/checkbox";
 
-interface Organization {
-  id: string;
-  name: string;
-}
+// interface Organization {
+//   id: string;
+//   name: string;
+// }
 
 interface Project {
   id: string;
@@ -92,14 +100,14 @@ export function CreateInvoiceForm({
   const [isKOR, setIsKOR] = useState<boolean>(
     invoice?.isKOR !== undefined ? invoice.isKOR : false
   );
-  
+
   // Calculate default due date (current date + 7 days) for new invoices
   const getDefaultDueDate = () => {
     const date = new Date();
     date.setDate(date.getDate() + 7);
     return date.toISOString().split("T")[0];
   };
-  
+
   const [dueDate, setDueDate] = useState(
     invoice?.dueDate
       ? new Date(invoice.dueDate).toISOString().split("T")[0]
@@ -111,13 +119,15 @@ export function CreateInvoiceForm({
       : new Date().toISOString().split("T")[0]
   );
   // TanStack Query hooks
-  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const { data: organizationsData, isLoading: isLoadingOrgs } =
+    useOrganizations();
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
   const { data: nextInvoiceNumberData } = useNextInvoiceNumber();
 
-  const organizations = organizationsData
-    ?.filter((org) => org.name !== EXO_ORGANIZATION_NAME)
-    .map((org) => ({ id: org.id, name: org.name })) || [];
+  const organizations =
+    organizationsData
+      ?.filter((org) => org.name !== EXO_ORGANIZATION_NAME)
+      .map((org) => ({ id: org.id, name: org.name })) || [];
   const nextInvoiceNumber = nextInvoiceNumberData?.invoiceNumber || "";
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -166,15 +176,16 @@ export function CreateInvoiceForm({
       return;
     }
 
-    const filteredProjects = projectsData
-      ?.filter((p) => p.project.organizationId === organizationId)
-      .map((p) => ({
-        id: p.project.id,
-        title: p.project.title,
-        organizationId: p.project.organizationId,
-        subtotal: p.project.subtotal,
-        currency: p.project.currency,
-      })) || [];
+    const filteredProjects =
+      projectsData
+        ?.filter((p) => p.project.organizationId === organizationId)
+        .map((p) => ({
+          id: p.project.id,
+          title: p.project.title,
+          organizationId: p.project.organizationId,
+          subtotal: p.project.subtotal,
+          currency: p.project.currency,
+        })) || [];
     setProjects(filteredProjects);
   }, [organizationId, projectsData]);
 
@@ -409,7 +420,9 @@ export function CreateInvoiceForm({
             placeholder={nextInvoiceNumber || "Leave empty to auto-generate"}
           />
           <p className="text-xs text-muted-foreground">
-            {nextInvoiceNumber ? `Default: ${nextInvoiceNumber}` : "Leave empty to auto-generate. Format: INV-YYYY-NNNN"}
+            {nextInvoiceNumber
+              ? `Default: ${nextInvoiceNumber}`
+              : "Leave empty to auto-generate. Format: INV-YYYY-NNNN"}
           </p>
         </div>
       )}
@@ -546,10 +559,7 @@ export function CreateInvoiceForm({
           checked={isKOR}
           onCheckedChange={(checked) => setIsKOR(checked === true)}
         />
-        <Label
-          htmlFor="is-kor"
-          className="text-sm font-normal cursor-pointer"
-        >
+        <Label htmlFor="is-kor" className="text-sm font-normal cursor-pointer">
           Kleine ondernemersregeling (KOR) - No tax charged
         </Label>
       </div>
@@ -753,7 +763,9 @@ export function CreateInvoiceForm({
                 onClick={() => {
                   setPdfFile(null);
                   // Reset file input
-                  const fileInput = document.getElementById("invoice-pdf") as HTMLInputElement;
+                  const fileInput = document.getElementById(
+                    "invoice-pdf"
+                  ) as HTMLInputElement;
                   if (fileInput) {
                     fileInput.value = "";
                   }

@@ -1190,9 +1190,9 @@ export async function getDashboardStats(
     (p) => p.status === "completed"
   );
 
-  // Get organization and user counts
-  const allOrganizations = await db.select().from(organizations);
-  const allUsers = await db.select().from(users);
+  // Get organization and user counts (unused but kept for potential future use)
+  // const allOrganizations = await db.select().from(organizations);
+  // const allUsers = await db.select().from(users);
 
   // Calculate percentage changes
   const revenueChange =
@@ -1595,6 +1595,7 @@ export async function getAllInvoicesPaginated(options?: {
         vatIncluded: invoices.vatIncluded,
         isKOR: invoices.isKOR,
         description: invoices.description,
+        invoiceDate: invoices.invoiceDate,
         dueDate: invoices.dueDate,
         paidAt: invoices.paidAt,
         pdfUrl: sql<string | null>`NULL`.as("pdfUrl"), // Explicitly set to null to avoid transferring data

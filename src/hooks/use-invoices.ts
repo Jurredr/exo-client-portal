@@ -14,6 +14,7 @@ interface InvoiceData {
     vatIncluded: boolean | null;
     isKOR: boolean;
     description: string | null;
+    invoiceDate: string | null;
     dueDate: string | null;
     paidAt: string | null;
     pdfUrl: string | null;
@@ -22,9 +23,22 @@ interface InvoiceData {
     createdAt: string;
     updatedAt: string;
   };
-  project: any;
-  organization: any;
-  lineItems: any[];
+  project: {
+    id: string;
+    title: string;
+  } | null;
+  organization: {
+    id: string;
+    name: string;
+  };
+  lineItems?: Array<{
+    id: string;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    taxPercentage: string;
+    order: number;
+  }>;
 }
 
 interface PaginatedResponse<T> {
@@ -37,6 +51,51 @@ interface PaginatedResponse<T> {
   };
 }
 
+interface CreateInvoiceData {
+  projectId?: string | null;
+  organizationId: string;
+  amount: string;
+  currency: string;
+  status?: string;
+  type?: string;
+  transactionType?: string;
+  vatIncluded?: boolean | null;
+  isKOR?: boolean;
+  description?: string | null;
+  invoiceDate?: Date | string | null;
+  dueDate?: Date | string | null;
+  lineItems?: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    taxPercentage: string;
+    order: number;
+  }>;
+}
+
+interface UpdateInvoiceData {
+  id: string;
+  projectId?: string | null;
+  organizationId?: string;
+  amount?: string;
+  currency?: string;
+  status?: string;
+  type?: string;
+  transactionType?: string;
+  vatIncluded?: boolean | null;
+  isKOR?: boolean;
+  description?: string | null;
+  invoiceDate?: Date | string | null;
+  dueDate?: Date | string | null;
+  lineItems?: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    taxPercentage: string;
+    order: number;
+  }>;
+}
+
 export const invoiceKeys = {
   all: ["invoices"] as const,
   lists: () => [...invoiceKeys.all, "list"] as const,
@@ -46,7 +105,9 @@ export const invoiceKeys = {
   nextNumber: () => [...invoiceKeys.all, "nextNumber"] as const,
 };
 
-async function fetchInvoices(page: number = 1): Promise<PaginatedResponse<InvoiceData>> {
+async function fetchInvoices(
+  page: number = 1
+): Promise<PaginatedResponse<InvoiceData>> {
   const params = new URLSearchParams({
     page: page.toString(),
     pageSize: "100",
@@ -87,14 +148,16 @@ export function useCreateInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CreateInvoiceData) => {
       const response = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to create invoice" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to create invoice" }));
         throw new Error(error.error || "Failed to create invoice");
       }
       return response.json();
@@ -110,14 +173,16 @@ export function useUpdateInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: string; [key: string]: any }) => {
+    mutationFn: async (data: UpdateInvoiceData) => {
       const response = await fetch("/api/invoices", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to update invoice" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to update invoice" }));
         throw new Error(error.error || "Failed to update invoice");
       }
       return response.json();

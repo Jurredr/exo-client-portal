@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,13 +11,13 @@ import { toast } from "sonner";
 import { UserPlus, Mail, User, X, Phone, FileText } from "lucide-react";
 import { OrganizationCombobox } from "@/components/organization-combobox";
 
-interface Organization {
-  id: string;
-  name: string;
-  image?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+// interface Organization {
+//   id: string;
+//   name: string;
+//   image?: string | null;
+//   createdAt: Date;
+//   updatedAt: Date;
+// }
 
 export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const [email, setEmail] = useState("");
@@ -28,7 +28,8 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
     string[]
   >([]);
   // TanStack Query hooks
-  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const { data: organizationsData, isLoading: isLoadingOrgs } =
+    useOrganizations();
   const organizations = organizationsData || [];
 
   const [isSubmitting, setIsSubmitting] = useState(false);

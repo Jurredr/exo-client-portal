@@ -33,6 +33,33 @@ interface PaginatedResponse<T> {
   };
 }
 
+interface CreateProjectData {
+  title: string;
+  description?: string | null;
+  organizationId: string;
+  type: "client" | "labs";
+  subtotal?: string | null;
+  currency?: string;
+  status?: string;
+  stage?: string;
+  startDate?: Date | string | null;
+  deadline?: Date | string | null;
+}
+
+interface UpdateProjectData {
+  id: string;
+  title?: string;
+  description?: string | null;
+  organizationId?: string;
+  type?: "client" | "labs";
+  subtotal?: string | null;
+  currency?: string;
+  status?: string;
+  stage?: string;
+  startDate?: Date | string | null;
+  deadline?: Date | string | null;
+}
+
 export const projectKeys = {
   all: ["projects"] as const,
   lists: () => [...projectKeys.all, "list"] as const,
@@ -41,7 +68,9 @@ export const projectKeys = {
   detail: (id: string) => [...projectKeys.all, "detail", id] as const,
 };
 
-async function fetchProjects(page: number = 1): Promise<PaginatedResponse<ProjectData>> {
+async function fetchProjects(
+  page: number = 1
+): Promise<PaginatedResponse<ProjectData>> {
   const params = new URLSearchParams({
     page: page.toString(),
     pageSize: "100",
@@ -84,14 +113,16 @@ export function useCreateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CreateProjectData) => {
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to create project" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to create project" }));
         throw new Error(error.error || "Failed to create project");
       }
       return response.json();
@@ -106,14 +137,16 @@ export function useUpdateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: string; [key: string]: any }) => {
+    mutationFn: async (data: UpdateProjectData) => {
       const response = await fetch("/api/projects", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to update project" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to update project" }));
         throw new Error(error.error || "Failed to update project");
       }
       return response.json();

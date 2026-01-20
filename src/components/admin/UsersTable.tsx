@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  useUsers,
-  useDeleteUser,
-  useUpdateUser,
-} from "@/hooks/use-users";
+import { useUsers, useDeleteUser, useUpdateUser } from "@/hooks/use-users";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -35,9 +31,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
   UserPlus,
-  Mail,
-  User,
-  Upload,
   X,
   Trash2,
   Pencil,
@@ -86,16 +79,18 @@ interface UserData {
 export function UsersTable() {
   // TanStack Query hooks
   const { data: usersData, isLoading: isLoadingUsers } = useUsers(1);
-  const { data: organizationsData, isLoading: isLoadingOrganizations } = useOrganizations();
+  const { data: organizationsData, isLoading: isLoadingOrganizations } =
+    useOrganizations();
   const deleteMutation = useDeleteUser();
   const updateMutation = useUpdateUser();
 
   const users = usersData?.data || [];
-  const organizations = organizationsData?.map((org) => ({
-    id: org.id,
-    name: org.name,
-    image: org.image,
-  })) || [];
+  const organizations =
+    organizationsData?.map((org) => ({
+      id: org.id,
+      name: org.name,
+      image: org.image,
+    })) || [];
   const loading = isLoadingUsers || isLoadingOrganizations;
 
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -110,6 +105,7 @@ export function UsersTable() {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const prevSelectedUserIdRef = useRef<string | null>(null);
 
   const columns: ColumnDef<UserData>[] = useMemo(
     () => [
@@ -360,23 +356,34 @@ export function UsersTable() {
   }, [organizations]);
 
   useEffect(() => {
-    if (selectedUser?.user.image) {
-      setImagePreview(selectedUser.user.image);
-      setImageBase64(null); // Reset base64 when loading existing image
-    } else {
-      setImagePreview(null);
-      setImageBase64(null);
+    if (
+      selectedUser &&
+      prevSelectedUserIdRef.current !== selectedUser.user.id
+    ) {
+      prevSelectedUserIdRef.current = selectedUser.user.id;
+      // Only update image preview if no user-uploaded image exists
+      if (!imageBase64) {
+        setTimeout(() => {
+          if (selectedUser.user.image) {
+            setImagePreview(selectedUser.user.image);
+          } else {
+            setImagePreview(null);
+          }
+        }, 0);
+      }
     }
 
     // Set selected organization IDs when editing
-    if (selectedUser) {
-      const orgs =
-        selectedUser.organizations ||
-        (selectedUser.organization ? [selectedUser.organization] : []);
-      setSelectedOrganizationIds(orgs.map((org) => org.id));
-    } else {
-      setSelectedOrganizationIds([]);
-    }
+    setTimeout(() => {
+      if (selectedUser) {
+        const orgs =
+          selectedUser.organizations ||
+          (selectedUser.organization ? [selectedUser.organization] : []);
+        setSelectedOrganizationIds(orgs.map((org) => org.id));
+      } else {
+        setSelectedOrganizationIds([]);
+      }
+    }, 0);
   }, [selectedUser]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -458,126 +465,6 @@ export function UsersTable() {
       },
     });
   };
-
-  const EditContent = () => (
-    <>
-      <DrawerHeader className="gap-1">
-        <DrawerTitle>Edit User</DrawerTitle>
-        <DrawerDescription>Update user details</DrawerDescription>
-      </DrawerHeader>
-      <form
-        id="edit-form"
-        onSubmit={handleUpdate}
-        className="flex flex-col gap-4 overflow-y-auto px-4 text-sm"
-      >
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-email">Email</Label>
-          <Input
-            id="edit-email"
-            type="email"
-            defaultValue={selectedUser?.user.email}
-            disabled
-            className="bg-muted"
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-name">Name</Label>
-          <Input
-            id="edit-name"
-            name="name"
-            defaultValue={selectedUser?.user.name || ""}
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-phone" className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            Phone
-          </Label>
-          <Input
-            id="edit-phone"
-            name="phone"
-            type="tel"
-            defaultValue={selectedUser?.user.phone || ""}
-            placeholder="+1 234 567 8900"
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-note" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Note
-          </Label>
-          <Textarea
-            id="edit-note"
-            name="note"
-            defaultValue={selectedUser?.user.note || ""}
-            placeholder="Add any notes about this user..."
-            rows={3}
-            className="resize-none"
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-org">Organizations</Label>
-          <OrganizationCombobox
-            organizations={organizations}
-            selectedIds={selectedOrganizationIds}
-            onSelectionChange={setSelectedOrganizationIds}
-            placeholder="Select organizations..."
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <Label>Profile Image</Label>
-          <div className="flex items-center gap-4">
-            {imagePreview && (
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={imagePreview} alt="Profile" />
-                <AvatarFallback>
-                  {selectedUser?.user.name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2) || "U"}
-                </AvatarFallback>
-              </Avatar>
-            )}
-            <div className="flex-1">
-              <Input
-                id="edit-image"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Max 5MB. Image will be converted to base64.
-              </p>
-            </div>
-            {imagePreview && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setImagePreview(null);
-                  setImageBase64(null);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </form>
-      <DrawerFooter>
-        <Button type="submit" form="edit-form">
-          Save Changes
-        </Button>
-        <DrawerClose asChild>
-          <Button variant="outline">Cancel</Button>
-        </DrawerClose>
-      </DrawerFooter>
-    </>
-  );
 
   return (
     <div className="space-y-4">
@@ -670,7 +557,133 @@ export function UsersTable() {
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DrawerContent>{selectedUser && <EditContent />}</DrawerContent>
+          <DrawerContent>
+            {selectedUser && (
+              <>
+                <DrawerHeader className="gap-1">
+                  <DrawerTitle>Edit User</DrawerTitle>
+                  <DrawerDescription>Update user details</DrawerDescription>
+                </DrawerHeader>
+                <form
+                  id="edit-form"
+                  onSubmit={handleUpdate}
+                  className="flex flex-col gap-4 overflow-y-auto px-4 text-sm"
+                >
+                  <div className="flex flex-col gap-3">
+                    <Label htmlFor="edit-email">Email</Label>
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      defaultValue={selectedUser.user.email}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Label htmlFor="edit-name">Name</Label>
+                    <Input
+                      id="edit-name"
+                      name="name"
+                      defaultValue={selectedUser.user.name || ""}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Label
+                      htmlFor="edit-phone"
+                      className="flex items-center gap-2"
+                    >
+                      <Phone className="h-4 w-4" />
+                      Phone
+                    </Label>
+                    <Input
+                      id="edit-phone"
+                      name="phone"
+                      type="tel"
+                      defaultValue={selectedUser.user.phone || ""}
+                      placeholder="+1 234 567 8900"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Label
+                      htmlFor="edit-note"
+                      className="flex items-center gap-2"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Note
+                    </Label>
+                    <Textarea
+                      id="edit-note"
+                      name="note"
+                      defaultValue={selectedUser.user.note || ""}
+                      placeholder="Add any notes about this user..."
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Label htmlFor="edit-org">Organizations</Label>
+                    <OrganizationCombobox
+                      organizations={organizations}
+                      selectedIds={selectedOrganizationIds}
+                      onSelectionChange={setSelectedOrganizationIds}
+                      placeholder="Select organizations..."
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Label>Profile Image</Label>
+                    <div className="flex items-center gap-4">
+                      {imagePreview && (
+                        <Avatar className="h-16 w-16">
+                          <AvatarImage src={imagePreview} alt="Profile" />
+                          <AvatarFallback>
+                            {selectedUser.user.name
+                              ?.split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          id="edit-image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="cursor-pointer"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Max 5MB. Image will be converted to base64.
+                        </p>
+                      </div>
+                      {imagePreview && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setImagePreview(null);
+                            setImageBase64(null);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </form>
+                <DrawerFooter>
+                  <Button type="submit" form="edit-form">
+                    Save Changes
+                  </Button>
+                  <DrawerClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DrawerClose>
+                </DrawerFooter>
+              </>
+            )}
+          </DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

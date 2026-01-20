@@ -34,7 +34,7 @@ export default function LoginPage() {
   let supabase;
   try {
     supabase = createClient();
-  } catch (error) {
+  } catch {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black">
         <div className="relative z-10 w-full max-w-md px-8">

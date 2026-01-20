@@ -14,6 +14,27 @@ interface OrganizationData {
   userCount?: number;
 }
 
+interface CreateOrganizationData {
+  name: string;
+  image?: string | null;
+  address?: string | null;
+  kvkNumber?: string | null;
+  btwNumber?: string | null;
+  email?: string | null;
+  telephone?: string | null;
+}
+
+interface UpdateOrganizationData {
+  id: string;
+  name?: string;
+  image?: string | null;
+  address?: string | null;
+  kvkNumber?: string | null;
+  btwNumber?: string | null;
+  email?: string | null;
+  telephone?: string | null;
+}
+
 export const organizationKeys = {
   all: ["organizations"] as const,
   lists: () => [...organizationKeys.all, "list"] as const,
@@ -40,14 +61,16 @@ export function useCreateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CreateOrganizationData) => {
       const response = await fetch("/api/organizations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to create organization" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to create organization" }));
         throw new Error(error.error || "Failed to create organization");
       }
       return response.json();
@@ -62,14 +85,16 @@ export function useUpdateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: string; [key: string]: any }) => {
+    mutationFn: async (data: UpdateOrganizationData) => {
       const response = await fetch("/api/organizations", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to update organization" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to update organization" }));
         throw new Error(error.error || "Failed to update organization");
       }
       return response.json();

@@ -202,8 +202,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const oldStage = currentProject.stage;
-    const newStage = updateData.stage;
+    // const oldStage = currentProject.stage;
+    // const newStage = updateData.stage;
     const projectType =
       updateData.type === "labs" ? "labs" : currentProject.type || "client";
 

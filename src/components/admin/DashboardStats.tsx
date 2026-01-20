@@ -50,28 +50,28 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
-interface DashboardStatsData {
-  revenue: {
-    total: number;
-    thisMonth: number;
-    lastMonth: number;
-    change: number;
-    chartData: { date: string; revenue: number }[];
-  };
-  hours: {
-    total: number;
-    thisMonth: number;
-    lastMonth: number;
-    change: number;
-    chartData: { date: string; hours: number }[];
-  };
-  projects: {
-    total: number;
-    active: number;
-    completed: number;
-    chartData: { stage: string; count: number }[];
-  };
-}
+// interface DashboardStatsData {
+//   revenue: {
+//     total: number;
+//     thisMonth: number;
+//     lastMonth: number;
+//     change: number;
+//     chartData: { date: string; revenue: number }[];
+//   };
+//   hours: {
+//     total: number;
+//     thisMonth: number;
+//     lastMonth: number;
+//     change: number;
+//     chartData: { date: string; hours: number }[];
+//   };
+//   projects: {
+//     total: number;
+//     active: number;
+//     completed: number;
+//     chartData: { stage: string; count: number }[];
+//   };
+// }
 
 // Format hours (as decimal) to "xhrs ymin" format
 const formatHours = (decimalHours: number) => {
@@ -155,23 +155,23 @@ export default function DashboardStats() {
   const fetchExchangeRate = async () => {
     try {
       const response = await fetch(
-        'https://api.exchangerate-api.com/v4/latest/EUR'
+        "https://api.exchangerate-api.com/v4/latest/EUR"
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch exchange rate');
+        throw new Error("Failed to fetch exchange rate");
       }
 
       const data = await response.json();
       const rate = data.rates?.USD;
 
-      if (rate && typeof rate === 'number') {
+      if (rate && typeof rate === "number") {
         setExchangeRate(rate);
       } else {
-        throw new Error('Invalid exchange rate data');
+        throw new Error("Invalid exchange rate data");
       }
     } catch (error) {
-      console.error('Error fetching EUR to USD rate:', error);
+      console.error("Error fetching EUR to USD rate:", error);
       // Fallback to approximate rate if API fails
       setExchangeRate(1.08);
     }
@@ -242,7 +242,7 @@ export default function DashboardStats() {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p>
-                        {currency === "EUR" 
+                        {currency === "EUR"
                           ? "USD invoices are converted to EUR using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."
                           : "All amounts are converted to USD using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."}
                       </p>
@@ -267,7 +267,7 @@ export default function DashboardStats() {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p>
-                        {currency === "EUR" 
+                        {currency === "EUR"
                           ? "USD invoices are converted to EUR using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."
                           : "All amounts are converted to USD using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."}
                       </p>
@@ -296,7 +296,10 @@ export default function DashboardStats() {
                 </Badge>
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
-                {formatCurrency(convertAmount(stats.revenue.thisMonth), currency)}
+                {formatCurrency(
+                  convertAmount(stats.revenue.thisMonth),
+                  currency
+                )}
               </dd>
             </CardContent>
           </Card>
@@ -382,14 +385,18 @@ export default function DashboardStats() {
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  tickFormatter={(value) => formatCurrency(convertAmount(value), currency)}
+                  tickFormatter={(value) =>
+                    formatCurrency(convertAmount(value), currency)
+                  }
                 />
                 <ChartTooltip
                   cursor={false}
                   content={
                     <ChartTooltipContent
                       labelFormatter={(value) => value}
-                      formatter={(value) => formatCurrency(convertAmount(Number(value)), currency)}
+                      formatter={(value) =>
+                        formatCurrency(convertAmount(Number(value)), currency)
+                      }
                       indicator="dot"
                     />
                   }

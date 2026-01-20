@@ -424,7 +424,7 @@ export async function generateInvoicePDF(
     } else {
       // Display line items
       processedItems.forEach((item) => {
-        const itemSubtotal = isCredit ? -item.subtotal : item.subtotal;
+        // const itemSubtotal = isCredit ? -item.subtotal : item.subtotal; // Unused but kept for potential future use
         const itemTotal = isCredit ? -item.total : item.total;
         const itemUnitPrice = isCredit ? -item.unitPrice : item.unitPrice;
 

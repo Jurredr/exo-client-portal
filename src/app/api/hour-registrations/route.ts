@@ -246,7 +246,20 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updateData: any = {};
+    const updateData: {
+      description?: string;
+      hours?: number;
+      projectId?: string | null;
+      date?: Date;
+      category?:
+        | "client"
+        | "administration"
+        | "brainstorming"
+        | "research"
+        | "labs"
+        | "client_acquisition"
+        | "content_creation";
+    } = {};
     if (description !== undefined) updateData.description = description;
     if (hours !== undefined) {
       if (typeof hours !== "number" || hours <= 0) {

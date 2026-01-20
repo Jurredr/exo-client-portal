@@ -57,7 +57,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { organizationId, projectIds, projectId, name, fileUrl, requiresPortalSignature } = body;
+    const {
+      organizationId,
+      projectIds,
+      projectId,
+      name,
+      fileUrl,
+      requiresPortalSignature,
+    } = body;
 
     if (!organizationId || typeof organizationId !== "string") {
       return NextResponse.json(
@@ -81,7 +88,8 @@ export async function POST(request: Request) {
       projectIds: finalProjectIds.length > 0 ? finalProjectIds : undefined,
       name: name.trim(),
       fileUrl: fileUrl || null,
-      requiresPortalSignature: requiresPortalSignature !== undefined ? requiresPortalSignature : true,
+      requiresPortalSignature:
+        requiresPortalSignature !== undefined ? requiresPortalSignature : true,
     });
 
     return NextResponse.json(contract, { status: 201 });
@@ -111,7 +119,14 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, organizationId, projectIds, name, fileUrl, requiresPortalSignature } = body;
+    const {
+      id,
+      organizationId,
+      projectIds,
+      name,
+      fileUrl,
+      requiresPortalSignature,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -129,11 +144,18 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updateData: any = {};
+    const updateData: {
+      organizationId?: string;
+      name?: string;
+      fileUrl?: string | null;
+      requiresPortalSignature?: boolean;
+      projectIds?: string[];
+    } = {};
     if (organizationId) updateData.organizationId = organizationId;
     if (name !== undefined) updateData.name = name.trim();
     if (fileUrl !== undefined) updateData.fileUrl = fileUrl || null;
-    if (requiresPortalSignature !== undefined) updateData.requiresPortalSignature = requiresPortalSignature;
+    if (requiresPortalSignature !== undefined)
+      updateData.requiresPortalSignature = requiresPortalSignature;
     if (projectIds !== undefined) updateData.projectIds = projectIds;
 
     const contract = await updateContract(id, updateData);

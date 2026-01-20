@@ -5,21 +5,53 @@ interface ContractData {
     id: string;
     organizationId: string;
     name: string;
+    type: string;
     fileUrl: string | null;
     requiresPortalSignature: boolean;
     signed: boolean;
     signedAt: string | null;
+    signature: string | null;
+    signedBy: string | null;
     createdAt: string;
-    updatedAt: string;
   };
-  organization: {
+  project?: {
     id: string;
-    name: string;
+    title: string;
   };
-  projects: Array<{
+  projects?: Array<{
     id: string;
     title: string;
   }>;
+  organization?: {
+    id: string;
+    name: string;
+  };
+  organizations?: Array<{
+    id: string;
+    name: string;
+  }>;
+  signedByUser: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
+}
+
+interface CreateContractData {
+  organizationId: string;
+  projectIds?: string[];
+  name: string;
+  fileUrl?: string | null;
+  requiresPortalSignature?: boolean;
+}
+
+interface UpdateContractData {
+  id: string;
+  organizationId?: string;
+  projectIds?: string[];
+  name?: string;
+  fileUrl?: string | null;
+  requiresPortalSignature?: boolean;
 }
 
 export const contractKeys = {
@@ -33,7 +65,13 @@ async function fetchContracts(): Promise<ContractData[]> {
   if (!response.ok) {
     throw new Error("Failed to fetch contracts");
   }
-  return response.json();
+  const data = await response.json();
+  // Normalize null values to undefined for optional fields
+  return data.map((contract: ContractData) => ({
+    ...contract,
+    project: contract.project ?? undefined,
+    organization: contract.organization ?? undefined,
+  }));
 }
 
 async function fetchContractById(id: string): Promise<ContractData> {
@@ -41,7 +79,13 @@ async function fetchContractById(id: string): Promise<ContractData> {
   if (!response.ok) {
     throw new Error("Failed to fetch contract");
   }
-  return response.json();
+  const data = await response.json();
+  // Normalize null values to undefined for optional fields
+  return {
+    ...data,
+    project: data.project ?? undefined,
+    organization: data.organization ?? undefined,
+  };
 }
 
 export function useContracts() {
@@ -65,14 +109,16 @@ export function useCreateContract() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CreateContractData) => {
       const response = await fetch("/api/contracts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to create contract" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to create contract" }));
         throw new Error(error.error || "Failed to create contract");
       }
       return response.json();
@@ -87,21 +133,25 @@ export function useUpdateContract() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: string; [key: string]: any }) => {
+    mutationFn: async (data: UpdateContractData) => {
       const response = await fetch("/api/contracts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to update contract" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to update contract" }));
         throw new Error(error.error || "Failed to update contract");
       }
       return response.json();
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: contractKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: contractKeys.detail(variables.id) });
+      queryClient.invalidateQueries({
+        queryKey: contractKeys.detail(variables.id),
+      });
     },
   });
 }

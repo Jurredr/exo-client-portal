@@ -24,10 +24,10 @@ interface Project {
   title: string;
 }
 
-interface Organization {
-  id: string;
-  name: string;
-}
+// interface Organization {
+//   id: string;
+//   name: string;
+// }
 
 interface Contract {
   id: string;
@@ -38,10 +38,10 @@ interface Contract {
   projects?: Array<{ id: string; title: string }>;
 }
 
-export function CreateContractForm({ 
-  onSuccess, 
-  contract 
-}: { 
+export function CreateContractForm({
+  onSuccess,
+  contract,
+}: {
   onSuccess?: () => void;
   contract?: Contract;
 }) {
@@ -53,16 +53,20 @@ export function CreateContractForm({
   );
   const [name, setName] = useState(contract?.name || "");
   const [contractFile, setContractFile] = useState<File | null>(null);
-  const [requiresPortalSignature, setRequiresPortalSignature] = useState<boolean>(
-    contract?.requiresPortalSignature !== undefined ? contract.requiresPortalSignature : true
-  );
+  const [requiresPortalSignature, setRequiresPortalSignature] =
+    useState<boolean>(
+      contract?.requiresPortalSignature !== undefined
+        ? contract.requiresPortalSignature
+        : true
+    );
   // TanStack Query hooks
-  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const { data: organizationsData, isLoading: isLoadingOrgs } =
+    useOrganizations();
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
 
-  const organizations = organizationsData?.filter(
-    (org) => org.name !== EXO_ORGANIZATION_NAME
-  ) || [];
+  const organizations =
+    organizationsData?.filter((org) => org.name !== EXO_ORGANIZATION_NAME) ||
+    [];
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,23 +83,26 @@ export function CreateContractForm({
       return;
     }
 
-    const filteredProjects = projectsData
-      ?.filter((p) => p.project.organizationId === organizationId)
-      .map((p) => ({
-        id: p.project.id,
-        title: p.project.title,
-      })) || [];
-    
+    const filteredProjects =
+      projectsData
+        ?.filter((p) => p.project.organizationId === organizationId)
+        .map((p) => ({
+          id: p.project.id,
+          title: p.project.title,
+        })) || [];
+
     // If editing, also include projects from other organizations that are already associated
     if (contract?.projects) {
-      const existingProjectIds = new Set(filteredProjects.map((p: Project) => p.id));
+      const existingProjectIds = new Set(
+        filteredProjects.map((p: Project) => p.id)
+      );
       contract.projects.forEach((p) => {
         if (!existingProjectIds.has(p.id)) {
           filteredProjects.push(p);
         }
       });
     }
-    
+
     setProjects(filteredProjects);
   }, [organizationId, contract, projectsData]);
 
@@ -157,10 +164,14 @@ export function CreateContractForm({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || `Failed to ${contract ? "update" : "create"} contract`);
+        throw new Error(
+          error.error || `Failed to ${contract ? "update" : "create"} contract`
+        );
       }
 
-      toast.success(`Contract ${contract ? "updated" : "created"} successfully`);
+      toast.success(
+        `Contract ${contract ? "updated" : "created"} successfully`
+      );
       if (!contract) {
         setOrganizationId("");
         setProjectIds([]);
@@ -209,11 +220,17 @@ export function CreateContractForm({
           projects={projects}
           selectedIds={projectIds}
           onSelectionChange={setProjectIds}
-          placeholder={organizationId ? "Select projects (optional)..." : "Select an organization first"}
+          placeholder={
+            organizationId
+              ? "Select projects (optional)..."
+              : "Select an organization first"
+          }
           disabled={isLoadingProjects || !organizationId}
         />
         <p className="text-xs text-muted-foreground">
-          Select one or more projects for this contract (e.g., for NDAs shared across multiple projects). Leave empty if the project is not in the portal.
+          Select one or more projects for this contract (e.g., for NDAs shared
+          across multiple projects). Leave empty if the project is not in the
+          portal.
         </p>
       </div>
       <div className="space-y-2">
@@ -233,51 +250,53 @@ export function CreateContractForm({
             Contract PDF (Optional)
           </Label>
           <div className="space-y-2">
-          <Input
-            id="contract-file"
-            type="file"
-            accept=".pdf"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                if (file.type !== "application/pdf") {
-                  toast.error("Please upload a PDF file");
-                  return;
+            <Input
+              id="contract-file"
+              type="file"
+              accept=".pdf"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  if (file.type !== "application/pdf") {
+                    toast.error("Please upload a PDF file");
+                    return;
+                  }
+                  if (file.size > 10 * 1024 * 1024) {
+                    toast.error("File size must be less than 10MB");
+                    return;
+                  }
+                  setContractFile(file);
                 }
-                if (file.size > 10 * 1024 * 1024) {
-                  toast.error("File size must be less than 10MB");
-                  return;
-                }
-                setContractFile(file);
-              }
-            }}
-            className="cursor-pointer"
-          />
-          {contractFile && (
-            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-              <FileText className="h-4 w-4" />
-              <span className="text-sm flex-1">{contractFile.name}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => setContractFile(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Max 10MB. PDF files only.
-          </p>
+              }}
+              className="cursor-pointer"
+            />
+            {contractFile && (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                <FileText className="h-4 w-4" />
+                <span className="text-sm flex-1">{contractFile.name}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setContractFile(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Max 10MB. PDF files only.
+            </p>
           </div>
         </div>
         <div className="flex items-center space-x-2 p-3 border rounded-md bg-muted/50">
           <Checkbox
             id="requires-portal-signature"
             checked={requiresPortalSignature}
-            onCheckedChange={(checked) => setRequiresPortalSignature(checked === true)}
+            onCheckedChange={(checked) =>
+              setRequiresPortalSignature(checked === true)
+            }
           />
           <Label
             htmlFor="requires-portal-signature"
@@ -294,9 +313,13 @@ export function CreateContractForm({
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
         <FileText className="h-4 w-4 mr-2" />
-        {isSubmitting 
-          ? (contract ? "Updating..." : "Creating...") 
-          : (contract ? "Update Contract" : "Create Contract")}
+        {isSubmitting
+          ? contract
+            ? "Updating..."
+            : "Creating..."
+          : contract
+            ? "Update Contract"
+            : "Create Contract"}
       </Button>
     </form>
   );

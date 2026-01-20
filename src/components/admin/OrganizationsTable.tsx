@@ -66,7 +66,8 @@ interface Organization {
 
 export function OrganizationsTable() {
   // TanStack Query hooks
-  const { data: organizationsData = [], isLoading: loading } = useOrganizations();
+  const { data: organizationsData = [], isLoading: loading } =
+    useOrganizations();
   const deleteMutation = useDeleteOrganization();
   const updateMutation = useUpdateOrganization();
 
@@ -243,21 +244,27 @@ export function OrganizationsTable() {
   };
 
   useEffect(() => {
-    if (selectedOrg) {
-      if (selectedOrg.image) {
-        setImagePreview(selectedOrg.image);
-        setImageBase64(null);
-      } else {
-        setImagePreview(null);
-        setImageBase64(null);
+    if (selectedOrg && prevSelectedOrgIdRef.current !== selectedOrg.id) {
+      prevSelectedOrgIdRef.current = selectedOrg.id;
+      // Only update image preview if no user-uploaded image exists
+      if (!imageBase64) {
+        setTimeout(() => {
+          if (selectedOrg.image) {
+            setImagePreview(selectedOrg.image);
+          } else {
+            setImagePreview(null);
+          }
+        }, 0);
       }
-      setAddress(selectedOrg.address || "");
-      setKvkNumber(selectedOrg.kvkNumber || "");
-      setBtwNumber(selectedOrg.btwNumber || "");
-      setEmail(selectedOrg.email || "");
-      setTelephone(selectedOrg.telephone || "");
+      setTimeout(() => {
+        setAddress(selectedOrg.address || "");
+        setKvkNumber(selectedOrg.kvkNumber || "");
+        setBtwNumber(selectedOrg.btwNumber || "");
+        setEmail(selectedOrg.email || "");
+        setTelephone(selectedOrg.telephone || "");
+      }, 0);
     }
-  }, [selectedOrg]);
+  }, [selectedOrg, imageBase64]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -346,138 +353,6 @@ export function OrganizationsTable() {
     });
   };
 
-  const EditContent = () => (
-    <>
-      <DrawerHeader className="gap-1">
-        <DrawerTitle>Edit Organization</DrawerTitle>
-        <DrawerDescription>Update organization details</DrawerDescription>
-      </DrawerHeader>
-      <form
-        id="edit-form"
-        onSubmit={handleUpdate}
-        className="flex flex-col gap-4 overflow-y-auto px-4 text-sm"
-      >
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-name">Name</Label>
-          <Input
-            id="edit-name"
-            name="name"
-            defaultValue={selectedOrg?.name}
-            required
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <Label>Logo Image</Label>
-          <div className="flex items-center gap-4">
-            {imagePreview && (
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={imagePreview} alt="Logo" />
-                <AvatarFallback>
-                  {selectedOrg?.name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2) || "O"}
-                </AvatarFallback>
-              </Avatar>
-            )}
-            <div className="flex-1">
-              <Input
-                id="edit-image"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Max 5MB. Image will be converted to base64.
-              </p>
-            </div>
-            {imagePreview && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setImagePreview(null);
-                  setImageBase64(null);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-        {/* Contact Information Section */}
-        <div className="space-y-4 border rounded-lg p-4">
-          <Label className="text-base font-semibold">Contact Information (Optional)</Label>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-address">Address</Label>
-              <Input
-                id="edit-address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Street address, city, postal code, country"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-kvk">KVK Number</Label>
-                <Input
-                  id="edit-kvk"
-                  value={kvkNumber}
-                  onChange={(e) => setKvkNumber(e.target.value)}
-                  placeholder="e.g., 90251695"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-btw">BTW Number</Label>
-                <Input
-                  id="edit-btw"
-                  value={btwNumber}
-                  onChange={(e) => setBtwNumber(e.target.value)}
-                  placeholder="e.g., NL004799795B92"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-telephone">Telephone</Label>
-                <Input
-                  id="edit-telephone"
-                  type="tel"
-                  value={telephone}
-                  onChange={(e) => setTelephone(e.target.value)}
-                  placeholder="e.g., +31 6 13458011"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </form>
-      <DrawerFooter>
-        <Button type="submit" form="edit-form">
-          Save Changes
-        </Button>
-        <DrawerClose asChild>
-          <Button variant="outline">Cancel</Button>
-        </DrawerClose>
-      </DrawerFooter>
-    </>
-  );
-
   return (
     <div className="space-y-4">
       <div>
@@ -544,7 +419,142 @@ export function OrganizationsTable() {
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DrawerContent>{selectedOrg && <EditContent />}</DrawerContent>
+          <DrawerContent>
+            {selectedOrg && (
+              <>
+                <DrawerHeader className="gap-1">
+                  <DrawerTitle>Edit Organization</DrawerTitle>
+                  <DrawerDescription>
+                    Update organization details
+                  </DrawerDescription>
+                </DrawerHeader>
+                <form
+                  id="edit-form"
+                  onSubmit={handleUpdate}
+                  className="flex flex-col gap-4 overflow-y-auto px-4 text-sm"
+                >
+                  <div className="flex flex-col gap-3">
+                    <Label htmlFor="edit-name">Name</Label>
+                    <Input
+                      id="edit-name"
+                      name="name"
+                      defaultValue={selectedOrg?.name}
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Label>Logo Image</Label>
+                    <div className="flex items-center gap-4">
+                      {imagePreview && (
+                        <Avatar className="h-16 w-16">
+                          <AvatarImage src={imagePreview} alt="Logo" />
+                          <AvatarFallback>
+                            {selectedOrg?.name
+                              ?.split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2) || "O"}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div className="flex-1">
+                        <Input
+                          id="edit-image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="cursor-pointer"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Max 5MB. Image will be converted to base64.
+                        </p>
+                      </div>
+                      {imagePreview && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setImagePreview(null);
+                            setImageBase64(null);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-4 border rounded-lg p-4">
+                    <Label className="text-base font-semibold">
+                      Contact Information (Optional)
+                    </Label>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-address">Address</Label>
+                        <Input
+                          id="edit-address"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="Street address, city, postal code, country"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-kvk">KVK Number</Label>
+                          <Input
+                            id="edit-kvk"
+                            value={kvkNumber}
+                            onChange={(e) => setKvkNumber(e.target.value)}
+                            placeholder="e.g., 90251695"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-btw">BTW Number</Label>
+                          <Input
+                            id="edit-btw"
+                            value={btwNumber}
+                            onChange={(e) => setBtwNumber(e.target.value)}
+                            placeholder="e.g., NL004799795B92"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-email">Email</Label>
+                          <Input
+                            id="edit-email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-telephone">Telephone</Label>
+                          <Input
+                            id="edit-telephone"
+                            type="tel"
+                            value={telephone}
+                            onChange={(e) => setTelephone(e.target.value)}
+                            placeholder="e.g., +31 6 13458011"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+                <DrawerFooter>
+                  <Button type="submit" form="edit-form">
+                    Save Changes
+                  </Button>
+                  <DrawerClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DrawerClose>
+                </DrawerFooter>
+              </>
+            )}
+          </DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -616,7 +626,9 @@ export function OrganizationsTable() {
                   </div>
                   {/* Contact Information Section */}
                   <div className="space-y-4 border rounded-lg p-4">
-                    <Label className="text-base font-semibold">Contact Information (Optional)</Label>
+                    <Label className="text-base font-semibold">
+                      Contact Information (Optional)
+                    </Label>
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="edit-address-dialog">Address</Label>
@@ -659,7 +671,9 @@ export function OrganizationsTable() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit-telephone-dialog">Telephone</Label>
+                          <Label htmlFor="edit-telephone-dialog">
+                            Telephone
+                          </Label>
                           <Input
                             id="edit-telephone-dialog"
                             type="tel"

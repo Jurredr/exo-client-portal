@@ -1,30 +1,27 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, TrendingUp, Calendar, Target } from "lucide-react";
 import { useAllHourRegistrations } from "@/hooks/use-hour-registrations";
 
-interface HourRegistration {
-  id: string;
-  userId: string;
-  projectId: string | null;
-  description: string;
-  hours: string;
-  date: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// interface HourRegistration {
+//   id: string;
+//   userId: string;
+//   projectId: string | null;
+//   description: string;
+//   hours: string;
+//   date: string;
+//   createdAt: string;
+//   updatedAt: string;
+// }
 
 export function HourStatsCards() {
-  const { data: registrationsData, isLoading: loading } = useAllHourRegistrations(true);
-  const registrations = Array.isArray(registrationsData) ? registrationsData : [];
+  const { data: registrationsData, isLoading: loading } =
+    useAllHourRegistrations(true);
+  const registrations = Array.isArray(registrationsData)
+    ? registrationsData
+    : [];
 
   // Format hours (as decimal) to "xhrs ymin" format
   const formatHours = (decimalHours: number) => {

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { projects, users } from "@/db/schema";
+import { projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   ensureUserExists,
@@ -70,7 +70,7 @@ export default async function Home() {
           <div className="text-center">
             <h1 className="text-4xl font-bold text-white mb-4">No Projects</h1>
             <p className="text-white/80">
-              You don't have access to any projects yet.
+              You don&apos;t have access to any projects yet.
             </p>
           </div>
         </div>

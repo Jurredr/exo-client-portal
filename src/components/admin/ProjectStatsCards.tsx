@@ -11,14 +11,14 @@ import {
 import { FolderKanban, Clock, TrendingUp, Target } from "lucide-react";
 import { useAllProjects } from "@/hooks/use-projects";
 
-interface ProjectData {
-  project: {
-    id: string;
-    title: string;
-    status: string;
-  };
-  totalHours?: number;
-}
+// interface ProjectData {
+//   project: {
+//     id: string;
+//     title: string;
+//     status: string;
+//   };
+//   totalHours?: number;
+// }
 
 // Format hours (as decimal) to "xhrs ymin" format
 const formatHours = (decimalHours: number) => {

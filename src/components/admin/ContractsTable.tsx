@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  useContracts,
-  useDeleteContract,
-} from "@/hooks/use-contracts";
+import { useContracts, useDeleteContract } from "@/hooks/use-contracts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -187,10 +184,15 @@ export function ContractsTable() {
           );
         },
         cell: ({ row }) => {
-          const projects = row.original.projects || (row.original.project ? [row.original.project] : []);
-          if (projects.length === 0) return <div className="text-muted-foreground">—</div>;
+          const projects =
+            row.original.projects ||
+            (row.original.project ? [row.original.project] : []);
+          if (projects.length === 0)
+            return <div className="text-muted-foreground">—</div>;
           if (projects.length === 1) {
-            return <div className="text-muted-foreground">{projects[0].title}</div>;
+            return (
+              <div className="text-muted-foreground">{projects[0].title}</div>
+            );
           }
           return (
             <div className="text-muted-foreground">
@@ -201,8 +203,12 @@ export function ContractsTable() {
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          const projectsA = rowA.original.projects || (rowA.original.project ? [rowA.original.project] : []);
-          const projectsB = rowB.original.projects || (rowB.original.project ? [rowB.original.project] : []);
+          const projectsA =
+            rowA.original.projects ||
+            (rowA.original.project ? [rowA.original.project] : []);
+          const projectsB =
+            rowB.original.projects ||
+            (rowB.original.project ? [rowB.original.project] : []);
           const titleA = projectsA.length > 0 ? projectsA[0].title : "";
           const titleB = projectsB.length > 0 ? projectsB[0].title : "";
           return titleA.localeCompare(titleB);
@@ -226,16 +232,25 @@ export function ContractsTable() {
           );
         },
         cell: ({ row }) => {
-          const organizations = row.original.organizations || (row.original.organization ? [row.original.organization] : []);
-          if (organizations.length === 0) return <div className="text-muted-foreground">—</div>;
+          const organizations =
+            row.original.organizations ||
+            (row.original.organization ? [row.original.organization] : []);
+          if (organizations.length === 0)
+            return <div className="text-muted-foreground">—</div>;
           // If all projects are from the same organization, show it once
-          const uniqueOrgs = Array.from(new Set(organizations.map((o) => o.name)));
-          return <div className="text-muted-foreground">{uniqueOrgs.join(", ")}</div>;
+          const uniqueOrgs = Array.from(
+            new Set(organizations.map((o) => o.name))
+          );
+          return (
+            <div className="text-muted-foreground">{uniqueOrgs.join(", ")}</div>
+          );
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          const orgA = rowA.original.organizations?.[0] || rowA.original.organization;
-          const orgB = rowB.original.organizations?.[0] || rowB.original.organization;
+          const orgA =
+            rowA.original.organizations?.[0] || rowA.original.organization;
+          const orgB =
+            rowB.original.organizations?.[0] || rowB.original.organization;
           const nameA = orgA?.name || "";
           const nameB = orgB?.name || "";
           return nameA.localeCompare(nameB);
@@ -260,8 +275,9 @@ export function ContractsTable() {
         },
         cell: ({ row }) => {
           const signed = row.original.contract.signed;
-          const requiresPortalSignature = row.original.contract.requiresPortalSignature;
-          
+          const requiresPortalSignature =
+            row.original.contract.requiresPortalSignature;
+
           if (signed) {
             return <Badge variant="default">Signed</Badge>;
           } else if (!requiresPortalSignature) {
@@ -424,9 +440,14 @@ export function ContractsTable() {
         searchFn={(row, query) => {
           const name = row.contract.name.toLowerCase();
           const projects = row.projects || (row.project ? [row.project] : []);
-          const projectTitles = projects.map((p) => p.title.toLowerCase()).join(" ");
-          const organizations = row.organizations || (row.organization ? [row.organization] : []);
-          const orgNames = organizations.map((o) => o.name.toLowerCase()).join(" ");
+          const projectTitles = projects
+            .map((p) => p.title.toLowerCase())
+            .join(" ");
+          const organizations =
+            row.organizations || (row.organization ? [row.organization] : []);
+          const orgNames = organizations
+            .map((o) => o.name.toLowerCase())
+            .join(" ");
           return (
             name.includes(query) ||
             projectTitles.includes(query) ||
@@ -504,10 +525,16 @@ export function ContractsTable() {
                   contract={{
                     id: editContract.contract.id,
                     name: editContract.contract.name,
-                    organizationId: editContract.organizations?.[0]?.id || editContract.organization?.id || "",
+                    organizationId:
+                      editContract.organizations?.[0]?.id ||
+                      editContract.organization?.id ||
+                      "",
                     fileUrl: editContract.contract.fileUrl,
-                    requiresPortalSignature: editContract.contract.requiresPortalSignature,
-                    projects: editContract.projects || (editContract.project ? [editContract.project] : []),
+                    requiresPortalSignature:
+                      editContract.contract.requiresPortalSignature,
+                    projects:
+                      editContract.projects ||
+                      (editContract.project ? [editContract.project] : []),
                   }}
                   onSuccess={handleEditSuccess}
                 />
@@ -529,10 +556,16 @@ export function ContractsTable() {
                 contract={{
                   id: editContract.contract.id,
                   name: editContract.contract.name,
-                  organizationId: editContract.organizations?.[0]?.id || editContract.organization?.id || "",
+                  organizationId:
+                    editContract.organizations?.[0]?.id ||
+                    editContract.organization?.id ||
+                    "",
                   fileUrl: editContract.contract.fileUrl,
-                  requiresPortalSignature: editContract.contract.requiresPortalSignature,
-                  projects: editContract.projects || (editContract.project ? [editContract.project] : []),
+                  requiresPortalSignature:
+                    editContract.contract.requiresPortalSignature,
+                  projects:
+                    editContract.projects ||
+                    (editContract.project ? [editContract.project] : []),
                 }}
                 onSuccess={handleEditSuccess}
               />

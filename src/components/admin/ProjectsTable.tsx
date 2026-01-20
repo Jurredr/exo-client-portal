@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  useProjects,
-  useDeleteProject,
-} from "@/hooks/use-projects";
+import { useProjects, useDeleteProject } from "@/hooks/use-projects";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -50,7 +47,6 @@ import {
 import {
   FolderPlus,
   DollarSign,
-  Calendar,
   ExternalLink,
   Copy,
   Trash2,
@@ -94,7 +90,7 @@ interface ProjectData {
 }
 
 // Keep for backward compatibility, but use the new helpers
-const PROJECT_STAGES = CLIENT_PROJECT_STAGES;
+// const PROJECT_STAGES = CLIENT_PROJECT_STAGES; // Unused but kept for potential future use
 
 const PROJECT_STATUSES: StatusOption[] = [
   { value: "lead", label: "Lead", state: "bg-purple-500" },
@@ -152,11 +148,11 @@ const formatHours = (decimalHours: number) => {
 export function ProjectsTable() {
   // TanStack Query hooks
   const { data: projectsData, isLoading: isLoadingProjects } = useProjects(1);
-  const { data: organizationsData, isLoading: isLoadingOrganizations } = useOrganizations();
+  const { isLoading: isLoadingOrganizations } = useOrganizations();
   const deleteMutation = useDeleteProject();
 
   const projects = projectsData?.data || [];
-  const organizations = organizationsData?.map((org) => ({ id: org.id, name: org.name })) || [];
+  // const organizations = organizationsData?.map((org) => ({ id: org.id, name: org.name })) || []; // Unused but kept for potential future use
   const loading = isLoadingProjects || isLoadingOrganizations;
 
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(
@@ -472,7 +468,8 @@ export function ProjectsTable() {
     const projectType = selectedProject.project.type;
 
     // Convert empty string to null for subtotal
-    const subtotal = subtotalValue && subtotalValue.trim() ? subtotalValue.trim() : null;
+    const subtotal =
+      subtotalValue && subtotalValue.trim() ? subtotalValue.trim() : null;
 
     try {
       const response = await fetch("/api/projects", {
@@ -501,7 +498,7 @@ export function ProjectsTable() {
       toast.success("Project updated successfully");
       setIsEditOpen(false);
       // React Query will automatically refetch projects
-    } catch (error) {
+    } catch {
       toast.error("Failed to update project");
     }
   };
@@ -686,7 +683,7 @@ export function ProjectsTable() {
   // Columns for labs projects (without subtotal)
   const labsColumns: ColumnDef<ProjectData>[] = useMemo(
     () => columns.filter((col) => col.id !== "subtotal"),
-    []
+    [columns]
   );
 
   return (

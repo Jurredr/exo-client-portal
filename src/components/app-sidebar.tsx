@@ -15,7 +15,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { NavMain, type NavGroup } from "@/components/nav-main";
@@ -54,21 +54,32 @@ import { useOrganizations } from "@/hooks/use-organizations";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  
+
   // TanStack Query hooks
-  const { data: currentUserData, isLoading: isUserDataLoading } = useCurrentUser();
+  const { data: currentUserData, isLoading: isUserDataLoading } =
+    useCurrentUser();
   const { data: organizationsData = [] } = useOrganizations();
   const updateUserMutation = useUpdateUser();
 
   const [user, setUser] = useState<User | null>(null);
-  const userImage = currentUserData?.image || undefined;
-  const userName = currentUserData?.name || null;
-  const userId = currentUserData?.id || null;
-  const userOrganizationId = currentUserData?.organizationId || null;
-  
-  const organizations = organizationsData?.map((org) => ({ id: org.id, name: org.name })) || [];
-  
-  const [isInEXO, setIsInEXO] = useState<boolean>(false);
+  const userImage = currentUserData?.user.image || undefined;
+  const userName = currentUserData?.user.name || null;
+  const userId = currentUserData?.user.id || null;
+  const userOrganizationId = currentUserData?.user.organizationId || null;
+
+  // Memoize organizations to prevent dependency changes on every render
+  const organizations = useMemo(
+    () =>
+      organizationsData?.map((org) => ({ id: org.id, name: org.name })) || [],
+    [organizationsData]
+  );
+
+  // Derive isInEXO from organizations and userOrganizationId
+  const isInEXO = useMemo(() => {
+    const exoOrg = organizations.find((org) => org.name === "EXO");
+    return exoOrg ? userOrganizationId === exoOrg.id : false;
+  }, [userOrganizationId, organizations]);
+
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [accountImagePreview, setAccountImagePreview] = useState<string | null>(
     null
@@ -89,25 +100,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     fetchAuthUser();
   }, []);
 
-  // Check if user is in EXO organization
+  // Update account image preview when modal opens/closes
+  const prevIsAccountModalOpenRef = useRef(false);
   useEffect(() => {
-    const exoOrg = organizations.find((org) => org.name === "EXO");
-    if (exoOrg && userOrganizationId === exoOrg.id) {
-      setIsInEXO(true);
-    } else {
-      setIsInEXO(false);
+    if (prevIsAccountModalOpenRef.current !== isAccountModalOpen) {
+      prevIsAccountModalOpenRef.current = isAccountModalOpen;
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => {
+        if (isAccountModalOpen && userImage && !accountImageBase64) {
+          setAccountImagePreview(userImage);
+        } else if (!isAccountModalOpen) {
+          setAccountImagePreview(null);
+          setAccountImageBase64(null);
+        }
+      }, 0);
     }
-  }, [userOrganizationId, organizations]);
-
-  useEffect(() => {
-    if (isAccountModalOpen && userImage) {
-      setAccountImagePreview(userImage);
-      setAccountImageBase64(null);
-    } else if (!isAccountModalOpen) {
-      setAccountImagePreview(null);
-      setAccountImageBase64(null);
-    }
-  }, [isAccountModalOpen, userImage]);
+  }, [isAccountModalOpen, userImage, accountImageBase64]);
 
   const handleAccountImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -264,7 +272,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href="/dashboard">
                 <Image

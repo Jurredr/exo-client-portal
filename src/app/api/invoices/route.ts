@@ -12,7 +12,6 @@ import {
   invalidateAllInvoiceCaches,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
-import { calculatePaymentAmount } from "@/lib/utils/currency";
 
 export async function GET(request: Request) {
   try {
@@ -31,7 +30,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    
+
     // Check if requesting next invoice number
     if (searchParams.get("nextNumber") === "true") {
       const nextNumber = await getNextInvoiceNumber();
@@ -71,7 +70,7 @@ export async function GET(request: Request) {
 
     // Fallback to non-paginated for backward compatibility
     const invoices = await getAllInvoices();
-    
+
     // Add caching headers to reduce database queries
     return NextResponse.json(invoices, {
       headers: {
@@ -117,7 +116,6 @@ export async function POST(request: Request) {
       description,
       invoiceDate,
       dueDate,
-      autoGenerate,
       pdfUrl,
       pdfFileName,
       pdfFileType,
@@ -171,7 +169,7 @@ export async function POST(request: Request) {
         });
 
         return NextResponse.json(invoice, { status: 201 });
-      } catch (dbError: any) {
+      } catch (dbError: unknown) {
         // Check if it's a unique constraint violation
         if (
           (dbError?.code === "23505" ||
@@ -307,7 +305,9 @@ export async function PATCH(request: Request) {
         description: updateData.description?.trim() || null,
       }),
       ...(updateData.invoiceDate !== undefined && {
-        invoiceDate: updateData.invoiceDate ? new Date(updateData.invoiceDate) : null,
+        invoiceDate: updateData.invoiceDate
+          ? new Date(updateData.invoiceDate)
+          : null,
       }),
       ...(updateData.dueDate !== undefined && {
         dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null,
@@ -358,16 +358,13 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
     if (body.action !== "invalidate-cache") {
-      return NextResponse.json(
-        { error: "Invalid action" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
     await invalidateAllInvoiceCaches();
-    return NextResponse.json({ 
-      success: true, 
-      message: "All invoice caches invalidated" 
+    return NextResponse.json({
+      success: true,
+      message: "All invoice caches invalidated",
     });
   } catch (error) {
     console.error("Error invalidating invoice caches:", error);

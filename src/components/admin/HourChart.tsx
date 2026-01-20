@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useAllHourRegistrations } from "@/hooks/use-hour-registrations";
 import {
@@ -24,19 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-interface HourRegistration {
-  id: string;
-  userId: string;
-  projectId: string | null;
-  description: string;
-  hours: string;
-  date: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// interface HourRegistration {
+//   id: string;
+//   userId: string;
+//   projectId: string | null;
+//   description: string;
+//   hours: string;
+//   date: string;
+//   createdAt: string;
+//   updatedAt: string;
+// }
 
 const chartConfig = {
   hours: {
@@ -46,14 +45,21 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function HourChart() {
-  const { data: registrationsData, isLoading: loading } = useAllHourRegistrations(true);
-  const registrations = Array.isArray(registrationsData) ? registrationsData : [];
-  const [timeRange, setTimeRange] = useState("30d");
+  const { data: registrationsData, isLoading: loading } =
+    useAllHourRegistrations(true);
+  const registrations = Array.isArray(registrationsData)
+    ? registrationsData
+    : [];
   const isMobile = useIsMobile();
+  const [timeRange, setTimeRange] = useState(() => (isMobile ? "30d" : "30d"));
+  const hasInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (isMobile) {
-      setTimeRange("30d");
+    if (!hasInitializedRef.current && isMobile) {
+      hasInitializedRef.current = true;
+      setTimeout(() => {
+        setTimeRange("30d");
+      }, 0);
     }
   }, [isMobile]);
 
@@ -93,7 +99,7 @@ export function HourChart() {
         // Group by month for yearly view
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-        
+
         // Group hours by month (using the actual work date, not createdAt)
         const hoursByMonth: { [key: string]: number } = {};
         registrations.forEach((reg) => {
@@ -104,7 +110,8 @@ export function HourChart() {
           }
           if (regDate >= startOfYear && regDate <= endOfYear) {
             const monthStr = `${regDate.getFullYear()}-${String(regDate.getMonth() + 1).padStart(2, "0")}`;
-            hoursByMonth[monthStr] = (hoursByMonth[monthStr] || 0) + parseFloat(reg.hours);
+            hoursByMonth[monthStr] =
+              (hoursByMonth[monthStr] || 0) + parseFloat(reg.hours);
           }
         });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useAllProjects } from "@/hooks/use-projects";
 import {
@@ -66,12 +66,16 @@ const formatHours = (decimalHours: number) => {
 export function ProjectHoursChart() {
   const { data: projects = [], isLoading: loading } = useAllProjects();
   const [sortBy, setSortBy] = useState<"hours" | "name">("hours");
-  const [limit, setLimit] = useState(10);
   const isMobile = useIsMobile();
+  const [limit, setLimit] = useState(() => (isMobile ? 5 : 10));
+  const hasInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (isMobile) {
-      setLimit(5);
+    if (!hasInitializedRef.current && isMobile) {
+      hasInitializedRef.current = true;
+      setTimeout(() => {
+        setLimit(5);
+      }, 0);
     }
   }, [isMobile]);
 

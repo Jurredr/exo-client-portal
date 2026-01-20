@@ -84,19 +84,18 @@ export function HourRegistrationTimer() {
     | "traveling"
   >("client");
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
-  
+
   // TanStack Query hooks
   const { data: projectsData } = useAllProjects();
   const createMutation = useCreateHourRegistration();
 
   // Process projects data
-  const allProjects = projectsData?.map(
-    (item: { project: Project & { type?: string } }) => ({
+  const allProjects =
+    projectsData?.map((item: { project: Project & { type?: string } }) => ({
       id: item.project.id,
       title: item.project.title,
       type: item.project.type || "client",
-    })
-  ) || [];
+    })) || [];
 
   // Filter projects based on category
   const projects = (() => {
@@ -108,7 +107,7 @@ export function HourRegistrationTimer() {
       "content_creation",
       "traveling",
     ];
-    
+
     if (nonProjectCategories.includes(category)) {
       return [];
     } else if (category === "labs") {
@@ -129,7 +128,7 @@ export function HourRegistrationTimer() {
     }
   })();
 
-  const isSaving = createMutation.isPending;
+  // const isSaving = createMutation.isPending; // Unused but kept for potential future use
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const splitStartTimeRef = useRef<number | null>(null);
@@ -252,7 +251,8 @@ export function HourRegistrationTimer() {
       if (isRunning) {
         if (splitPausedTimeRef.current > 0) {
           // Resume from where we paused
-          splitStartTimeRef.current = Date.now() - splitPausedTimeRef.current * 1000;
+          splitStartTimeRef.current =
+            Date.now() - splitPausedTimeRef.current * 1000;
           splitPausedTimeRef.current = 0;
         } else if (!splitStartTimeRef.current) {
           // Start fresh if no paused time
@@ -350,7 +350,9 @@ export function HourRegistrationTimer() {
             description: description.trim(),
             category,
             projectId:
-              (category === "client" || category === "labs" || category === "content_creation") &&
+              (category === "client" ||
+                category === "labs" ||
+                category === "content_creation") &&
               projectId &&
               projectId !== "none"
                 ? projectId
@@ -497,19 +499,30 @@ export function HourRegistrationTimer() {
   };
 
   // Clear projectId when category changes to non-project category
+  // Reset projectId when category changes to a non-project category
+  const nonProjectCategories = [
+    "administration",
+    "brainstorming",
+    "research",
+    "client_acquisition",
+    "content_creation",
+    "traveling",
+  ];
+  const shouldResetProjectId =
+    nonProjectCategories.includes(category) ||
+    category === "client" ||
+    category === "labs";
+
+  // Use a ref to track the previous category to avoid unnecessary resets
+  const prevCategoryRef = useRef(category);
   useEffect(() => {
-    const nonProjectCategories = [
-      "administration",
-      "brainstorming",
-      "research",
-      "client_acquisition",
-      "content_creation",
-      "traveling",
-    ];
-    if (nonProjectCategories.includes(category) || category === "client" || category === "labs") {
-      setProjectId(undefined);
+    if (prevCategoryRef.current !== category && shouldResetProjectId) {
+      setTimeout(() => {
+        setProjectId(undefined);
+      }, 0);
     }
-  }, [category]);
+    prevCategoryRef.current = category;
+  }, [category, shouldResetProjectId]);
 
   // Close split dialog handler
   const handleCloseSplitDialog = (open: boolean) => {
@@ -674,7 +687,11 @@ export function HourRegistrationTimer() {
 
         <div className="flex flex-wrap gap-2 justify-center mb-4">
           {!isRunning && elapsedSeconds === 0 ? (
-            <Button onClick={handleStart} size="lg" className="flex-1 min-w-[120px]">
+            <Button
+              onClick={handleStart}
+              size="lg"
+              className="flex-1 min-w-[120px]"
+            >
               <Play className="h-4 w-4 mr-2" />
               Start
             </Button>
@@ -789,7 +806,9 @@ export function HourRegistrationTimer() {
                   <TableRow key={split.id}>
                     <TableCell className="max-w-[300px] truncate">
                       {split.isBreak ? (
-                        <span className="text-orange-500">{split.description}</span>
+                        <span className="text-orange-500">
+                          {split.description}
+                        </span>
                       ) : (
                         split.description
                       )}
@@ -875,7 +894,9 @@ export function HourRegistrationTimer() {
                     Client Acquisition
                   </SelectItem>
                   <SelectItem value="labs">EXO Labs</SelectItem>
-                  <SelectItem value="content_creation">Content Creation</SelectItem>
+                  <SelectItem value="content_creation">
+                    Content Creation
+                  </SelectItem>
                   <SelectItem value="traveling">Traveling</SelectItem>
                 </SelectContent>
               </Select>

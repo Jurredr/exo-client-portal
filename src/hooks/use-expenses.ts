@@ -34,6 +34,33 @@ interface PaginatedResponse<T> {
   };
 }
 
+interface CreateExpenseData {
+  userId: string;
+  description: string;
+  amount: string;
+  currency: string;
+  date: Date | string;
+  category?: string | null;
+  vendor?: string | null;
+  invoiceUrl?: string | null;
+  invoiceFileName?: string | null;
+  invoiceFileType?: string | null;
+}
+
+interface UpdateExpenseData {
+  id: string;
+  userId?: string;
+  description?: string;
+  amount?: string;
+  currency?: string;
+  date?: Date | string;
+  category?: string | null;
+  vendor?: string | null;
+  invoiceUrl?: string | null;
+  invoiceFileName?: string | null;
+  invoiceFileType?: string | null;
+}
+
 export const expenseKeys = {
   all: ["expenses"] as const,
   lists: () => [...expenseKeys.all, "list"] as const,
@@ -42,7 +69,9 @@ export const expenseKeys = {
   detail: (id: string) => [...expenseKeys.all, "detail", id] as const,
 };
 
-async function fetchExpenses(page: number = 1): Promise<PaginatedResponse<ExpenseData>> {
+async function fetchExpenses(
+  page: number = 1
+): Promise<PaginatedResponse<ExpenseData>> {
   const params = new URLSearchParams({
     page: page.toString(),
     pageSize: "100",
@@ -67,14 +96,16 @@ export function useCreateExpense() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CreateExpenseData) => {
       const response = await fetch("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to create expense" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to create expense" }));
         throw new Error(error.error || "Failed to create expense");
       }
       return response.json();
@@ -89,14 +120,16 @@ export function useUpdateExpense() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: string; [key: string]: any }) => {
+    mutationFn: async (data: UpdateExpenseData) => {
       const response = await fetch("/api/expenses", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to update expense" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to update expense" }));
         throw new Error(error.error || "Failed to update expense");
       }
       return response.json();

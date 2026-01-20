@@ -1,19 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  useInvoices,
-  useDeleteInvoice,
-} from "@/hooks/use-invoices";
+import { useInvoices, useDeleteInvoice } from "@/hooks/use-invoices";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
-  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -30,7 +25,6 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  FileText,
   Download,
   Trash2,
   Plus,
@@ -225,23 +219,24 @@ export function InvoicesTable() {
         cell: ({ row }) => {
           const { amount, currency, transactionType } = row.original.invoice;
           const symbol = currency === "USD" ? "$" : "€";
-          
+
           // Parse the amount, removing any existing currency symbols
-          let numericAmount = parseFloat(
-            amount.replace(/[€$,]/g, "")
-          ) || 0;
-          
+          let numericAmount = parseFloat(amount.replace(/[€$,]/g, "")) || 0;
+
           // Make credit invoices negative
           if (transactionType === "credit") {
             numericAmount = -Math.abs(numericAmount);
           }
-          
+
           // Format with currency symbol
-          const displayAmount = `${symbol}${numericAmount.toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`;
-          
+          const displayAmount = `${symbol}${numericAmount.toLocaleString(
+            "en-US",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}`;
+
           return <div className="font-medium">{displayAmount}</div>;
         },
         enableSorting: true,
@@ -250,7 +245,7 @@ export function InvoicesTable() {
             parseFloat(rowA.original.invoice.amount.replace(/[€$,]/g, "")) || 0;
           let b =
             parseFloat(rowB.original.invoice.amount.replace(/[€$,]/g, "")) || 0;
-          
+
           // Make credit invoices negative for sorting
           if (rowA.original.invoice.transactionType === "credit") {
             a = -Math.abs(a);
@@ -258,7 +253,7 @@ export function InvoicesTable() {
           if (rowB.original.invoice.transactionType === "credit") {
             b = -Math.abs(b);
           }
-          
+
           return a - b;
         },
       },
@@ -637,7 +632,7 @@ export function InvoicesTable() {
                     pdfUrl: editingInvoice.invoice.pdfUrl || null,
                     pdfFileName: editingInvoice.invoice.pdfFileName || null,
                     pdfFileType: editingInvoice.invoice.pdfFileType || null,
-                    lineItems: (editingInvoice as any).lineItems || undefined,
+                    lineItems: editingInvoice.lineItems || undefined,
                   }}
                   onSuccess={handleEditSuccess}
                   onCancel={handleEditCancel}
@@ -675,7 +670,7 @@ export function InvoicesTable() {
                   pdfUrl: editingInvoice.invoice.pdfUrl || null,
                   pdfFileName: editingInvoice.invoice.pdfFileName || null,
                   pdfFileType: editingInvoice.invoice.pdfFileType || null,
-                  lineItems: (editingInvoice as any).lineItems || undefined,
+                  lineItems: editingInvoice.lineItems || undefined,
                 }}
                 onSuccess={handleEditSuccess}
                 onCancel={handleEditCancel}

@@ -32,6 +32,27 @@ interface PaginatedResponse<T> {
   };
 }
 
+interface CreateUserData {
+  email: string;
+  name?: string | null;
+  image?: string | null;
+  phone?: string | null;
+  note?: string | null;
+  organizationId?: string | null;
+  organizationIds?: string[];
+}
+
+interface UpdateUserData {
+  id: string;
+  email?: string;
+  name?: string | null;
+  image?: string | null;
+  phone?: string | null;
+  note?: string | null;
+  organizationId?: string | null;
+  organizationIds?: string[];
+}
+
 export const userKeys = {
   all: ["users"] as const,
   lists: () => [...userKeys.all, "list"] as const,
@@ -41,7 +62,9 @@ export const userKeys = {
   me: () => [...userKeys.all, "me"] as const,
 };
 
-async function fetchUsers(page: number = 1): Promise<PaginatedResponse<UserData>> {
+async function fetchUsers(
+  page: number = 1
+): Promise<PaginatedResponse<UserData>> {
   const params = new URLSearchParams({
     page: page.toString(),
     pageSize: "100",
@@ -54,7 +77,7 @@ async function fetchUsers(page: number = 1): Promise<PaginatedResponse<UserData>
   return response.json();
 }
 
-async function fetchCurrentUser(): Promise<any> {
+async function fetchCurrentUser(): Promise<UserData> {
   const response = await fetch("/api/users/me");
   if (!response.ok) {
     throw new Error("Failed to fetch current user");
@@ -82,14 +105,16 @@ export function useCreateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: CreateUserData) => {
       const response = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to create user" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to create user" }));
         throw new Error(error.error || "Failed to create user");
       }
       return response.json();
@@ -104,21 +129,25 @@ export function useUpdateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { id: string; [key: string]: any }) => {
+    mutationFn: async (data: UpdateUserData) => {
       const response = await fetch("/api/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Failed to update user" }));
+        const error = await response
+          .json()
+          .catch(() => ({ error: "Failed to update user" }));
         throw new Error(error.error || "Failed to update user");
       }
       return response.json();
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: userKeys.detail(variables.id) });
+      queryClient.invalidateQueries({
+        queryKey: userKeys.detail(variables.id),
+      });
       queryClient.invalidateQueries({ queryKey: userKeys.me() });
     },
   });

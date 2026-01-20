@@ -8,7 +8,7 @@ export default function NotFoundPage() {
           Project Not Found
         </h1>
         <p className="text-white/80 mb-8">
-          The project you're looking for doesn't exist.
+          The project you&apos;re looking for doesn&apos;t exist.
         </p>
         <Link
           href="/login"

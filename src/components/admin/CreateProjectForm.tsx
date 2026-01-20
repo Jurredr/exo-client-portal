@@ -18,13 +18,6 @@ import { FolderPlus, DollarSign, Calendar } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { getProjectStages, getDefaultStage } from "@/lib/constants/stages";
 
-interface Organization {
-  id: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 const PROJECT_STATUSES: StatusOption[] = [
   { value: "lead", label: "Lead", state: "bg-purple-500" },
   { value: "active", label: "Active", state: "bg-green-500" },
@@ -45,7 +38,8 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
   // TanStack Query hooks
-  const { data: organizationsData, isLoading: isLoadingOrgs } = useOrganizations();
+  const { data: organizationsData, isLoading: isLoadingOrgs } =
+    useOrganizations();
   const organizations = organizationsData || [];
 
   const [exoOrgId, setExoOrgId] = useState<string | null>(null);
@@ -53,7 +47,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
 
   // Find EXO organization
   useEffect(() => {
-    const exoOrg = organizations.find((org: Organization) => org.name === "EXO");
+    const exoOrg = organizations.find((org) => org.name === "EXO");
     if (exoOrg) {
       setExoOrgId(exoOrg.id);
     }

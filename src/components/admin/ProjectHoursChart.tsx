@@ -27,13 +27,13 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-interface ProjectData {
-  project: {
-    id: string;
-    title: string;
-  };
-  totalHours?: number;
-}
+// interface ProjectData {
+//   project: {
+//     id: string;
+//     title: string;
+//   };
+//   totalHours?: number;
+// }
 
 const chartConfig = {
   hours: {

@@ -58,6 +58,7 @@ export default function ContractPage() {
   useEffect(() => {
     fetchContract();
     checkCanSign();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractId]);
 
   const fetchContract = async () => {
@@ -190,10 +191,16 @@ export default function ContractPage() {
             <h1 className="text-3xl font-bold">{contract.contract.name}</h1>
             <p className="text-muted-foreground mt-1">
               {(() => {
-                const projects = contract.projects || (contract.project ? [contract.project] : []);
-                const organizations = contract.organizations || (contract.organization ? [contract.organization] : []);
+                const projects =
+                  contract.projects ||
+                  (contract.project ? [contract.project] : []);
+                const organizations =
+                  contract.organizations ||
+                  (contract.organization ? [contract.organization] : []);
                 const projectTitles = projects.map((p) => p.title).join(", ");
-                const orgNames = Array.from(new Set(organizations.map((o) => o.name))).join(", ");
+                const orgNames = Array.from(
+                  new Set(organizations.map((o) => o.name))
+                ).join(", ");
                 return `Projects: ${projectTitles || "—"} • ${orgNames || "—"}`;
               })()}
             </p>
@@ -264,6 +271,7 @@ export default function ContractPage() {
                   <p className="text-sm text-green-700 dark:text-green-300 mb-2">
                     Signature:
                   </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={contract.contract.signature}
                     alt="Signature"
@@ -282,7 +290,8 @@ export default function ContractPage() {
             <div>
               <h3 className="font-semibold mb-1">Archived Contract</h3>
               <p className="text-sm text-muted-foreground">
-                This contract is stored for administrative purposes and does not require signing through the portal.
+                This contract is stored for administrative purposes and does not
+                require signing through the portal.
               </p>
             </div>
           </div>

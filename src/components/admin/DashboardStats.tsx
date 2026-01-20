@@ -150,6 +150,7 @@ export default function DashboardStats() {
       // Reset exchange rate when switching back to EUR
       setExchangeRate(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currency]);
 
   const fetchExchangeRate = async () => {

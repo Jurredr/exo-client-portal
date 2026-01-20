@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,10 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   // TanStack Query hooks
   const { data: organizationsData, isLoading: isLoadingOrgs } =
     useOrganizations();
-  const organizations = organizationsData || [];
+  const organizations = useMemo(
+    () => organizationsData || [],
+    [organizationsData]
+  );
 
   const [exoOrgId, setExoOrgId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,6 +65,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       setOrganizationId("");
       setStage(getDefaultStage("client"));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectType, exoOrgId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

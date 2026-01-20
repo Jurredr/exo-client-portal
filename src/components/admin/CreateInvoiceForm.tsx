@@ -204,6 +204,7 @@ export function CreateInvoiceForm({
       setPdfFile(null);
       setRemovePdf(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice?.id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -46,7 +46,6 @@ import {
 } from "@/lib/constants/stages";
 import {
   FolderPlus,
-  DollarSign,
   ExternalLink,
   Copy,
   Trash2,

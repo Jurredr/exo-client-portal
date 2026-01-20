@@ -207,9 +207,20 @@ export async function PATCH(request: Request) {
     }
 
     // Validate category if provided
-    let validCategory = registration.category;
+    type ValidCategory =
+      | "client"
+      | "administration"
+      | "brainstorming"
+      | "research"
+      | "labs"
+      | "client_acquisition"
+      | "content_creation";
+
+    let validCategory: ValidCategory | undefined = registration.category as
+      | ValidCategory
+      | undefined;
     if (category) {
-      const validCategories = [
+      const validCategories: readonly ValidCategory[] = [
         "client",
         "administration",
         "brainstorming",
@@ -217,27 +228,29 @@ export async function PATCH(request: Request) {
         "labs",
         "client_acquisition",
         "content_creation",
-        "traveling",
       ];
-      validCategory = validCategories.includes(category)
-        ? category
-        : registration.category;
+      if (validCategories.includes(category as ValidCategory)) {
+        validCategory = category as ValidCategory;
+      }
     }
 
-    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, traveling) should not have a project
-    const nonProjectCategories = [
+    // Validate: non-project categories (administration, brainstorming, research, client_acquisition) should not have a project
+    const nonProjectCategories: readonly ValidCategory[] = [
       "administration",
       "brainstorming",
       "research",
       "client_acquisition",
-      "traveling",
     ];
     const finalProjectId =
-      category && nonProjectCategories.includes(validCategory)
+      category && validCategory && nonProjectCategories.includes(validCategory)
         ? null
         : projectId || registration.projectId;
 
-    if (nonProjectCategories.includes(validCategory) && finalProjectId) {
+    if (
+      validCategory &&
+      nonProjectCategories.includes(validCategory) &&
+      finalProjectId
+    ) {
       return NextResponse.json(
         {
           error: `${validCategory.charAt(0).toUpperCase() + validCategory.slice(1)} work should not be associated with a project`,

@@ -62,10 +62,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const updateUserMutation = useUpdateUser();
 
   const [user, setUser] = useState<User | null>(null);
-  const userImage = currentUserData?.user.image || undefined;
-  const userName = currentUserData?.user.name || null;
-  const userId = currentUserData?.user.id || null;
-  const userOrganizationId = currentUserData?.user.organizationId || null;
+  const userImage = currentUserData?.user?.image || undefined;
+  const userName = currentUserData?.user?.name || null;
+  const userId = currentUserData?.user?.id || null;
+  const userOrganizationId = currentUserData?.user?.organizationId || null;
 
   // Memoize organizations to prevent dependency changes on every render
   const organizations = useMemo(

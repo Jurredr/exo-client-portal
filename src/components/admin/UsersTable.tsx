@@ -85,12 +85,15 @@ export function UsersTable() {
   const updateMutation = useUpdateUser();
 
   const users = usersData?.data || [];
-  const organizations =
-    organizationsData?.map((org) => ({
-      id: org.id,
-      name: org.name,
-      image: org.image,
-    })) || [];
+  const organizations = useMemo(
+    () =>
+      organizationsData?.map((org) => ({
+        id: org.id,
+        name: org.name,
+        image: org.image,
+      })) || [],
+    [organizationsData]
+  );
   const loading = isLoadingUsers || isLoadingOrganizations;
 
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -384,6 +387,7 @@ export function UsersTable() {
         setSelectedOrganizationIds([]);
       }
     }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUser]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -427,7 +431,9 @@ export function UsersTable() {
         phone: phone.trim() || null,
         note: note.trim() || null,
         organizationIds:
-          selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
+          selectedOrganizationIds.length > 0
+            ? selectedOrganizationIds
+            : undefined,
         image: imageBase64 || selectedUser.user.image || null,
       },
       {

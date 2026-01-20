@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   useOrganizations,
@@ -85,6 +85,7 @@ export function OrganizationsTable() {
   const [btwNumber, setBtwNumber] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [telephone, setTelephone] = useState<string>("");
+  const prevSelectedOrgIdRef = useRef<string | null>(null);
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<Organization>[] = useMemo(

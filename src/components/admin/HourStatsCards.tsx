@@ -19,9 +19,10 @@ import { useAllHourRegistrations } from "@/hooks/use-hour-registrations";
 export function HourStatsCards() {
   const { data: registrationsData, isLoading: loading } =
     useAllHourRegistrations(true);
-  const registrations = Array.isArray(registrationsData)
-    ? registrationsData
-    : [];
+  const registrations = useMemo(
+    () => (Array.isArray(registrationsData) ? registrationsData : []),
+    [registrationsData]
+  );
 
   // Format hours (as decimal) to "xhrs ymin" format
   const formatHours = (decimalHours: number) => {

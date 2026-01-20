@@ -135,6 +135,7 @@ export function EnhancedDataTable<TData, TValue>({
     }
 
     return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, searchQuery, searchableFields, activeFilters, filterConfig]);
 
   const table = useReactTable({

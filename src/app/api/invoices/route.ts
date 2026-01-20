@@ -171,10 +171,11 @@ export async function POST(request: Request) {
         return NextResponse.json(invoice, { status: 201 });
       } catch (dbError: unknown) {
         // Check if it's a unique constraint violation
+        const error = dbError as { code?: string; message?: string };
         if (
-          (dbError?.code === "23505" ||
-            dbError?.message?.includes("unique") ||
-            dbError?.message?.includes("duplicate")) &&
+          (error?.code === "23505" ||
+            error?.message?.includes("unique") ||
+            error?.message?.includes("duplicate")) &&
           !invoiceNumberOverride
         ) {
           // If it's a duplicate and we didn't override, generate a new number and retry
@@ -192,9 +193,9 @@ export async function POST(request: Request) {
         }
         // If it's a duplicate with override, return error
         if (
-          dbError?.code === "23505" ||
-          dbError?.message?.includes("unique") ||
-          dbError?.message?.includes("duplicate")
+          error?.code === "23505" ||
+          error?.message?.includes("unique") ||
+          error?.message?.includes("duplicate")
         ) {
           return NextResponse.json(
             { error: `Invoice number "${invoiceNumber}" already exists` },

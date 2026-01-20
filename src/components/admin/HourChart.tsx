@@ -47,9 +47,10 @@ const chartConfig = {
 export function HourChart() {
   const { data: registrationsData, isLoading: loading } =
     useAllHourRegistrations(true);
-  const registrations = Array.isArray(registrationsData)
-    ? registrationsData
-    : [];
+  const registrations = useMemo(
+    () => (Array.isArray(registrationsData) ? registrationsData : []),
+    [registrationsData]
+  );
   const isMobile = useIsMobile();
   const [timeRange, setTimeRange] = useState(() => (isMobile ? "30d" : "30d"));
   const hasInitializedRef = useRef(false);

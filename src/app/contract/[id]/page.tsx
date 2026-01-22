@@ -17,7 +17,6 @@ interface ContractData {
     type: string;
     fileStoragePath: string | null; // Path in Supabase Storage
     fileName: string | null;
-    fileType: string | null;
     fileSizeBytes: number | null;
     requiresPortalSignature: boolean;
     signed: boolean;

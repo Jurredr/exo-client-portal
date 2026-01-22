@@ -60,7 +60,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       user.email?.split("@")[0] ||
       "User",
     email: user.email || "",
-    avatar: dbUser?.image || user.user_metadata?.avatar_url || undefined,
+    avatar: dbUser?.imageStoragePath
+      ? `/api/users/${dbUser.id}/image`
+      : user.user_metadata?.avatar_url || undefined,
   };
 
   return (

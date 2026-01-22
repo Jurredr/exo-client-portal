@@ -60,7 +60,6 @@ interface InvoiceData {
     paidAt: string | null;
     pdfStoragePath: string | null; // Path in Supabase Storage
     pdfFileName: string | null;
-    pdfFileType: string | null;
     pdfSizeBytes: number | null;
     createdAt: string;
     updatedAt: string;
@@ -640,7 +639,6 @@ export function InvoicesTable() {
                     invoiceDate: editingInvoice.invoice.invoiceDate,
                     dueDate: editingInvoice.invoice.dueDate,
                     pdfFileName: editingInvoice.invoice.pdfFileName || null,
-                    pdfFileType: editingInvoice.invoice.pdfFileType || null,
                     lineItems: editingInvoice.lineItems || undefined,
                   }}
                   onSuccess={handleEditSuccess}
@@ -677,7 +675,6 @@ export function InvoicesTable() {
                   invoiceDate: editingInvoice.invoice.invoiceDate,
                   dueDate: editingInvoice.invoice.dueDate,
                   pdfFileName: editingInvoice.invoice.pdfFileName || null,
-                  pdfFileType: editingInvoice.invoice.pdfFileType || null,
                   lineItems: editingInvoice.lineItems || undefined,
                 }}
                 onSuccess={handleEditSuccess}

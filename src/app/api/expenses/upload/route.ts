@@ -32,6 +32,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
+    if (file.type !== "application/pdf") {
+      return NextResponse.json(
+        { error: "Only PDF files are allowed" },
+        { status: 400 }
+      );
+    }
+
     // Check file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
@@ -75,7 +82,6 @@ export async function POST(request: Request) {
       storagePath: data.path,
       sizeBytes: fileSize,
       fileName: file.name,
-      fileType: file.type,
     });
   } catch (error) {
     console.error("Error uploading expense file:", error);

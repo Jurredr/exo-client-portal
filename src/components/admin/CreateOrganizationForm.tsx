@@ -11,7 +11,7 @@ import { Plus, X } from "lucide-react";
 interface Organization {
   id: string;
   name: string;
-  image?: string | null;
+  imageStoragePath?: string | null;
   address?: string | null;
   kvkNumber?: string | null;
   btwNumber?: string | null;
@@ -30,8 +30,8 @@ export function CreateOrganizationForm({
 }) {
   const [name, setName] = useState(organization?.name || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(organization?.image || null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [address, setAddress] = useState(organization?.address || "");
   const [kvkNumber, setKvkNumber] = useState(organization?.kvkNumber || "");
   const [btwNumber, setBtwNumber] = useState(organization?.btwNumber || "");
@@ -53,13 +53,13 @@ export function CreateOrganizationForm({
         return;
       }
 
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setImageBase64(base64String);
-        setImagePreview(base64String);
+        setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      setImageFile(file);
     }
   };
 
@@ -73,13 +73,55 @@ export function CreateOrganizationForm({
 
     setIsSubmitting(true);
     try {
+      let imageStoragePath: string | null = null;
+      let imageSizeBytes: number | null = null;
+
+      // Upload image to Storage if a new file is provided
+      if (imageFile) {
+        try {
+          const formData = new FormData();
+          formData.append("file", imageFile);
+          if (organization?.id) {
+            formData.append("organizationId", organization.id);
+          }
+
+          const uploadResponse = await fetch(
+            "/api/organizations/upload-image",
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            throw new Error(error.error || "Failed to upload image");
+          }
+
+          const uploadResult = await uploadResponse.json();
+          imageStoragePath = uploadResult.storagePath;
+          imageSizeBytes = uploadResult.sizeBytes;
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          toast.error("Failed to upload image. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const url = "/api/organizations";
       const method = organization ? "PATCH" : "POST";
       const body = organization
         ? {
             id: organization.id,
             name: name.trim(),
-            image: imageBase64 || organization.image || null,
+            // Only include image fields if they're explicitly set (new file or removal)
+            ...(imageFile || (!imageFile && !organization.imageStoragePath)
+              ? {
+                  imageStoragePath: imageStoragePath ?? null,
+                  imageSizeBytes: imageSizeBytes ?? null,
+                }
+              : {}),
             address: address.trim() || null,
             kvkNumber: kvkNumber.trim() || null,
             btwNumber: btwNumber.trim() || null,
@@ -88,7 +130,8 @@ export function CreateOrganizationForm({
           }
         : {
             name: name.trim(),
-            image: imageBase64 || null,
+            imageStoragePath,
+            imageSizeBytes,
             address: address.trim() || null,
             kvkNumber: kvkNumber.trim() || null,
             btwNumber: btwNumber.trim() || null,
@@ -109,11 +152,13 @@ export function CreateOrganizationForm({
         throw new Error(error.error || "Failed to create organization");
       }
 
-      toast.success(`Organization ${organization ? "updated" : "created"} successfully`);
+      toast.success(
+        `Organization ${organization ? "updated" : "created"} successfully`
+      );
       if (!organization) {
         setName("");
         setImagePreview(null);
-        setImageBase64(null);
+        setImageFile(null);
         setAddress("");
         setKvkNumber("");
         setBtwNumber("");
@@ -167,7 +212,7 @@ export function CreateOrganizationForm({
               className="cursor-pointer"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Max 5MB. Image will be converted to base64.
+              Max 5MB. Image will be compressed and stored.
             </p>
           </div>
           {imagePreview && (
@@ -177,7 +222,7 @@ export function CreateOrganizationForm({
               size="icon"
               onClick={() => {
                 setImagePreview(null);
-                setImageBase64(null);
+                setImageFile(null);
               }}
             >
               <X className="h-4 w-4" />
@@ -187,7 +232,9 @@ export function CreateOrganizationForm({
       </div>
       {/* Contact Information Section */}
       <div className="space-y-4 border rounded-lg p-4">
-        <Label className="text-base font-semibold">Contact Information (Optional)</Label>
+        <Label className="text-base font-semibold">
+          Contact Information (Optional)
+        </Label>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="org-address">Address</Label>

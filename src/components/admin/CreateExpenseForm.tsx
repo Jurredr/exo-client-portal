@@ -36,7 +36,6 @@ interface Expense {
   vendor: string | null;
   invoiceStoragePath: string | null; // Path in Supabase Storage
   invoiceFileName: string | null;
-  invoiceFileType: string | null;
   invoiceSizeBytes: number | null;
 }
 
@@ -76,16 +75,15 @@ export function CreateExpenseForm({
       setInvoiceFile(file);
       setRemoveInvoice(false); // Reset remove flag when new file is selected
 
-      // Create preview for images
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setInvoicePreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setInvoicePreview(null);
+      // Validate file type - only PDFs allowed
+      if (file.type !== "application/pdf") {
+        toast.error("Please upload a PDF file");
+        setInvoiceFile(null);
+        return;
       }
+
+      // No preview for PDFs, just show filename
+      setInvoicePreview(null);
     }
   };
 
@@ -106,7 +104,6 @@ export function CreateExpenseForm({
     try {
       let invoiceStoragePath: string | null = null;
       let invoiceFileName: string | null = null;
-      let invoiceFileType: string | null = null;
       let invoiceSizeBytes: number | null = null;
 
       // Upload file to Storage if a new file is provided
@@ -131,7 +128,6 @@ export function CreateExpenseForm({
           const uploadResult = await uploadResponse.json();
           invoiceStoragePath = uploadResult.storagePath;
           invoiceFileName = uploadResult.fileName;
-          invoiceFileType = uploadResult.fileType;
           invoiceSizeBytes = uploadResult.sizeBytes;
         } catch (error) {
           console.error("Error uploading file:", error);
@@ -143,7 +139,6 @@ export function CreateExpenseForm({
         // File is being removed
         invoiceStoragePath = null;
         invoiceFileName = null;
-        invoiceFileType = null;
         invoiceSizeBytes = null;
       }
       // If neither invoiceFile nor removeInvoice, we don't set file fields
@@ -165,7 +160,6 @@ export function CreateExpenseForm({
               ? {
                   invoiceStoragePath: invoiceStoragePath ?? null,
                   invoiceFileName: invoiceFileName ?? null,
-                  invoiceFileType: invoiceFileType ?? null,
                   invoiceSizeBytes: invoiceSizeBytes ?? null,
                 }
               : {}),
@@ -179,7 +173,6 @@ export function CreateExpenseForm({
             vendor: vendor.trim() || null,
             invoiceStoragePath,
             invoiceFileName,
-            invoiceFileType,
             invoiceSizeBytes,
           };
 
@@ -314,7 +307,7 @@ export function CreateExpenseForm({
           <Input
             id="expense-invoice"
             type="file"
-            accept="image/*,.pdf"
+            accept=".pdf"
             onChange={handleFileChange}
             className="cursor-pointer"
           />

@@ -90,7 +90,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { email, name, phone, note, organizationId, organizationIds, image } = body;
+    const {
+      email,
+      name,
+      phone,
+      note,
+      organizationId,
+      organizationIds,
+      imageStoragePath, // Path in Supabase Storage
+      imageSizeBytes,
+    } = body;
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
@@ -121,10 +130,12 @@ export async function POST(request: Request) {
       email.trim(),
       name?.trim() || null,
       orgIds,
-      image || null,
+      imageStoragePath || null,
+      imageSizeBytes || null,
       phone?.trim() || null,
       note?.trim() || null
     );
+
     return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
     console.error("Error creating user:", error);
@@ -152,7 +163,16 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, phone, note, organizationId, organizationIds, image } = body;
+    const {
+      id,
+      name,
+      phone,
+      note,
+      organizationId,
+      organizationIds,
+      imageStoragePath, // Path in Supabase Storage
+      imageSizeBytes,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -180,6 +200,12 @@ export async function PATCH(request: Request) {
       ...(name !== undefined && { name: name?.trim() || null }),
       ...(phone !== undefined && { phone: phone?.trim() || null }),
       ...(note !== undefined && { note: note?.trim() || null }),
+      ...(imageStoragePath !== undefined && {
+        imageStoragePath: imageStoragePath || null,
+      }),
+      ...(imageSizeBytes !== undefined && {
+        imageSizeBytes: imageSizeBytes || null,
+      }),
       ...(orgIds !== undefined && { organizationIds: orgIds }),
       ...(image !== undefined && { image: image || null }),
     });

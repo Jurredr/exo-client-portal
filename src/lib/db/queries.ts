@@ -7,7 +7,7 @@ import {
   userOrganizations,
   invoices,
   invoiceLineItems,
-  legalDocuments,
+  contracts,
   contractProjects,
   expenses,
 } from "@/db/schema";
@@ -75,16 +75,21 @@ export async function getOrCreateEXOOrganization() {
 export async function ensureUserExists(
   email: string,
   name?: string | null,
-  image?: string | null
+  imageStoragePath?: string | null, // Path in Supabase Storage
+  imageSizeBytes?: number | null
 ): Promise<typeof users.$inferSelect> {
   // Check if user exists
   const existing = await getUserByEmail(email);
   if (existing) {
     // Update image if provided and different
-    if (image && existing.image !== image) {
+    if (imageStoragePath && existing.imageStoragePath !== imageStoragePath) {
       const [updated] = await db
         .update(users)
-        .set({ image, updatedAt: new Date() })
+        .set({
+          imageStoragePath,
+          imageSizeBytes: imageSizeBytes || null,
+          updatedAt: new Date(),
+        })
         .where(eq(users.id, existing.id))
         .returning();
       return updated;
@@ -105,7 +110,8 @@ export async function ensureUserExists(
     .values({
       email,
       name: name || null,
-      image: image || null,
+      imageStoragePath: imageStoragePath || null,
+      imageSizeBytes: imageSizeBytes || null,
       organizationId,
     })
     .returning();
@@ -128,6 +134,16 @@ export async function getUserByEmail(email: string) {
     .select()
     .from(users)
     .where(eq(users.email, email))
+    .limit(1);
+
+  return user[0] || null;
+}
+
+export async function getUserById(userId: string) {
+  const user = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
     .limit(1);
 
   return user[0] || null;
@@ -271,7 +287,7 @@ export async function getHourRegistrationsByUser(
         id: users.id,
         name: users.name,
         email: users.email,
-        image: users.image,
+        imageStoragePath: users.imageStoragePath,
       },
     })
     .from(hourRegistrations)
@@ -390,7 +406,7 @@ export async function getAllHourRegistrations(options?: {
         id: users.id,
         name: users.name,
         email: users.email,
-        image: users.image,
+        imageStoragePath: users.imageStoragePath,
       },
     })
     .from(hourRegistrations)
@@ -520,7 +536,8 @@ export async function deleteHourRegistration(registrationId: string) {
 
 export async function createOrganization(data: {
   name: string;
-  image?: string | null;
+  imageStoragePath?: string | null; // Path in Supabase Storage
+  imageSizeBytes?: number | null;
   address?: string | null;
   kvkNumber?: string | null;
   btwNumber?: string | null;
@@ -531,7 +548,8 @@ export async function createOrganization(data: {
     .insert(organizations)
     .values({
       name: data.name,
-      image: data.image || null,
+      imageStoragePath: data.imageStoragePath || null,
+      imageSizeBytes: data.imageSizeBytes || null,
       address: data.address || null,
       kvkNumber: data.kvkNumber || null,
       btwNumber: data.btwNumber || null,
@@ -547,7 +565,8 @@ export async function updateOrganization(
   organizationId: string,
   data: {
     name: string;
-    image: string | null;
+    imageStoragePath?: string | null; // Path in Supabase Storage
+    imageSizeBytes?: number | null;
     address?: string | null;
     kvkNumber?: string | null;
     btwNumber?: string | null;
@@ -568,8 +587,21 @@ export async function updateOrganization(
 }
 
 export async function getAllOrganizations() {
+  // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
   const orgs = await db
-    .select()
+    .select({
+      id: organizations.id,
+      name: organizations.name,
+      imageStoragePath: organizations.imageStoragePath, // Path string is safe to include
+      imageSizeBytes: organizations.imageSizeBytes,
+      address: organizations.address,
+      kvkNumber: organizations.kvkNumber,
+      btwNumber: organizations.btwNumber,
+      email: organizations.email,
+      telephone: organizations.telephone,
+      createdAt: organizations.createdAt,
+      updatedAt: organizations.updatedAt,
+    })
     .from(organizations)
     .orderBy(organizations.name);
 
@@ -600,11 +632,22 @@ export async function getAllOrganizations() {
   }));
 }
 
+export async function getOrganizationById(organizationId: string) {
+  const org = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+
+  return org[0] || null;
+}
+
 export async function createUser(
   email: string,
   name: string | null,
   organizationIds: string[] | null,
-  image?: string | null,
+  imageStoragePath?: string | null, // Path in Supabase Storage
+  imageSizeBytes?: number | null,
   phone?: string | null,
   note?: string | null
 ) {
@@ -619,7 +662,8 @@ export async function createUser(
       name: name || null,
       phone: phone || null,
       note: note || null,
-      image: image || null,
+      imageStoragePath: imageStoragePath || null,
+      imageSizeBytes: imageSizeBytes || null,
       organizationId: primaryOrgId,
     })
     .returning();
@@ -643,7 +687,8 @@ export async function updateUser(
     name: string | null;
     organizationId: string | null;
     organizationIds?: string[] | null;
-    image: string | null;
+    imageStoragePath?: string | null; // Path in Supabase Storage
+    imageSizeBytes?: number | null;
     phone: string | null;
     note: string | null;
   }>
@@ -674,7 +719,8 @@ export async function updateUser(
   const updateData: Partial<{
     name: string | null;
     organizationId: string | null;
-    image: string | null;
+    imageStoragePath: string | null;
+    imageSizeBytes: number | null;
     phone: string | null;
     note: string | null;
     updatedAt: Date;
@@ -683,7 +729,12 @@ export async function updateUser(
     ...(data.organizationId !== undefined && {
       organizationId: data.organizationId,
     }),
-    ...(data.image !== undefined && { image: data.image }),
+    ...(data.imageStoragePath !== undefined && {
+      imageStoragePath: data.imageStoragePath,
+    }),
+    ...(data.imageSizeBytes !== undefined && {
+      imageSizeBytes: data.imageSizeBytes,
+    }),
     ...(data.phone !== undefined && { phone: data.phone }),
     ...(data.note !== undefined && { note: data.note }),
     updatedAt: new Date(),
@@ -699,6 +750,7 @@ export async function updateUser(
 }
 
 export async function getAllUsers() {
+  // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
   // Get all users with their primary organization (for backward compatibility)
   const usersWithPrimaryOrg = await db
     .select({
@@ -708,7 +760,8 @@ export async function getAllUsers() {
         name: users.name,
         phone: users.phone,
         note: users.note,
-        image: users.image,
+        imageStoragePath: users.imageStoragePath, // Path string is safe to include
+        imageSizeBytes: users.imageSizeBytes,
         organizationId: users.organizationId,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
@@ -759,6 +812,7 @@ export async function getAllUsersPaginated(options?: {
   limit?: number;
   offset?: number;
 }) {
+  // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
   // Get paginated users with their primary organization
   let query = db
     .select({
@@ -768,7 +822,8 @@ export async function getAllUsersPaginated(options?: {
         name: users.name,
         phone: users.phone,
         note: users.note,
-        image: users.image,
+        imageStoragePath: users.imageStoragePath, // Path string is safe to include
+        imageSizeBytes: users.imageSizeBytes,
         organizationId: users.organizationId,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
@@ -1051,11 +1106,51 @@ export async function getTotalHoursByProject() {
 }
 
 export async function deleteOrganization(organizationId: string) {
+  // Get the organization first to check if it has a Storage image
+  const org = await db
+    .select({ imageStoragePath: organizations.imageStoragePath })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+
+  // Delete the organization
   await db.delete(organizations).where(eq(organizations.id, organizationId));
+
+  // Delete the image from Storage if it exists
+  if (org[0]?.imageStoragePath) {
+    try {
+      const { deleteOrganizationImage } = await import(
+        "@/lib/utils/image-storage"
+      );
+      await deleteOrganizationImage(org[0].imageStoragePath);
+    } catch (error) {
+      // Log error but don't fail the deletion if Storage deletion fails
+      console.error("Error deleting organization image from Storage:", error);
+    }
+  }
 }
 
 export async function deleteUser(userId: string) {
+  // Get the user first to check if it has a Storage image
+  const user = await db
+    .select({ imageStoragePath: users.imageStoragePath })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  // Delete the user
   await db.delete(users).where(eq(users.id, userId));
+
+  // Delete the image from Storage if it exists
+  if (user[0]?.imageStoragePath) {
+    try {
+      const { deleteUserImage } = await import("@/lib/utils/image-storage");
+      await deleteUserImage(user[0].imageStoragePath);
+    } catch (error) {
+      // Log error but don't fail the deletion if Storage deletion fails
+      console.error("Error deleting user image from Storage:", error);
+    }
+  }
 }
 
 export async function deleteProject(projectId: string) {
@@ -1527,7 +1622,6 @@ export async function getAllInvoices() {
         paidAt: invoices.paidAt,
         pdfStoragePath: sql<string | null>`NULL`.as("pdfStoragePath"), // Explicitly set to null to avoid transferring data
         pdfFileName: invoices.pdfFileName,
-        pdfFileType: invoices.pdfFileType,
         pdfSizeBytes: invoices.pdfSizeBytes,
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
@@ -1664,7 +1758,6 @@ export async function getAllInvoicesPaginated(options?: {
         paidAt: invoices.paidAt,
         pdfStoragePath: sql<string | null>`NULL`.as("pdfStoragePath"), // Explicitly set to null to avoid transferring data
         pdfFileName: invoices.pdfFileName,
-        pdfFileType: invoices.pdfFileType,
         pdfSizeBytes: invoices.pdfSizeBytes,
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
@@ -1807,7 +1900,6 @@ export async function getInvoiceById(invoiceId: string) {
         paidAt: invoices.paidAt,
         pdfStoragePath: invoices.pdfStoragePath,
         pdfFileName: invoices.pdfFileName,
-        pdfFileType: invoices.pdfFileType,
         pdfSizeBytes: invoices.pdfSizeBytes,
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
@@ -1955,7 +2047,6 @@ export async function createInvoice(data: {
   dueDate?: Date | null;
   pdfStoragePath?: string | null; // Path in Supabase Storage
   pdfFileName?: string | null;
-  pdfFileType?: string | null;
   pdfSizeBytes?: number | null;
   lineItems?: Array<{
     description: string;
@@ -1983,7 +2074,6 @@ export async function createInvoice(data: {
       dueDate: data.dueDate || null,
       pdfStoragePath: data.pdfStoragePath || null,
       pdfFileName: data.pdfFileName || null,
-      pdfFileType: data.pdfFileType || null,
       pdfSizeBytes: data.pdfSizeBytes || null,
     })
     .returning();
@@ -2022,7 +2112,6 @@ export async function updateInvoice(
     paidAt: Date | null;
     pdfStoragePath: string | null; // Path in Supabase Storage
     pdfFileName: string | null;
-    pdfFileType: string | null;
     pdfSizeBytes: number | null;
     lineItems?: Array<{
       id?: string;
@@ -2103,27 +2192,26 @@ export async function invalidateAllInvoiceCaches() {
     .returning({ id: invoices.id });
 }
 
-// Contract queries (using legal_documents table with type='contract')
+// Contract queries
 export async function getAllContracts() {
   // Get all contracts with their organization and first project (for backward compatibility)
   // Note: fileStoragePath is just a path string, not the file data, so it's safe to include
-  const contracts = await db
+  const contractsList = await db
     .select({
       contract: {
-        id: legalDocuments.id,
-        organizationId: legalDocuments.organizationId,
-        name: legalDocuments.name,
-        type: legalDocuments.type,
-        fileStoragePath: legalDocuments.fileStoragePath,
-        fileName: legalDocuments.fileName,
-        fileType: legalDocuments.fileType,
-        fileSizeBytes: legalDocuments.fileSizeBytes,
-        requiresPortalSignature: legalDocuments.requiresPortalSignature,
-        signed: legalDocuments.signed,
-        signedAt: legalDocuments.signedAt,
-        signature: legalDocuments.signature,
-        signedBy: legalDocuments.signedBy,
-        createdAt: legalDocuments.createdAt,
+        id: contracts.id,
+        organizationId: contracts.organizationId,
+        name: contracts.name,
+        type: contracts.type,
+        fileStoragePath: contracts.fileStoragePath,
+        fileName: contracts.fileName,
+        fileSizeBytes: contracts.fileSizeBytes,
+        requiresPortalSignature: contracts.requiresPortalSignature,
+        signed: contracts.signed,
+        signedAt: contracts.signedAt,
+        signature: contracts.signature,
+        signedBy: contracts.signedBy,
+        createdAt: contracts.createdAt,
       },
       organization: {
         id: organizations.id,
@@ -2139,18 +2227,15 @@ export async function getAllContracts() {
         email: users.email,
       },
     })
-    .from(legalDocuments)
-    .innerJoin(
-      organizations,
-      eq(legalDocuments.organizationId, organizations.id)
-    )
-    .leftJoin(projects, eq(legalDocuments.projectId, projects.id))
-    .leftJoin(users, eq(legalDocuments.signedBy, users.id))
-    .where(eq(legalDocuments.type, "contract"))
-    .orderBy(desc(legalDocuments.createdAt));
+    .from(contracts)
+    .innerJoin(organizations, eq(contracts.organizationId, organizations.id))
+    .leftJoin(projects, eq(contracts.projectId, projects.id))
+    .leftJoin(users, eq(contracts.signedBy, users.id))
+    .where(eq(contracts.type, "contract"))
+    .orderBy(desc(contracts.createdAt));
 
   // Get all project associations from junction table
-  const allContractProjectIds = contracts.map((c) => c.contract.id);
+  const allContractProjectIds = contractsList.map((c) => c.contract.id);
   const projectAssociations =
     allContractProjectIds.length > 0
       ? await db
@@ -2184,7 +2269,7 @@ export async function getAllContracts() {
   });
 
   // Attach projects to each contract
-  return contracts.map((contract) => {
+  return contractsList.map((contract) => {
     const associatedProjects =
       projectsByContract.get(contract.contract.id) || [];
     // If no projects from junction table but has legacy projectId, use that
@@ -2213,20 +2298,19 @@ export async function getContractById(contractId: string) {
   const result = await db
     .select({
       contract: {
-        id: legalDocuments.id,
-        organizationId: legalDocuments.organizationId,
-        name: legalDocuments.name,
-        type: legalDocuments.type,
-        fileStoragePath: legalDocuments.fileStoragePath,
-        fileName: legalDocuments.fileName,
-        fileType: legalDocuments.fileType,
-        fileSizeBytes: legalDocuments.fileSizeBytes,
-        requiresPortalSignature: legalDocuments.requiresPortalSignature,
-        signed: legalDocuments.signed,
-        signedAt: legalDocuments.signedAt,
-        signature: legalDocuments.signature,
-        signedBy: legalDocuments.signedBy,
-        createdAt: legalDocuments.createdAt,
+        id: contracts.id,
+        organizationId: contracts.organizationId,
+        name: contracts.name,
+        type: contracts.type,
+        fileStoragePath: contracts.fileStoragePath,
+        fileName: contracts.fileName,
+        fileSizeBytes: contracts.fileSizeBytes,
+        requiresPortalSignature: contracts.requiresPortalSignature,
+        signed: contracts.signed,
+        signedAt: contracts.signedAt,
+        signature: contracts.signature,
+        signedBy: contracts.signedBy,
+        createdAt: contracts.createdAt,
       },
       organization: {
         id: organizations.id,
@@ -2242,19 +2326,11 @@ export async function getContractById(contractId: string) {
         email: users.email,
       },
     })
-    .from(legalDocuments)
-    .innerJoin(
-      organizations,
-      eq(legalDocuments.organizationId, organizations.id)
-    )
-    .leftJoin(projects, eq(legalDocuments.projectId, projects.id))
-    .leftJoin(users, eq(legalDocuments.signedBy, users.id))
-    .where(
-      and(
-        eq(legalDocuments.id, contractId),
-        eq(legalDocuments.type, "contract")
-      )
-    )
+    .from(contracts)
+    .innerJoin(organizations, eq(contracts.organizationId, organizations.id))
+    .leftJoin(projects, eq(contracts.projectId, projects.id))
+    .leftJoin(users, eq(contracts.signedBy, users.id))
+    .where(and(eq(contracts.id, contractId), eq(contracts.type, "contract")))
     .limit(1);
 
   if (!result[0]) return null;
@@ -2305,7 +2381,6 @@ export async function createContract(data: {
   name: string;
   fileStoragePath?: string | null; // Path in Supabase Storage
   fileName?: string | null;
-  fileType?: string | null;
   fileSizeBytes?: number | null;
   requiresPortalSignature?: boolean;
 }) {
@@ -2321,7 +2396,7 @@ export async function createContract(data: {
     data.projectIds && data.projectIds.length > 0 ? data.projectIds[0] : null;
 
   const [contract] = await db
-    .insert(legalDocuments)
+    .insert(contracts)
     .values({
       organizationId: data.organizationId,
       projectId: firstProjectId,
@@ -2329,7 +2404,6 @@ export async function createContract(data: {
       type: "contract",
       fileStoragePath: data.fileStoragePath || null,
       fileName: data.fileName || null,
-      fileType: data.fileType || null,
       fileSizeBytes: data.fileSizeBytes || null,
       requiresPortalSignature,
       signed,
@@ -2356,7 +2430,6 @@ export async function updateContract(
     name: string;
     fileStoragePath: string | null; // Path in Supabase Storage
     fileName: string | null;
-    fileType: string | null;
     fileSizeBytes: number | null;
     requiresPortalSignature: boolean;
     signed: boolean;
@@ -2371,9 +2444,9 @@ export async function updateContract(
   const { projectIds, ...updateData } = data;
 
   const [contract] = await db
-    .update(legalDocuments)
+    .update(contracts)
     .set(updateData)
-    .where(eq(legalDocuments.id, contractId))
+    .where(eq(contracts.id, contractId))
     .returning();
 
   // Update project associations if projectIds is provided
@@ -2397,9 +2470,9 @@ export async function updateContract(
     const firstProjectId = projectIds.length > 0 ? projectIds[0] : null;
     if (firstProjectId !== null || projectIds.length === 0) {
       await db
-        .update(legalDocuments)
+        .update(contracts)
         .set({ projectId: firstProjectId })
-        .where(eq(legalDocuments.id, contractId));
+        .where(eq(contracts.id, contractId));
     }
   }
 
@@ -2409,13 +2482,13 @@ export async function updateContract(
 export async function deleteContract(contractId: string) {
   // Get the contract first to check if it has a Storage file
   const contract = await db
-    .select({ fileStoragePath: legalDocuments.fileStoragePath })
-    .from(legalDocuments)
-    .where(eq(legalDocuments.id, contractId))
+    .select({ fileStoragePath: contracts.fileStoragePath })
+    .from(contracts)
+    .where(eq(contracts.id, contractId))
     .limit(1);
 
   // Delete the contract
-  await db.delete(legalDocuments).where(eq(legalDocuments.id, contractId));
+  await db.delete(contracts).where(eq(contracts.id, contractId));
 
   // Delete the file from Storage if it exists
   if (contract[0]?.fileStoragePath) {
@@ -2441,7 +2514,6 @@ export async function createExpense(data: {
   invoiceUrl?: string | null; // DEPRECATED: Base64 data URL (will be migrated to Storage)
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceFileName?: string | null;
-  invoiceFileType?: string | null;
   invoiceSizeBytes?: number | null;
 }) {
   const [expense] = await db
@@ -2456,7 +2528,6 @@ export async function createExpense(data: {
       vendor: data.vendor || null,
       invoiceStoragePath: data.invoiceStoragePath || null,
       invoiceFileName: data.invoiceFileName || null,
-      invoiceFileType: data.invoiceFileType || null,
       invoiceSizeBytes: data.invoiceSizeBytes || null,
     })
     .returning();
@@ -2478,7 +2549,6 @@ export async function getAllExpenses() {
         vendor: expenses.vendor,
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
-        invoiceFileType: expenses.invoiceFileType,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
@@ -2512,7 +2582,6 @@ export async function getAllExpensesPaginated(options?: {
         vendor: expenses.vendor,
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
-        invoiceFileType: expenses.invoiceFileType,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
@@ -2559,7 +2628,6 @@ export async function getExpensesByUser(userId: string) {
         vendor: expenses.vendor,
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
-        invoiceFileType: expenses.invoiceFileType,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
@@ -2590,7 +2658,6 @@ export async function getExpenseById(expenseId: string) {
         vendor: expenses.vendor,
         invoiceStoragePath: expenses.invoiceStoragePath,
         invoiceFileName: expenses.invoiceFileName,
-        invoiceFileType: expenses.invoiceFileType,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
@@ -2620,7 +2687,6 @@ export async function updateExpense(
     vendor: string | null;
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
-    invoiceFileType: string | null;
     invoiceSizeBytes: number | null;
   }>
 ) {

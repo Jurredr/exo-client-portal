@@ -35,7 +35,6 @@ interface Contract {
   organizationId: string;
   fileStoragePath: string | null; // Path in Supabase Storage
   fileName: string | null;
-  fileType: string | null;
   fileSizeBytes: number | null;
   requiresPortalSignature: boolean;
   projects?: Array<{ id: string; title: string }>;
@@ -126,7 +125,6 @@ export function CreateContractForm({
     try {
       let fileStoragePath: string | null = null;
       let fileName: string | null = null;
-      let fileType: string | null = null;
       let fileSizeBytes: number | null = null;
 
       // Upload PDF to Storage if a new file is provided
@@ -151,7 +149,6 @@ export function CreateContractForm({
           const uploadResult = await uploadResponse.json();
           fileStoragePath = uploadResult.storagePath;
           fileName = uploadResult.fileName;
-          fileType = uploadResult.fileType;
           fileSizeBytes = uploadResult.sizeBytes;
         } catch (error) {
           console.error("Error uploading PDF:", error);
@@ -174,7 +171,6 @@ export function CreateContractForm({
               ? {
                   fileStoragePath: fileStoragePath ?? null,
                   fileName: fileName ?? null,
-                  fileType: fileType ?? null,
                   fileSizeBytes: fileSizeBytes ?? null,
                 }
               : {}),
@@ -186,7 +182,6 @@ export function CreateContractForm({
             name: name.trim(),
             fileStoragePath,
             fileName,
-            fileType,
             fileSizeBytes,
             requiresPortalSignature,
           };

@@ -53,7 +53,6 @@ interface ExpenseData {
     vendor: string | null;
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
-    invoiceFileType: string | null;
     invoiceSizeBytes: number | null;
     createdAt: string;
     updatedAt: string;

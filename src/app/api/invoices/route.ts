@@ -118,7 +118,6 @@ export async function POST(request: Request) {
       dueDate,
       pdfStoragePath, // Path in Supabase Storage
       pdfFileName,
-      pdfFileType,
       pdfSizeBytes,
       invoiceNumber: invoiceNumberOverride,
       lineItems,
@@ -165,7 +164,6 @@ export async function POST(request: Request) {
           dueDate: dueDate ? new Date(dueDate) : null,
           pdfStoragePath: pdfStoragePath || null,
           pdfFileName: pdfFileName || null,
-          pdfFileType: pdfFileType || null,
           pdfSizeBytes: pdfSizeBytes || null,
           lineItems: lineItems || undefined,
         });
@@ -323,9 +321,6 @@ export async function PATCH(request: Request) {
       }),
       ...(updateData.pdfFileName !== undefined && {
         pdfFileName: updateData.pdfFileName || null,
-      }),
-      ...(updateData.pdfFileType !== undefined && {
-        pdfFileType: updateData.pdfFileType || null,
       }),
       ...(updateData.pdfSizeBytes !== undefined && {
         pdfSizeBytes: updateData.pdfSizeBytes || null,

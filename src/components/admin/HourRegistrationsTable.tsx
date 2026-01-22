@@ -60,7 +60,7 @@ interface HourRegistration {
     id: string;
     email: string;
     name: string | null;
-    image: string | null;
+    imageStoragePath: string | null;
   };
 }
 
@@ -152,7 +152,11 @@ const createColumns = (
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
             <AvatarImage
-              src={user.image || undefined}
+              src={
+                user.imageStoragePath
+                  ? `/api/users/${user.id}/image`
+                  : undefined
+              }
               alt={user.name || user.email}
             />
             <AvatarFallback>

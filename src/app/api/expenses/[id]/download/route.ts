@@ -40,9 +40,8 @@ export async function GET(
             expenseData.expense.invoiceFileName ||
             `expense-${expenseData.expense.id}.pdf`;
 
-          // Determine content type based on file type
-          const contentType =
-            expenseData.expense.invoiceFileType || "application/pdf";
+          // All expense files are PDFs
+          const contentType = "application/pdf";
 
           return new NextResponse(new Uint8Array(fileBuffer), {
             headers: {

@@ -12,7 +12,8 @@ import {
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  image: text("image"),
+  imageStoragePath: text("image_storage_path"), // Path in Supabase Storage (e.g., "organizations/org-123.jpg")
+  imageSizeBytes: integer("image_size_bytes"), // File size in bytes
   address: text("address"),
   kvkNumber: text("kvk_number"),
   btwNumber: text("btw_number"),
@@ -28,7 +29,8 @@ export const users = pgTable("users", {
   name: text("name"),
   phone: text("phone"),
   note: text("note"),
-  image: text("image"),
+  imageStoragePath: text("image_storage_path"), // Path in Supabase Storage (e.g., "users/user-123.jpg")
+  imageSizeBytes: integer("image_size_bytes"), // File size in bytes
   organizationId: uuid("organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -74,7 +76,7 @@ export const clientAssets = pgTable("client_assets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const legalDocuments = pgTable("legal_documents", {
+export const contracts = pgTable("contracts", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
@@ -84,7 +86,6 @@ export const legalDocuments = pgTable("legal_documents", {
   type: text("type").notNull(), // 'agreement', 'nda', 'contract', etc.
   fileStoragePath: text("file_storage_path"), // Path in Supabase Storage (e.g., "contracts/contract-123.pdf")
   fileName: text("file_name"), // Original filename
-  fileType: text("file_type"), // MIME type
   fileSizeBytes: integer("file_size_bytes"), // File size in bytes
   requiresPortalSignature: boolean("requires_portal_signature")
     .default(true)
@@ -99,7 +100,7 @@ export const legalDocuments = pgTable("legal_documents", {
 export const contractProjects = pgTable("contract_projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   contractId: uuid("contract_id")
-    .references(() => legalDocuments.id, { onDelete: "cascade" })
+    .references(() => contracts.id, { onDelete: "cascade" })
     .notNull(),
   projectId: uuid("project_id")
     .references(() => projects.id, { onDelete: "cascade" })
@@ -160,7 +161,6 @@ export const invoices = pgTable("invoices", {
   paidAt: timestamp("paid_at"),
   pdfStoragePath: text("pdf_storage_path"), // Path in Supabase Storage (e.g., "invoices/invoice-123.pdf")
   pdfFileName: text("pdf_file_name"), // Original filename
-  pdfFileType: text("pdf_file_type"), // MIME type
   pdfSizeBytes: integer("pdf_size_bytes"), // File size in bytes
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -197,7 +197,6 @@ export const expenses = pgTable("expenses", {
   vendor: text("vendor"), // Where the expense was made (store, company, etc.)
   invoiceStoragePath: text("invoice_storage_path"), // Path in Supabase Storage (e.g., "expenses/expense-123.pdf")
   invoiceFileName: text("invoice_file_name"), // Original filename
-  invoiceFileType: text("invoice_file_type"), // MIME type
   invoiceSizeBytes: integer("invoice_size_bytes"), // File size in bytes
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

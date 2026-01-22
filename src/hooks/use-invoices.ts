@@ -19,7 +19,6 @@ interface InvoiceData {
     paidAt: string | null;
     pdfStoragePath: string | null; // Path in Supabase Storage
     pdfFileName: string | null;
-    pdfFileType: string | null;
     pdfSizeBytes: number | null;
     createdAt: string;
     updatedAt: string;

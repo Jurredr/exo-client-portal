@@ -62,7 +62,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const updateUserMutation = useUpdateUser();
 
   const [user, setUser] = useState<User | null>(null);
-  const userImage = currentUserData?.user?.image || undefined;
+  const userImageStoragePath =
+    currentUserData?.user?.imageStoragePath || undefined;
   const userName = currentUserData?.user?.name || null;
   const userId = currentUserData?.user?.id || null;
   const userOrganizationId = currentUserData?.user?.organizationId || null;
@@ -84,9 +85,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [accountImagePreview, setAccountImagePreview] = useState<string | null>(
     null
   );
-  const [accountImageBase64, setAccountImageBase64] = useState<string | null>(
-    null
-  );
+  const [accountImageFile, setAccountImageFile] = useState<File | null>(null);
 
   // Fetch auth user for email check
   useEffect(() => {
@@ -107,15 +106,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       prevIsAccountModalOpenRef.current = isAccountModalOpen;
       // Use setTimeout to avoid synchronous setState in effect
       setTimeout(() => {
-        if (isAccountModalOpen && userImage && !accountImageBase64) {
-          setAccountImagePreview(userImage);
+        if (isAccountModalOpen && !accountImageFile) {
+          // Show Storage image if available
+          if (currentUserData?.user?.imageStoragePath) {
+            setAccountImagePreview(
+              `/api/users/${currentUserData.user.id}/image`
+            );
+          } else {
+            setAccountImagePreview(null);
+          }
         } else if (!isAccountModalOpen) {
           setAccountImagePreview(null);
-          setAccountImageBase64(null);
+          setAccountImageFile(null);
         }
       }, 0);
     }
-  }, [isAccountModalOpen, userImage, accountImageBase64]);
+  }, [isAccountModalOpen, accountImageFile, currentUserData]);
 
   const handleAccountImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -128,13 +134,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         toast.error("Image size must be less than 5MB");
         return;
       }
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setAccountImageBase64(base64String);
-        setAccountImagePreview(base64String);
+        setAccountImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      setAccountImageFile(file);
     }
   };
 
@@ -146,20 +152,56 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const name = formData.get("name") as string;
     const organizationId = formData.get("organizationId") as string;
 
+    // Upload image to Storage if a new file is provided
+    let imageStoragePath: string | null = null;
+    let imageSizeBytes: number | null = null;
+
+    if (accountImageFile) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", accountImageFile);
+        uploadFormData.append("userId", userId);
+
+        const uploadResponse = await fetch("/api/users/upload-image", {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || "Failed to upload image");
+        }
+
+        const uploadResult = await uploadResponse.json();
+        imageStoragePath = uploadResult.storagePath;
+        imageSizeBytes = uploadResult.sizeBytes;
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast.error("Failed to upload image. Please try again.");
+        return;
+      }
+    }
+
     updateUserMutation.mutate(
       {
         id: userId,
         name: name.trim() || null,
         organizationId:
           organizationId && organizationId !== "none" ? organizationId : null,
-        image: accountImageBase64 || userImage || null,
+        // Only include image fields if a new file was uploaded
+        ...(accountImageFile
+          ? {
+              imageStoragePath: imageStoragePath ?? null,
+              imageSizeBytes: imageSizeBytes ?? null,
+            }
+          : {}),
       },
       {
         onSuccess: () => {
           toast.success("Account updated successfully");
           setIsAccountModalOpen(false);
           setAccountImagePreview(null);
-          setAccountImageBase64(null);
+          setAccountImageFile(null);
           window.dispatchEvent(new Event("user-updated"));
         },
         onError: (error: Error) => {
@@ -250,7 +292,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             user.email?.split("@")[0] ||
             "User",
           email: user.email || "",
-          avatar: userImage || user.user_metadata?.avatar_url || undefined,
+          avatar: userImageStoragePath
+            ? `/api/users/${currentUserData?.user?.id}/image`
+            : user.user_metadata?.avatar_url || undefined,
         }
       : user
         ? {
@@ -371,7 +415,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     className="cursor-pointer"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Max 5MB. Image will be converted to base64.
+                    Max 5MB. Image will be compressed and stored.
                   </p>
                 </div>
                 {accountImagePreview && (
@@ -381,7 +425,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     size="icon"
                     onClick={() => {
                       setAccountImagePreview(null);
-                      setAccountImageBase64(null);
+                      setAccountImageFile(null);
                     }}
                   >
                     <X className="h-4 w-4" />
@@ -396,7 +440,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 onClick={() => {
                   setIsAccountModalOpen(false);
                   setAccountImagePreview(null);
-                  setAccountImageBase64(null);
+                  setAccountImageFile(null);
                 }}
               >
                 Cancel

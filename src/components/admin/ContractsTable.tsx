@@ -51,7 +51,6 @@ interface ContractData {
     type: string;
     fileStoragePath: string | null; // Path in Supabase Storage
     fileName: string | null;
-    fileType: string | null;
     fileSizeBytes: number | null;
     requiresPortalSignature: boolean;
     signed: boolean;
@@ -534,7 +533,6 @@ export function ContractsTable() {
                       "",
                     fileStoragePath: editContract.contract.fileStoragePath,
                     fileName: editContract.contract.fileName,
-                    fileType: editContract.contract.fileType,
                     fileSizeBytes: editContract.contract.fileSizeBytes,
                     requiresPortalSignature:
                       editContract.contract.requiresPortalSignature,
@@ -568,7 +566,6 @@ export function ContractsTable() {
                     "",
                   fileStoragePath: editContract.contract.fileStoragePath,
                   fileName: editContract.contract.fileName,
-                  fileType: editContract.contract.fileType,
                   fileSizeBytes: editContract.contract.fileSizeBytes,
                   requiresPortalSignature:
                     editContract.contract.requiresPortalSignature,

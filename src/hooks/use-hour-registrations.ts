@@ -18,7 +18,7 @@ interface HourRegistration {
     id: string;
     email: string;
     name: string | null;
-    image: string | null;
+    imageStoragePath: string | null;
   };
 }
 

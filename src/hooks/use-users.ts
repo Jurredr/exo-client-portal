@@ -5,7 +5,8 @@ interface UserData {
     id: string;
     email: string;
     name: string | null;
-    image: string | null;
+    imageStoragePath: string | null; // Path in Supabase Storage
+    imageSizeBytes: number | null;
     phone: string | null;
     note: string | null;
     organizationId: string | null;
@@ -35,7 +36,8 @@ interface PaginatedResponse<T> {
 interface CreateUserData {
   email: string;
   name?: string | null;
-  image?: string | null;
+  imageStoragePath?: string | null; // Path in Supabase Storage
+  imageSizeBytes?: number | null;
   phone?: string | null;
   note?: string | null;
   organizationId?: string | null;
@@ -46,7 +48,8 @@ interface UpdateUserData {
   id: string;
   email?: string;
   name?: string | null;
-  image?: string | null;
+  imageStoragePath?: string | null; // Path in Supabase Storage
+  imageSizeBytes?: number | null;
   phone?: string | null;
   note?: string | null;
   organizationId?: string | null;

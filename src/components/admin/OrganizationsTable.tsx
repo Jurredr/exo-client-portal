@@ -53,7 +53,7 @@ import { EnhancedDataTable } from "@/components/enhanced-data-table";
 interface Organization {
   id: string;
   name: string;
-  image: string | null;
+  imageStoragePath: string | null;
   address?: string | null;
   kvkNumber?: string | null;
   btwNumber?: string | null;
@@ -79,7 +79,7 @@ export function OrganizationsTable() {
   const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [address, setAddress] = useState<string>("");
   const [kvkNumber, setKvkNumber] = useState<string>("");
   const [btwNumber, setBtwNumber] = useState<string>("");
@@ -105,7 +105,14 @@ export function OrganizationsTable() {
           };
           return (
             <Avatar className="h-8 w-8">
-              <AvatarImage src={org.image || undefined} alt={org.name} />
+              <AvatarImage
+                src={
+                  org.imageStoragePath
+                    ? `/api/organizations/${org.id}/image`
+                    : undefined
+                }
+                alt={org.name}
+              />
               <AvatarFallback>{getInitials(org.name)}</AvatarFallback>
             </Avatar>
           );
@@ -248,10 +255,10 @@ export function OrganizationsTable() {
     if (selectedOrg && prevSelectedOrgIdRef.current !== selectedOrg.id) {
       prevSelectedOrgIdRef.current = selectedOrg.id;
       // Only update image preview if no user-uploaded image exists
-      if (!imageBase64) {
+      if (!imageFile) {
         setTimeout(() => {
-          if (selectedOrg.image) {
-            setImagePreview(selectedOrg.image);
+          if (selectedOrg.imageStoragePath) {
+            setImagePreview(`/api/organizations/${selectedOrg.id}/image`);
           } else {
             setImagePreview(null);
           }
@@ -265,7 +272,7 @@ export function OrganizationsTable() {
         setTelephone(selectedOrg.telephone || "");
       }, 0);
     }
-  }, [selectedOrg, imageBase64]);
+  }, [selectedOrg, imageFile]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -282,13 +289,13 @@ export function OrganizationsTable() {
         return;
       }
 
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setImageBase64(base64String);
-        setImagePreview(base64String);
+        setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      setImageFile(file);
     }
   };
 
@@ -304,11 +311,47 @@ export function OrganizationsTable() {
       return;
     }
 
+    // Upload image to Storage if a new file is provided
+    let imageStoragePath: string | null = null;
+    let imageSizeBytes: number | null = null;
+
+    if (imageFile) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", imageFile);
+        uploadFormData.append("organizationId", selectedOrg.id);
+
+        const uploadResponse = await fetch("/api/organizations/upload-image", {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || "Failed to upload image");
+        }
+
+        const uploadResult = await uploadResponse.json();
+        imageStoragePath = uploadResult.storagePath;
+        imageSizeBytes = uploadResult.sizeBytes;
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast.error("Failed to upload image. Please try again.");
+        return;
+      }
+    }
+
     updateMutation.mutate(
       {
         id: selectedOrg.id,
         name: name.trim(),
-        image: imageBase64 || selectedOrg.image || null,
+        // Only include image fields if a new file was uploaded
+        ...(imageFile
+          ? {
+              imageStoragePath: imageStoragePath ?? null,
+              imageSizeBytes: imageSizeBytes ?? null,
+            }
+          : {}),
         address: address.trim() || null,
         kvkNumber: kvkNumber.trim() || null,
         btwNumber: btwNumber.trim() || null,
@@ -320,7 +363,7 @@ export function OrganizationsTable() {
           toast.success("Organization updated successfully");
           setIsEditOpen(false);
           setImagePreview(null);
-          setImageBase64(null);
+          setImageFile(null);
           setAddress("");
           setKvkNumber("");
           setBtwNumber("");
@@ -478,7 +521,7 @@ export function OrganizationsTable() {
                           size="icon"
                           onClick={() => {
                             setImagePreview(null);
-                            setImageBase64(null);
+                            setImageFile(null);
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -617,7 +660,7 @@ export function OrganizationsTable() {
                           size="icon"
                           onClick={() => {
                             setImagePreview(null);
-                            setImageBase64(null);
+                            setImageFile(null);
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -693,7 +736,7 @@ export function OrganizationsTable() {
                       onClick={() => {
                         setIsEditOpen(false);
                         setImagePreview(null);
-                        setImageBase64(null);
+                        setImageFile(null);
                         setAddress("");
                         setKvkNumber("");
                         setBtwNumber("");

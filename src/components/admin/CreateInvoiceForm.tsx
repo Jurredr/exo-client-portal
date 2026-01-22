@@ -63,7 +63,6 @@ interface Invoice {
   dueDate: string | null;
   pdfStoragePath: string | null; // Path in Supabase Storage
   pdfFileName: string | null;
-  pdfFileType: string | null;
   pdfSizeBytes: number | null;
   vatIncluded: boolean | null;
   isKOR: boolean;
@@ -290,7 +289,6 @@ export function CreateInvoiceForm({
     try {
       let pdfStoragePath: string | null = null;
       let pdfFileName: string | null = null;
-      let pdfFileType: string | null = null;
       let pdfSizeBytes: number | null = null;
 
       // Upload PDF to Storage if a new file is provided
@@ -315,7 +313,6 @@ export function CreateInvoiceForm({
           const uploadResult = await uploadResponse.json();
           pdfStoragePath = uploadResult.storagePath;
           pdfFileName = uploadResult.fileName;
-          pdfFileType = uploadResult.fileType;
           pdfSizeBytes = uploadResult.sizeBytes;
         } catch (error) {
           console.error("Error uploading PDF:", error);
@@ -327,7 +324,6 @@ export function CreateInvoiceForm({
         // PDF is being removed
         pdfStoragePath = null;
         pdfFileName = null;
-        pdfFileType = null;
         pdfSizeBytes = null;
       }
       // If neither pdfFile nor removePdf, we don't set PDF fields
@@ -353,7 +349,6 @@ export function CreateInvoiceForm({
               ? {
                   pdfStoragePath: pdfStoragePath ?? null,
                   pdfFileName: pdfFileName ?? null,
-                  pdfFileType: pdfFileType ?? null,
                   pdfSizeBytes: pdfSizeBytes ?? null,
                 }
               : {}),
@@ -374,7 +369,6 @@ export function CreateInvoiceForm({
             dueDate: dueDate || null,
             pdfStoragePath,
             pdfFileName,
-            pdfFileType,
             pdfSizeBytes,
             invoiceNumber: invoiceNumberOverride.trim() || null,
             lineItems: lineItems.map((item, index) => ({

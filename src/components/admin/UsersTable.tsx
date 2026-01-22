@@ -72,7 +72,7 @@ interface UserData {
   organizations?: {
     id: string;
     name: string;
-    image?: string | null;
+    imageStoragePath?: string | null;
   }[];
 }
 
@@ -90,7 +90,6 @@ export function UsersTable() {
       organizationsData?.map((org) => ({
         id: org.id,
         name: org.name,
-        image: org.image,
       })) || [],
     [organizationsData]
   );
@@ -105,7 +104,7 @@ export function UsersTable() {
   const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const prevSelectedUserIdRef = useRef<string | null>(null);
@@ -129,7 +128,11 @@ export function UsersTable() {
           return (
             <Avatar className="h-8 w-8">
               <AvatarImage
-                src={user.image || undefined}
+                src={
+                  user.imageStoragePath
+                    ? `/api/users/${user.id}/image`
+                    : undefined
+                }
                 alt={user.name || user.email}
               />
               <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
@@ -365,10 +368,11 @@ export function UsersTable() {
     ) {
       prevSelectedUserIdRef.current = selectedUser.user.id;
       // Only update image preview if no user-uploaded image exists
-      if (!imageBase64) {
+      if (!imageFile) {
         setTimeout(() => {
-          if (selectedUser.user.image) {
-            setImagePreview(selectedUser.user.image);
+          // For Storage images, we'll fetch them via the API endpoint
+          if (selectedUser.user.imageStoragePath) {
+            setImagePreview(`/api/users/${selectedUser.user.id}/image`);
           } else {
             setImagePreview(null);
           }
@@ -405,13 +409,13 @@ export function UsersTable() {
         return;
       }
 
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setImageBase64(base64String);
-        setImagePreview(base64String);
+        setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      setImageFile(file);
     }
   };
 
@@ -424,6 +428,36 @@ export function UsersTable() {
     const phone = formData.get("phone") as string;
     const note = formData.get("note") as string;
 
+    // Upload image to Storage if a new file is provided
+    let imageStoragePath: string | null = null;
+    let imageSizeBytes: number | null = null;
+
+    if (imageFile) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", imageFile);
+        uploadFormData.append("userId", selectedUser.user.id);
+
+        const uploadResponse = await fetch("/api/users/upload-image", {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || "Failed to upload image");
+        }
+
+        const uploadResult = await uploadResponse.json();
+        imageStoragePath = uploadResult.storagePath;
+        imageSizeBytes = uploadResult.sizeBytes;
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast.error("Failed to upload image. Please try again.");
+        return;
+      }
+    }
+
     updateMutation.mutate(
       {
         id: selectedUser.user.id,
@@ -434,14 +468,20 @@ export function UsersTable() {
           selectedOrganizationIds.length > 0
             ? selectedOrganizationIds
             : undefined,
-        image: imageBase64 || selectedUser.user.image || null,
+        // Only include image fields if a new file was uploaded
+        ...(imageFile
+          ? {
+              imageStoragePath: imageStoragePath ?? null,
+              imageSizeBytes: imageSizeBytes ?? null,
+            }
+          : {}),
       },
       {
         onSuccess: () => {
           toast.success("User updated successfully");
           setIsEditOpen(false);
           setImagePreview(null);
-          setImageBase64(null);
+          setImageFile(null);
           // Refresh sidebar user data
           window.dispatchEvent(new Event("user-updated"));
         },
@@ -670,7 +710,7 @@ export function UsersTable() {
                           size="icon"
                           onClick={() => {
                             setImagePreview(null);
-                            setImageBase64(null);
+                            setImageFile(null);
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -800,7 +840,7 @@ export function UsersTable() {
                           size="icon"
                           onClick={() => {
                             setImagePreview(null);
-                            setImageBase64(null);
+                            setImageFile(null);
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -815,7 +855,7 @@ export function UsersTable() {
                       onClick={() => {
                         setIsEditOpen(false);
                         setImagePreview(null);
-                        setImageBase64(null);
+                        setImageFile(null);
                       }}
                     >
                       Cancel

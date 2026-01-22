@@ -64,7 +64,6 @@ export async function POST(request: Request) {
       name,
       fileStoragePath, // Path in Supabase Storage
       fileName,
-      fileType,
       fileSizeBytes,
       requiresPortalSignature,
     } = body;
@@ -92,7 +91,6 @@ export async function POST(request: Request) {
       name: name.trim(),
       fileStoragePath: fileStoragePath || null,
       fileName: fileName || null,
-      fileType: fileType || null,
       fileSizeBytes: fileSizeBytes || null,
       requiresPortalSignature:
         requiresPortalSignature !== undefined ? requiresPortalSignature : true,
@@ -132,7 +130,6 @@ export async function PATCH(request: Request) {
       name,
       fileStoragePath, // Path in Supabase Storage
       fileName,
-      fileType,
       fileSizeBytes,
       requiresPortalSignature,
     } = body;
@@ -158,7 +155,6 @@ export async function PATCH(request: Request) {
       name?: string;
       fileStoragePath?: string | null; // Path in Supabase Storage
       fileName?: string | null;
-      fileType?: string | null;
       fileSizeBytes?: number | null;
       requiresPortalSignature?: boolean;
       projectIds?: string[];
@@ -168,7 +164,6 @@ export async function PATCH(request: Request) {
     if (fileStoragePath !== undefined)
       updateData.fileStoragePath = fileStoragePath || null;
     if (fileName !== undefined) updateData.fileName = fileName || null;
-    if (fileType !== undefined) updateData.fileType = fileType || null;
     if (fileSizeBytes !== undefined)
       updateData.fileSizeBytes = fileSizeBytes || null;
     if (requiresPortalSignature !== undefined)

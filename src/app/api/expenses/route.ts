@@ -106,7 +106,6 @@ export async function POST(request: Request) {
       vendor,
       invoiceStoragePath, // Path in Supabase Storage
       invoiceFileName,
-      invoiceFileType,
       invoiceSizeBytes,
     } = body;
 
@@ -140,7 +139,6 @@ export async function POST(request: Request) {
       vendor: vendor?.trim() || null,
       invoiceStoragePath: invoiceStoragePath || null,
       invoiceFileName: invoiceFileName || null,
-      invoiceFileType: invoiceFileType || null,
       invoiceSizeBytes: invoiceSizeBytes || null,
     });
 
@@ -204,9 +202,6 @@ export async function PATCH(request: Request) {
       }),
       ...(updateData.invoiceFileName !== undefined && {
         invoiceFileName: updateData.invoiceFileName || null,
-      }),
-      ...(updateData.invoiceFileType !== undefined && {
-        invoiceFileType: updateData.invoiceFileType || null,
       }),
       ...(updateData.invoiceSizeBytes !== undefined && {
         invoiceSizeBytes: updateData.invoiceSizeBytes || null,

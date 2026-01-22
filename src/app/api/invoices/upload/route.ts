@@ -83,7 +83,6 @@ export async function POST(request: Request) {
       storagePath: data.path,
       sizeBytes: fileSize,
       fileName: file.name,
-      fileType: file.type,
     });
   } catch (error) {
     console.error("Error uploading invoice PDF:", error);

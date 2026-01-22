@@ -13,7 +13,6 @@ interface ExpenseData {
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceSizeBytes: number | null;
     invoiceFileName: string | null;
-    invoiceFileType: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -21,7 +20,7 @@ interface ExpenseData {
     id: string;
     email: string;
     name: string | null;
-    image: string | null;
+    imageStoragePath: string | null;
   };
 }
 
@@ -46,7 +45,6 @@ interface CreateExpenseData {
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;
-  invoiceFileType?: string | null;
 }
 
 interface UpdateExpenseData {
@@ -61,7 +59,6 @@ interface UpdateExpenseData {
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;
-  invoiceFileType?: string | null;
 }
 
 export const expenseKeys = {

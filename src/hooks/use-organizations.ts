@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 interface OrganizationData {
   id: string;
   name: string;
-  image: string | null;
+  imageStoragePath: string | null; // Path in Supabase Storage
+  imageSizeBytes: number | null;
   address: string | null;
   kvkNumber: string | null;
   btwNumber: string | null;
@@ -16,7 +17,8 @@ interface OrganizationData {
 
 interface CreateOrganizationData {
   name: string;
-  image?: string | null;
+  imageStoragePath?: string | null; // Path in Supabase Storage
+  imageSizeBytes?: number | null;
   address?: string | null;
   kvkNumber?: string | null;
   btwNumber?: string | null;
@@ -27,7 +29,8 @@ interface CreateOrganizationData {
 interface UpdateOrganizationData {
   id: string;
   name?: string;
-  image?: string | null;
+  imageStoragePath?: string | null; // Path in Supabase Storage
+  imageSizeBytes?: number | null;
   address?: string | null;
   kvkNumber?: string | null;
   btwNumber?: string | null;

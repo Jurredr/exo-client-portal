@@ -56,7 +56,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, image, address, kvkNumber, btwNumber, email, telephone } = body;
+    const {
+      name,
+      imageStoragePath, // Path in Supabase Storage
+      imageSizeBytes,
+      address,
+      kvkNumber,
+      btwNumber,
+      email,
+      telephone,
+    } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -67,7 +76,8 @@ export async function POST(request: Request) {
 
     const organization = await createOrganization({
       name: name.trim(),
-      image: image || null,
+      imageStoragePath: imageStoragePath || null,
+      imageSizeBytes: imageSizeBytes || null,
       address: address?.trim() || null,
       kvkNumber: kvkNumber?.trim() || null,
       btwNumber: btwNumber?.trim() || null,
@@ -138,7 +148,17 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, image, address, kvkNumber, btwNumber, email, telephone } = body;
+    const {
+      id,
+      name,
+      imageStoragePath, // Path in Supabase Storage
+      imageSizeBytes,
+      address,
+      kvkNumber,
+      btwNumber,
+      email,
+      telephone,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -156,7 +176,8 @@ export async function PATCH(request: Request) {
 
     const organization = await updateOrganization(id, {
       name: name.trim(),
-      image: image || null,
+      imageStoragePath: imageStoragePath || null,
+      imageSizeBytes: imageSizeBytes || null,
       address: address?.trim() || null,
       kvkNumber: kvkNumber?.trim() || null,
       btwNumber: btwNumber?.trim() || null,

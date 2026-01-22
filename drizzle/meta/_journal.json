@@ -232,6 +232,27 @@
       "when": 1769081590490,
       "tag": "0032_neat_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1769082411823,
+      "tag": "0033_tricky_greymalkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1769083103271,
+      "tag": "0034_yellow_toad_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1769083611074,
+      "tag": "0035_petite_tombstone",
+      "breakpoints": true
     }
   ]
 }

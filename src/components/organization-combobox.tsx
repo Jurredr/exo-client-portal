@@ -23,7 +23,7 @@ import { Check, ChevronDown, X } from "lucide-react";
 interface Organization {
   id: string;
   name: string;
-  image?: string | null;
+  imageStoragePath?: string | null; // Path in Supabase Storage
 }
 
 interface OrganizationComboboxProps {
@@ -121,9 +121,16 @@ export function OrganizationCombobox({
               {selectedOrganizations.length > 0 ? (
                 selectedOrganizations.map((org) => (
                   <Badge key={org.id} variant="outline" className="gap-1.5">
-                    {org.image ? (
+                    {org.imageStoragePath ? (
                       <Avatar className="size-4">
-                        <AvatarImage src={org.image} alt={org.name} />
+                        <AvatarImage
+                          src={
+                            org.imageStoragePath
+                              ? `/api/organizations/${org.id}/image`
+                              : undefined
+                          }
+                          alt={org.name}
+                        />
                         <AvatarFallback className="text-xs">
                           {org.name[0]}
                         </AvatarFallback>
@@ -175,9 +182,16 @@ export function OrganizationCombobox({
                       onSelect={() => toggleSelection(org.id)}
                     >
                       <div className="flex items-center gap-2 flex-1">
-                        {org.image ? (
+                        {org.imageStoragePath ? (
                           <Avatar className="size-7">
-                            <AvatarImage src={org.image} alt={org.name} />
+                            <AvatarImage
+                              src={
+                                org.imageStoragePath
+                                  ? `/api/organizations/${org.id}/image`
+                                  : undefined
+                              }
+                              alt={org.name}
+                            />
                             <AvatarFallback>{org.name[0]}</AvatarFallback>
                           </Avatar>
                         ) : (

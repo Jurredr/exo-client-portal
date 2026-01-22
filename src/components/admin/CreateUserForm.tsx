@@ -34,7 +34,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,13 +51,13 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
 
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setImageBase64(base64String);
-        setImagePreview(base64String);
+        setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      setImageFile(file);
     }
   };
 
@@ -73,6 +73,40 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setIsSubmitting(true);
     try {
+      let imageStoragePath: string | null = null;
+      let imageSizeBytes: number | null = null;
+
+      // Upload image to Storage if provided (using temp ID, will be updated after user creation)
+      if (imageFile) {
+        try {
+          // Generate a temporary ID for the upload
+          const tempUserId = `temp-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+          const formData = new FormData();
+          formData.append("file", imageFile);
+          formData.append("userId", tempUserId);
+
+          const uploadResponse = await fetch("/api/users/upload-image", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            throw new Error(error.error || "Failed to upload image");
+          }
+
+          const uploadResult = await uploadResponse.json();
+          imageStoragePath = uploadResult.storagePath;
+          imageSizeBytes = uploadResult.sizeBytes;
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          toast.error("Failed to upload image. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Create the user with image storage path
       const response = await fetch("/api/users", {
         method: "POST",
         headers: {
@@ -85,7 +119,8 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
           note: note.trim() || null,
           organizationIds:
             selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
-          image: imageBase64 || null,
+          imageStoragePath,
+          imageSizeBytes,
         }),
       });
 
@@ -101,7 +136,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
       setNote("");
       setSelectedOrganizationIds([]);
       setImagePreview(null);
-      setImageBase64(null);
+      setImageFile(null);
       onSuccess?.();
     } catch (error) {
       toast.error(
@@ -202,7 +237,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
               className="cursor-pointer"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Max 5MB. Image will be converted to base64.
+              Max 5MB. Image will be compressed and stored.
             </p>
           </div>
           {imagePreview && (
@@ -212,7 +247,7 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
               size="icon"
               onClick={() => {
                 setImagePreview(null);
-                setImageBase64(null);
+                setImageFile(null);
               }}
             >
               <X className="h-4 w-4" />

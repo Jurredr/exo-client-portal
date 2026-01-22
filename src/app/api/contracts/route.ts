@@ -62,7 +62,10 @@ export async function POST(request: Request) {
       projectIds,
       projectId,
       name,
-      fileUrl,
+      fileStoragePath, // Path in Supabase Storage
+      fileName,
+      fileType,
+      fileSizeBytes,
       requiresPortalSignature,
     } = body;
 
@@ -87,7 +90,10 @@ export async function POST(request: Request) {
       organizationId,
       projectIds: finalProjectIds.length > 0 ? finalProjectIds : undefined,
       name: name.trim(),
-      fileUrl: fileUrl || null,
+      fileStoragePath: fileStoragePath || null,
+      fileName: fileName || null,
+      fileType: fileType || null,
+      fileSizeBytes: fileSizeBytes || null,
       requiresPortalSignature:
         requiresPortalSignature !== undefined ? requiresPortalSignature : true,
     });
@@ -124,7 +130,10 @@ export async function PATCH(request: Request) {
       organizationId,
       projectIds,
       name,
-      fileUrl,
+      fileStoragePath, // Path in Supabase Storage
+      fileName,
+      fileType,
+      fileSizeBytes,
       requiresPortalSignature,
     } = body;
 
@@ -147,13 +156,21 @@ export async function PATCH(request: Request) {
     const updateData: {
       organizationId?: string;
       name?: string;
-      fileUrl?: string | null;
+      fileStoragePath?: string | null; // Path in Supabase Storage
+      fileName?: string | null;
+      fileType?: string | null;
+      fileSizeBytes?: number | null;
       requiresPortalSignature?: boolean;
       projectIds?: string[];
     } = {};
     if (organizationId) updateData.organizationId = organizationId;
     if (name !== undefined) updateData.name = name.trim();
-    if (fileUrl !== undefined) updateData.fileUrl = fileUrl || null;
+    if (fileStoragePath !== undefined)
+      updateData.fileStoragePath = fileStoragePath || null;
+    if (fileName !== undefined) updateData.fileName = fileName || null;
+    if (fileType !== undefined) updateData.fileType = fileType || null;
+    if (fileSizeBytes !== undefined)
+      updateData.fileSizeBytes = fileSizeBytes || null;
     if (requiresPortalSignature !== undefined)
       updateData.requiresPortalSignature = requiresPortalSignature;
     if (projectIds !== undefined) updateData.projectIds = projectIds;

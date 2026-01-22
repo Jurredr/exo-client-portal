@@ -69,6 +69,7 @@ interface EnhancedDataTableProps<TData, TValue> {
   emptyMessage?: string;
   toolbar?: React.ReactNode;
   isLoading?: boolean;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 export function EnhancedDataTable<TData, TValue>({
@@ -84,6 +85,7 @@ export function EnhancedDataTable<TData, TValue>({
   emptyMessage = "No results found.",
   toolbar,
   isLoading = false,
+  onPageSizeChange,
 }: EnhancedDataTableProps<TData, TValue>) {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -396,7 +398,9 @@ export function EnhancedDataTable<TData, TValue>({
           <Select
             value={`${table.getState().pagination.pageSize}`}
             onValueChange={(value) => {
-              table.setPageSize(Number(value));
+              const newPageSize = Number(value);
+              table.setPageSize(newPageSize);
+              onPageSizeChange?.(newPageSize);
             }}
           >
             <SelectTrigger className="h-8 w-[70px]">

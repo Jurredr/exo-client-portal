@@ -33,7 +33,10 @@ interface Contract {
   id: string;
   name: string;
   organizationId: string;
-  fileUrl: string | null;
+  fileStoragePath: string | null; // Path in Supabase Storage
+  fileName: string | null;
+  fileType: string | null;
+  fileSizeBytes: number | null;
   requiresPortalSignature: boolean;
   projects?: Array<{ id: string; title: string }>;
 }
@@ -121,18 +124,41 @@ export function CreateContractForm({
 
     setIsSubmitting(true);
     try {
-      let fileUrl: string | null = null;
+      let fileStoragePath: string | null = null;
+      let fileName: string | null = null;
+      let fileType: string | null = null;
+      let fileSizeBytes: number | null = null;
 
-      // Convert PDF file to base64 if provided
+      // Upload PDF to Storage if a new file is provided
       if (contractFile) {
-        const reader = new FileReader();
-        fileUrl = await new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(contractFile);
-        });
+        try {
+          const formData = new FormData();
+          formData.append("file", contractFile);
+          if (contract?.id) {
+            formData.append("contractId", contract.id);
+          }
+
+          const uploadResponse = await fetch("/api/contracts/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            throw new Error(error.error || "Failed to upload PDF");
+          }
+
+          const uploadResult = await uploadResponse.json();
+          fileStoragePath = uploadResult.storagePath;
+          fileName = uploadResult.fileName;
+          fileType = uploadResult.fileType;
+          fileSizeBytes = uploadResult.sizeBytes;
+        } catch (error) {
+          console.error("Error uploading PDF:", error);
+          toast.error("Failed to upload PDF file. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       const url = "/api/contracts";
@@ -143,14 +169,25 @@ export function CreateContractForm({
             organizationId,
             projectIds,
             name: name.trim(),
-            fileUrl: contractFile ? fileUrl : undefined, // Only send fileUrl if a new file was uploaded
+            // Only send file fields if a new file was uploaded
+            ...(contractFile
+              ? {
+                  fileStoragePath: fileStoragePath ?? null,
+                  fileName: fileName ?? null,
+                  fileType: fileType ?? null,
+                  fileSizeBytes: fileSizeBytes ?? null,
+                }
+              : {}),
             requiresPortalSignature,
           }
         : {
             organizationId,
             projectIds,
             name: name.trim(),
-            fileUrl,
+            fileStoragePath,
+            fileName,
+            fileType,
+            fileSizeBytes,
             requiresPortalSignature,
           };
 

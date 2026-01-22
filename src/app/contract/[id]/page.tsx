@@ -15,7 +15,10 @@ interface ContractData {
     id: string;
     name: string;
     type: string;
-    fileUrl: string | null;
+    fileStoragePath: string | null; // Path in Supabase Storage
+    fileName: string | null;
+    fileType: string | null;
+    fileSizeBytes: number | null;
     requiresPortalSignature: boolean;
     signed: boolean;
     signedAt: string | null;
@@ -225,7 +228,7 @@ export default function ContractPage() {
       </div>
 
       <div className="bg-card border rounded-lg p-6 mb-6">
-        {contract.contract.fileUrl ? (
+        {contract.contract.fileStoragePath ? (
           <iframe
             src={`/api/contracts/${contract.contract.id}/view`}
             className="w-full h-[600px] border rounded"

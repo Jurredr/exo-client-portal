@@ -6,7 +6,10 @@ interface ContractData {
     organizationId: string;
     name: string;
     type: string;
-    fileUrl: string | null;
+    fileStoragePath: string | null; // Path in Supabase Storage
+    fileName: string | null;
+    fileType: string | null;
+    fileSizeBytes: number | null;
     requiresPortalSignature: boolean;
     signed: boolean;
     signedAt: string | null;
@@ -41,7 +44,10 @@ interface CreateContractData {
   organizationId: string;
   projectIds?: string[];
   name: string;
-  fileUrl?: string | null;
+  fileStoragePath?: string | null; // Path in Supabase Storage
+  fileName?: string | null;
+  fileType?: string | null;
+  fileSizeBytes?: number | null;
   requiresPortalSignature?: boolean;
 }
 
@@ -50,7 +56,10 @@ interface UpdateContractData {
   organizationId?: string;
   projectIds?: string[];
   name?: string;
-  fileUrl?: string | null;
+  fileStoragePath?: string | null; // Path in Supabase Storage
+  fileName?: string | null;
+  fileType?: string | null;
+  fileSizeBytes?: number | null;
   requiresPortalSignature?: boolean;
 }
 

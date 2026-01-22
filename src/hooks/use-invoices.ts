@@ -100,18 +100,23 @@ interface UpdateInvoiceData {
 export const invoiceKeys = {
   all: ["invoices"] as const,
   lists: () => [...invoiceKeys.all, "list"] as const,
-  list: (filters: { page?: number; pageSize?: number }) =>
-    [...invoiceKeys.lists(), filters] as const,
+  list: (filters: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    all?: boolean;
+  }) => [...invoiceKeys.lists(), filters] as const,
   detail: (id: string) => [...invoiceKeys.all, "detail", id] as const,
   nextNumber: () => [...invoiceKeys.all, "nextNumber"] as const,
 };
 
 async function fetchInvoices(
-  page: number = 1
+  page: number = 1,
+  pageSize: number = 50
 ): Promise<PaginatedResponse<InvoiceData>> {
   const params = new URLSearchParams({
     page: page.toString(),
-    pageSize: "100",
+    pageSize: pageSize.toString(),
     paginate: "true",
   });
   const response = await fetch(`/api/invoices?${params}`);
@@ -129,10 +134,10 @@ async function fetchNextInvoiceNumber(): Promise<{ invoiceNumber: string }> {
   return response.json();
 }
 
-export function useInvoices(page: number = 1) {
+export function useInvoices(page: number = 1, pageSize: number = 50) {
   return useQuery({
-    queryKey: invoiceKeys.list({ page, pageSize: 100 }),
-    queryFn: () => fetchInvoices(page),
+    queryKey: invoiceKeys.list({ page, pageSize }),
+    queryFn: () => fetchInvoices(page, pageSize),
     staleTime: 60 * 1000, // 60 seconds - matches API cache
   });
 }

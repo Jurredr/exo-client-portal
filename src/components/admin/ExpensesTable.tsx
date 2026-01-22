@@ -2,10 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  useExpenses,
-  useDeleteExpense,
-} from "@/hooks/use-expenses";
+import { useExpenses, useDeleteExpense } from "@/hooks/use-expenses";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,9 +51,10 @@ interface ExpenseData {
     date: string;
     category: string | null;
     vendor: string | null;
-    invoiceUrl: string | null;
+    invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
     invoiceFileType: string | null;
+    invoiceSizeBytes: number | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -86,8 +84,15 @@ const formatAmount = (amount: string, currency: string = "EUR") => {
 };
 
 export function ExpensesTable() {
-  // TanStack Query hooks
-  const { data: expensesData, isLoading: isLoadingExpenses } = useExpenses(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  // TanStack Query hooks - use the selected pageSize for API call
+  // Note: Since EnhancedDataTable does client-side pagination, we fetch the selected pageSize
+  // If you need to see more items, increase the "Rows per page" value
+  const { data: expensesData, isLoading: isLoadingExpenses } = useExpenses(
+    1,
+    pageSize
+  );
   const deleteMutation = useDeleteExpense();
 
   const expenses = expensesData?.data || [];
@@ -253,22 +258,23 @@ export function ExpensesTable() {
         id: "invoice",
         header: "Invoice",
         cell: ({ row }) => {
-          const hasInvoice = !!row.original.expense.invoiceUrl;
+          const hasInvoice =
+            !!row.original.expense.invoiceStoragePath ||
+            !!row.original.expense.invoiceFileName;
           return hasInvoice ? (
             <Button
               variant="ghost"
               size="icon"
               onClick={() => {
-                const url = row.original.expense.invoiceUrl!;
-                if (url.startsWith("data:")) {
-                  // Base64 data URL
-                  const link = document.createElement("a");
-                  link.href = url;
-                  link.download =
-                    row.original.expense.invoiceFileName || "invoice";
-                  link.click();
+                // Download from Storage via API
+                if (row.original.expense.invoiceStoragePath) {
+                  window.open(
+                    `/api/expenses/${row.original.expense.id}/download`,
+                    "_blank"
+                  );
                 } else {
-                  window.open(url, "_blank");
+                  // Legacy: shouldn't happen after migration
+                  toast.error("File not available");
                 }
               }}
             >
@@ -378,6 +384,8 @@ export function ExpensesTable() {
           );
         }}
         initialSorting={[{ id: "date", desc: true }]}
+        initialPageSize={pageSize}
+        onPageSizeChange={setPageSize}
         emptyMessage="No expenses found."
         isLoading={loading}
         toolbar={

@@ -104,9 +104,10 @@ export async function POST(request: Request) {
       date,
       category,
       vendor,
-      invoiceUrl,
+      invoiceStoragePath, // Path in Supabase Storage
       invoiceFileName,
       invoiceFileType,
+      invoiceSizeBytes,
     } = body;
 
     if (
@@ -137,9 +138,10 @@ export async function POST(request: Request) {
       date: expenseDate,
       category: category?.trim() || null,
       vendor: vendor?.trim() || null,
-      invoiceUrl: invoiceUrl || null,
+      invoiceStoragePath: invoiceStoragePath || null,
       invoiceFileName: invoiceFileName || null,
       invoiceFileType: invoiceFileType || null,
+      invoiceSizeBytes: invoiceSizeBytes || null,
     });
 
     return NextResponse.json(expense, { status: 201 });
@@ -197,14 +199,17 @@ export async function PATCH(request: Request) {
       ...(updateData.vendor !== undefined && {
         vendor: updateData.vendor?.trim() || null,
       }),
-      ...(updateData.invoiceUrl !== undefined && {
-        invoiceUrl: updateData.invoiceUrl || null,
+      ...(updateData.invoiceStoragePath !== undefined && {
+        invoiceStoragePath: updateData.invoiceStoragePath || null,
       }),
       ...(updateData.invoiceFileName !== undefined && {
         invoiceFileName: updateData.invoiceFileName || null,
       }),
       ...(updateData.invoiceFileType !== undefined && {
         invoiceFileType: updateData.invoiceFileType || null,
+      }),
+      ...(updateData.invoiceSizeBytes !== undefined && {
+        invoiceSizeBytes: updateData.invoiceSizeBytes || null,
       }),
     });
 

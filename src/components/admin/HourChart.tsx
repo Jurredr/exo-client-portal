@@ -45,12 +45,6 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function HourChart() {
-  const { data: registrationsData, isLoading: loading } =
-    useAllHourRegistrations(true);
-  const registrations = useMemo(
-    () => (Array.isArray(registrationsData) ? registrationsData : []),
-    [registrationsData]
-  );
   const isMobile = useIsMobile();
   const [timeRange, setTimeRange] = useState(() => (isMobile ? "30d" : "30d"));
   const hasInitializedRef = useRef(false);
@@ -63,6 +57,36 @@ export function HourChart() {
       }, 0);
     }
   }, [isMobile]);
+
+  // Calculate date range based on timeRange
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    let startDate: Date;
+    const endDate: Date = now;
+
+    if (timeRange === "year") {
+      startDate = new Date(now.getFullYear(), 0, 1); // January 1st
+    } else if (timeRange === "90d") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 90);
+    } else if (timeRange === "30d") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 30);
+    } else {
+      // 7d
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 7);
+    }
+
+    return { startDate, endDate };
+  }, [timeRange]);
+
+  const { data: registrationsData, isLoading: loading } =
+    useAllHourRegistrations(true, dateRange.startDate, dateRange.endDate);
+  const registrations = useMemo(
+    () => (Array.isArray(registrationsData) ? registrationsData : []),
+    [registrationsData]
+  );
 
   // Helper function to format date as YYYY-MM-DD in local timezone (matching table display)
   const formatDateLocal = (date: Date): string => {

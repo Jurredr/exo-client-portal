@@ -10,7 +10,8 @@ interface ExpenseData {
     date: string;
     category: string | null;
     vendor: string | null;
-    invoiceUrl: string | null;
+    invoiceStoragePath: string | null; // Path in Supabase Storage
+    invoiceSizeBytes: number | null;
     invoiceFileName: string | null;
     invoiceFileType: string | null;
     createdAt: string;
@@ -42,7 +43,8 @@ interface CreateExpenseData {
   date: Date | string;
   category?: string | null;
   vendor?: string | null;
-  invoiceUrl?: string | null;
+  invoiceStoragePath?: string | null; // Path in Supabase Storage
+  invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;
   invoiceFileType?: string | null;
 }
@@ -56,7 +58,8 @@ interface UpdateExpenseData {
   date?: Date | string;
   category?: string | null;
   vendor?: string | null;
-  invoiceUrl?: string | null;
+  invoiceStoragePath?: string | null; // Path in Supabase Storage
+  invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;
   invoiceFileType?: string | null;
 }
@@ -64,17 +67,18 @@ interface UpdateExpenseData {
 export const expenseKeys = {
   all: ["expenses"] as const,
   lists: () => [...expenseKeys.all, "list"] as const,
-  list: (filters: { page?: number; pageSize?: number }) =>
+  list: (filters: { page?: number; pageSize?: number; search?: string }) =>
     [...expenseKeys.lists(), filters] as const,
   detail: (id: string) => [...expenseKeys.all, "detail", id] as const,
 };
 
 async function fetchExpenses(
-  page: number = 1
+  page: number = 1,
+  pageSize: number = 50
 ): Promise<PaginatedResponse<ExpenseData>> {
   const params = new URLSearchParams({
     page: page.toString(),
-    pageSize: "100",
+    pageSize: pageSize.toString(),
     paginate: "true",
   });
   const response = await fetch(`/api/expenses?${params}`);
@@ -84,10 +88,10 @@ async function fetchExpenses(
   return response.json();
 }
 
-export function useExpenses(page: number = 1) {
+export function useExpenses(page: number = 1, pageSize: number = 50) {
   return useQuery({
-    queryKey: expenseKeys.list({ page, pageSize: 100 }),
-    queryFn: () => fetchExpenses(page),
+    queryKey: expenseKeys.list({ page, pageSize }),
+    queryFn: () => fetchExpenses(page, pageSize),
     staleTime: 60 * 1000, // 60 seconds - matches API cache
   });
 }

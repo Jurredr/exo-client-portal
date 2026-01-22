@@ -113,8 +113,15 @@ const formatDate = (dateString: string | null) => {
 };
 
 export function InvoicesTable() {
-  // TanStack Query hooks
-  const { data: invoicesData, isLoading: isLoadingInvoices } = useInvoices(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  // TanStack Query hooks - use the selected pageSize for API call
+  // Note: Since EnhancedDataTable does client-side pagination, we fetch the selected pageSize
+  // If you need to see more items, increase the "Rows per page" value
+  const { data: invoicesData, isLoading: isLoadingInvoices } = useInvoices(
+    1,
+    pageSize
+  );
   const deleteMutation = useDeleteInvoice();
 
   const invoices = invoicesData?.data || [];
@@ -547,6 +554,8 @@ export function InvoicesTable() {
           },
         }}
         initialSorting={[{ id: "invoiceNumber", desc: true }]}
+        initialPageSize={pageSize}
+        onPageSizeChange={setPageSize}
         emptyMessage="No invoices found."
         isLoading={loading}
         toolbar={

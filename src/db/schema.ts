@@ -82,7 +82,10 @@ export const legalDocuments = pgTable("legal_documents", {
   projectId: uuid("project_id").references(() => projects.id), // Deprecated: kept for backward compatibility, use contractProjects junction table
   name: text("name").notNull(),
   type: text("type").notNull(), // 'agreement', 'nda', 'contract', etc.
-  fileUrl: text("file_url"),
+  fileStoragePath: text("file_storage_path"), // Path in Supabase Storage (e.g., "contracts/contract-123.pdf")
+  fileName: text("file_name"), // Original filename
+  fileType: text("file_type"), // MIME type
+  fileSizeBytes: integer("file_size_bytes"), // File size in bytes
   requiresPortalSignature: boolean("requires_portal_signature")
     .default(true)
     .notNull(), // If false, contract is already signed or doesn't need portal signing
@@ -192,9 +195,10 @@ export const expenses = pgTable("expenses", {
   date: timestamp("date").defaultNow().notNull(),
   category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
   vendor: text("vendor"), // Where the expense was made (store, company, etc.)
-  invoiceUrl: text("invoice_url"), // URL to uploaded invoice file
+  invoiceStoragePath: text("invoice_storage_path"), // Path in Supabase Storage (e.g., "expenses/expense-123.pdf")
   invoiceFileName: text("invoice_file_name"), // Original filename
   invoiceFileType: text("invoice_file_type"), // MIME type
+  invoiceSizeBytes: integer("invoice_size_bytes"), // File size in bytes
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -34,9 +34,10 @@ interface Expense {
   date: string;
   category: string | null;
   vendor: string | null;
-  invoiceUrl: string | null;
+  invoiceStoragePath: string | null; // Path in Supabase Storage
   invoiceFileName: string | null;
   invoiceFileType: string | null;
+  invoiceSizeBytes: number | null;
 }
 
 export function CreateExpenseForm({
@@ -59,11 +60,9 @@ export function CreateExpenseForm({
   const [category, setCategory] = useState<string>(expense?.category || "");
   const [vendor, setVendor] = useState<string>(expense?.vendor || "");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
-  const [invoicePreview, setInvoicePreview] = useState<string | null>(
-    expense?.invoiceUrl && expense.invoiceUrl.startsWith("data:image/")
-      ? expense.invoiceUrl
-      : null
-  );
+  // Preview is only for newly selected image files
+  // For existing files in Storage, we just show the filename
+  const [invoicePreview, setInvoicePreview] = useState<string | null>(null);
   const [removeInvoice, setRemoveInvoice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -105,29 +104,50 @@ export function CreateExpenseForm({
 
     setIsSubmitting(true);
     try {
-      let invoiceUrl: string | null = null;
+      let invoiceStoragePath: string | null = null;
       let invoiceFileName: string | null = null;
       let invoiceFileType: string | null = null;
+      let invoiceSizeBytes: number | null = null;
 
-      // If a new file is provided, use it
+      // Upload file to Storage if a new file is provided
       if (invoiceFile) {
-        const reader = new FileReader();
-        invoiceUrl = await new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(invoiceFile);
-        });
-        invoiceFileName = invoiceFile.name;
-        invoiceFileType = invoiceFile.type;
-      } else if (expense?.invoiceUrl && !removeInvoice) {
-        // Keep existing invoice if no new file and user didn't remove it
-        invoiceUrl = expense.invoiceUrl;
-        invoiceFileName = expense.invoiceFileName;
-        invoiceFileType = expense.invoiceFileType;
+        try {
+          const formData = new FormData();
+          formData.append("file", invoiceFile);
+          if (expense?.id) {
+            formData.append("expenseId", expense.id);
+          }
+
+          const uploadResponse = await fetch("/api/expenses/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            throw new Error(error.error || "Failed to upload file");
+          }
+
+          const uploadResult = await uploadResponse.json();
+          invoiceStoragePath = uploadResult.storagePath;
+          invoiceFileName = uploadResult.fileName;
+          invoiceFileType = uploadResult.fileType;
+          invoiceSizeBytes = uploadResult.sizeBytes;
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          toast.error("Failed to upload file. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
+      } else if (removeInvoice) {
+        // File is being removed
+        invoiceStoragePath = null;
+        invoiceFileName = null;
+        invoiceFileType = null;
+        invoiceSizeBytes = null;
       }
-      // If removeInvoice is true, invoiceUrl will be null (removed)
+      // If neither invoiceFile nor removeInvoice, we don't set file fields
+      // This means the API will preserve the existing file (if any)
 
       const url = expense ? `/api/expenses` : `/api/expenses`;
       const method = expense ? "PATCH" : "POST";
@@ -140,9 +160,15 @@ export function CreateExpenseForm({
             date: date || null,
             category: category || null,
             vendor: vendor.trim() || null,
-            invoiceUrl,
-            invoiceFileName,
-            invoiceFileType,
+            // Only include file fields if they're explicitly set (new file or removal)
+            ...(invoiceFile || removeInvoice
+              ? {
+                  invoiceStoragePath: invoiceStoragePath ?? null,
+                  invoiceFileName: invoiceFileName ?? null,
+                  invoiceFileType: invoiceFileType ?? null,
+                  invoiceSizeBytes: invoiceSizeBytes ?? null,
+                }
+              : {}),
           }
         : {
             description: description.trim(),
@@ -151,9 +177,10 @@ export function CreateExpenseForm({
             date: date || null,
             category: category || null,
             vendor: vendor.trim() || null,
-            invoiceUrl,
+            invoiceStoragePath,
             invoiceFileName,
             invoiceFileType,
+            invoiceSizeBytes,
           };
 
       const response = await fetch(url, {
@@ -291,25 +318,27 @@ export function CreateExpenseForm({
             onChange={handleFileChange}
             className="cursor-pointer"
           />
-          {expense?.invoiceUrl && !invoiceFile && !removeInvoice && (
-            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-              <FileText className="h-4 w-4" />
-              <span className="text-sm flex-1">
-                {expense.invoiceFileName || "Existing invoice"}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => {
-                  setRemoveInvoice(true);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          {(expense?.invoiceStoragePath || expense?.invoiceFileName) &&
+            !invoiceFile &&
+            !removeInvoice && (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                <FileText className="h-4 w-4" />
+                <span className="text-sm flex-1">
+                  {expense.invoiceFileName || "Existing invoice"}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    setRemoveInvoice(true);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           {invoiceFile && (
             <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
               <FileText className="h-4 w-4" />

@@ -222,22 +222,34 @@ export async function getHourRegistrationsByUser(
     limit?: number;
     offset?: number;
     search?: string;
+    startDate?: Date;
+    endDate?: Date;
   }
 ) {
   // Build where clause
-  let whereClause = eq(hourRegistrations.userId, userId);
+  const conditions = [eq(hourRegistrations.userId, userId)];
+
+  if (options?.startDate) {
+    conditions.push(gte(hourRegistrations.date, options.startDate));
+  }
+  if (options?.endDate) {
+    conditions.push(lte(hourRegistrations.date, options.endDate));
+  }
+
   if (options?.search) {
     const searchTerm = `%${options.search.toLowerCase()}%`;
-    whereClause = and(
-      eq(hourRegistrations.userId, userId),
+    conditions.push(
       or(
         like(sql`LOWER(${hourRegistrations.description})`, searchTerm),
         like(sql`LOWER(${users.name})`, searchTerm),
         like(sql`LOWER(${users.email})`, searchTerm),
         like(sql`LOWER(${projects.title})`, searchTerm)
-      )
-    )!;
+      )!
+    );
   }
+
+  const whereClause =
+    conditions.length > 1 ? and(...conditions)! : conditions[0];
 
   let query = db
     .select({
@@ -282,22 +294,34 @@ export async function getHourRegistrationsByUser(
 // Get total count for pagination
 export async function getHourRegistrationsCountByUser(
   userId: string,
-  search?: string
+  search?: string,
+  startDate?: Date,
+  endDate?: Date
 ) {
   // Build where clause
-  let whereClause = eq(hourRegistrations.userId, userId);
+  const conditions = [eq(hourRegistrations.userId, userId)];
+
+  if (startDate) {
+    conditions.push(gte(hourRegistrations.date, startDate));
+  }
+  if (endDate) {
+    conditions.push(lte(hourRegistrations.date, endDate));
+  }
+
   if (search) {
     const searchTerm = `%${search.toLowerCase()}%`;
-    whereClause = and(
-      eq(hourRegistrations.userId, userId),
+    conditions.push(
       or(
         like(sql`LOWER(${hourRegistrations.description})`, searchTerm),
         like(sql`LOWER(${users.name})`, searchTerm),
         like(sql`LOWER(${users.email})`, searchTerm),
         like(sql`LOWER(${projects.title})`, searchTerm)
-      )
-    )!;
+      )!
+    );
   }
+
+  const whereClause =
+    conditions.length > 1 ? and(...conditions)! : conditions[0];
 
   const result = await db
     .select({ count: sql<number>`count(*)` })
@@ -314,18 +338,37 @@ export async function getAllHourRegistrations(options?: {
   limit?: number;
   offset?: number;
   search?: string;
+  startDate?: Date;
+  endDate?: Date;
 }) {
   // Build where clause
-  let whereClause: ReturnType<typeof or> | undefined;
+  const conditions: ReturnType<typeof and>[] = [];
+
+  if (options?.startDate) {
+    conditions.push(gte(hourRegistrations.date, options.startDate));
+  }
+  if (options?.endDate) {
+    conditions.push(lte(hourRegistrations.date, options.endDate));
+  }
+
   if (options?.search) {
     const searchTerm = `%${options.search.toLowerCase()}%`;
-    whereClause = or(
-      like(sql`LOWER(${hourRegistrations.description})`, searchTerm),
-      like(sql`LOWER(${users.name})`, searchTerm),
-      like(sql`LOWER(${users.email})`, searchTerm),
-      like(sql`LOWER(${projects.title})`, searchTerm)
+    conditions.push(
+      or(
+        like(sql`LOWER(${hourRegistrations.description})`, searchTerm),
+        like(sql`LOWER(${users.name})`, searchTerm),
+        like(sql`LOWER(${users.email})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm)
+      )!
     );
   }
+
+  const whereClause =
+    conditions.length > 0
+      ? conditions.length > 1
+        ? and(...conditions)!
+        : conditions[0]
+      : undefined;
 
   let query = db
     .select({
@@ -372,17 +415,38 @@ export async function getAllHourRegistrations(options?: {
 }
 
 // Get total count for pagination (all registrations)
-export async function getAllHourRegistrationsCount(search?: string) {
-  let whereClause: ReturnType<typeof or> | undefined;
+export async function getAllHourRegistrationsCount(
+  search?: string,
+  startDate?: Date,
+  endDate?: Date
+) {
+  const conditions: ReturnType<typeof and>[] = [];
+
+  if (startDate) {
+    conditions.push(gte(hourRegistrations.date, startDate));
+  }
+  if (endDate) {
+    conditions.push(lte(hourRegistrations.date, endDate));
+  }
+
   if (search) {
     const searchTerm = `%${search.toLowerCase()}%`;
-    whereClause = or(
-      like(sql`LOWER(${hourRegistrations.description})`, searchTerm),
-      like(sql`LOWER(${users.name})`, searchTerm),
-      like(sql`LOWER(${users.email})`, searchTerm),
-      like(sql`LOWER(${projects.title})`, searchTerm)
+    conditions.push(
+      or(
+        like(sql`LOWER(${hourRegistrations.description})`, searchTerm),
+        like(sql`LOWER(${users.name})`, searchTerm),
+        like(sql`LOWER(${users.email})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm)
+      )!
     );
   }
+
+  const whereClause =
+    conditions.length > 0
+      ? conditions.length > 1
+        ? and(...conditions)!
+        : conditions[0]
+      : undefined;
 
   let query = db
     .select({ count: sql<number>`count(*)` })
@@ -2042,6 +2106,7 @@ export async function invalidateAllInvoiceCaches() {
 // Contract queries (using legal_documents table with type='contract')
 export async function getAllContracts() {
   // Get all contracts with their organization and first project (for backward compatibility)
+  // Note: fileStoragePath is just a path string, not the file data, so it's safe to include
   const contracts = await db
     .select({
       contract: {
@@ -2049,7 +2114,10 @@ export async function getAllContracts() {
         organizationId: legalDocuments.organizationId,
         name: legalDocuments.name,
         type: legalDocuments.type,
-        fileUrl: legalDocuments.fileUrl,
+        fileStoragePath: legalDocuments.fileStoragePath,
+        fileName: legalDocuments.fileName,
+        fileType: legalDocuments.fileType,
+        fileSizeBytes: legalDocuments.fileSizeBytes,
         requiresPortalSignature: legalDocuments.requiresPortalSignature,
         signed: legalDocuments.signed,
         signedAt: legalDocuments.signedAt,
@@ -2149,7 +2217,10 @@ export async function getContractById(contractId: string) {
         organizationId: legalDocuments.organizationId,
         name: legalDocuments.name,
         type: legalDocuments.type,
-        fileUrl: legalDocuments.fileUrl,
+        fileStoragePath: legalDocuments.fileStoragePath,
+        fileName: legalDocuments.fileName,
+        fileType: legalDocuments.fileType,
+        fileSizeBytes: legalDocuments.fileSizeBytes,
         requiresPortalSignature: legalDocuments.requiresPortalSignature,
         signed: legalDocuments.signed,
         signedAt: legalDocuments.signedAt,
@@ -2232,13 +2303,17 @@ export async function createContract(data: {
   organizationId: string;
   projectIds?: string[];
   name: string;
-  fileUrl?: string | null;
+  fileStoragePath?: string | null; // Path in Supabase Storage
+  fileName?: string | null;
+  fileType?: string | null;
+  fileSizeBytes?: number | null;
   requiresPortalSignature?: boolean;
 }) {
   const requiresPortalSignature = data.requiresPortalSignature ?? true;
 
   // If contract doesn't require portal signature and has a file, mark it as signed
-  const signed = !requiresPortalSignature && data.fileUrl ? true : false;
+  const signed =
+    !requiresPortalSignature && data.fileStoragePath ? true : false;
   const signedAt = signed ? new Date() : null;
 
   // Use the first project ID for backward compatibility (deprecated field)
@@ -2252,7 +2327,10 @@ export async function createContract(data: {
       projectId: firstProjectId,
       name: data.name,
       type: "contract",
-      fileUrl: data.fileUrl || null,
+      fileStoragePath: data.fileStoragePath || null,
+      fileName: data.fileName || null,
+      fileType: data.fileType || null,
+      fileSizeBytes: data.fileSizeBytes || null,
       requiresPortalSignature,
       signed,
       signedAt,
@@ -2276,7 +2354,10 @@ export async function updateContract(
   contractId: string,
   data: Partial<{
     name: string;
-    fileUrl: string | null;
+    fileStoragePath: string | null; // Path in Supabase Storage
+    fileName: string | null;
+    fileType: string | null;
+    fileSizeBytes: number | null;
     requiresPortalSignature: boolean;
     signed: boolean;
     signedAt: Date | null;
@@ -2326,7 +2407,26 @@ export async function updateContract(
 }
 
 export async function deleteContract(contractId: string) {
+  // Get the contract first to check if it has a Storage file
+  const contract = await db
+    .select({ fileStoragePath: legalDocuments.fileStoragePath })
+    .from(legalDocuments)
+    .where(eq(legalDocuments.id, contractId))
+    .limit(1);
+
+  // Delete the contract
   await db.delete(legalDocuments).where(eq(legalDocuments.id, contractId));
+
+  // Delete the file from Storage if it exists
+  if (contract[0]?.fileStoragePath) {
+    try {
+      const { deleteContractFile } = await import("@/lib/utils/file-storage");
+      await deleteContractFile(contract[0].fileStoragePath);
+    } catch (error) {
+      // Log error but don't fail the deletion if Storage deletion fails
+      console.error("Error deleting contract file from Storage:", error);
+    }
+  }
 }
 
 // Expense queries
@@ -2338,9 +2438,11 @@ export async function createExpense(data: {
   date?: Date;
   category?: string | null;
   vendor?: string | null;
-  invoiceUrl?: string | null;
+  invoiceUrl?: string | null; // DEPRECATED: Base64 data URL (will be migrated to Storage)
+  invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceFileName?: string | null;
   invoiceFileType?: string | null;
+  invoiceSizeBytes?: number | null;
 }) {
   const [expense] = await db
     .insert(expenses)
@@ -2352,9 +2454,10 @@ export async function createExpense(data: {
       date: data.date || new Date(),
       category: data.category || null,
       vendor: data.vendor || null,
-      invoiceUrl: data.invoiceUrl || null,
+      invoiceStoragePath: data.invoiceStoragePath || null,
       invoiceFileName: data.invoiceFileName || null,
       invoiceFileType: data.invoiceFileType || null,
+      invoiceSizeBytes: data.invoiceSizeBytes || null,
     })
     .returning();
 
@@ -2373,9 +2476,10 @@ export async function getAllExpenses() {
         date: expenses.date,
         category: expenses.category,
         vendor: expenses.vendor,
-        invoiceUrl: expenses.invoiceUrl,
+        invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceFileType: expenses.invoiceFileType,
+        invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -2406,9 +2510,10 @@ export async function getAllExpensesPaginated(options?: {
         date: expenses.date,
         category: expenses.category,
         vendor: expenses.vendor,
-        invoiceUrl: expenses.invoiceUrl,
+        invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceFileType: expenses.invoiceFileType,
+        invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -2452,9 +2557,10 @@ export async function getExpensesByUser(userId: string) {
         date: expenses.date,
         category: expenses.category,
         vendor: expenses.vendor,
-        invoiceUrl: expenses.invoiceUrl,
+        invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceFileType: expenses.invoiceFileType,
+        invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -2482,9 +2588,10 @@ export async function getExpenseById(expenseId: string) {
         date: expenses.date,
         category: expenses.category,
         vendor: expenses.vendor,
-        invoiceUrl: expenses.invoiceUrl,
+        invoiceStoragePath: expenses.invoiceStoragePath,
         invoiceFileName: expenses.invoiceFileName,
         invoiceFileType: expenses.invoiceFileType,
+        invoiceSizeBytes: expenses.invoiceSizeBytes,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -2511,9 +2618,10 @@ export async function updateExpense(
     date: Date;
     category: string | null;
     vendor: string | null;
-    invoiceUrl: string | null;
+    invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
     invoiceFileType: string | null;
+    invoiceSizeBytes: number | null;
   }>
 ) {
   const [expense] = await db
@@ -2529,5 +2637,24 @@ export async function updateExpense(
 }
 
 export async function deleteExpense(expenseId: string) {
+  // Get the expense first to check if it has a Storage file
+  const expense = await db
+    .select({ invoiceStoragePath: expenses.invoiceStoragePath })
+    .from(expenses)
+    .where(eq(expenses.id, expenseId))
+    .limit(1);
+
+  // Delete the expense
   await db.delete(expenses).where(eq(expenses.id, expenseId));
+
+  // Delete the file from Storage if it exists
+  if (expense[0]?.invoiceStoragePath) {
+    try {
+      const { deleteExpenseFile } = await import("@/lib/utils/file-storage");
+      await deleteExpenseFile(expense[0].invoiceStoragePath);
+    } catch (error) {
+      // Log error but don't fail the deletion if Storage deletion fails
+      console.error("Error deleting expense file from Storage:", error);
+    }
+  }
 }

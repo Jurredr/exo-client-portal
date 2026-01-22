@@ -36,9 +36,13 @@ interface PaginatedResponse<T> {
 export const hourRegistrationKeys = {
   all: ["hour-registrations"] as const,
   lists: () => [...hourRegistrationKeys.all, "list"] as const,
-  list: (filters: { page?: number; pageSize?: number; search?: string; all?: boolean }) =>
-    [...hourRegistrationKeys.lists(), filters] as const,
-  allList: (filters: { all?: boolean }) =>
+  list: (filters: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    all?: boolean;
+  }) => [...hourRegistrationKeys.lists(), filters] as const,
+  allList: (filters: { all?: boolean; startDate?: Date; endDate?: Date }) =>
     [...hourRegistrationKeys.all, "all", filters] as const,
   detail: (id: string) => [...hourRegistrationKeys.all, "detail", id] as const,
 };
@@ -63,12 +67,27 @@ async function fetchHourRegistrations(
   return response.json();
 }
 
-// Fetch all hour registrations (non-paginated, for stats)
-async function fetchAllHourRegistrations(all: boolean = false): Promise<HourRegistration[]> {
+// Fetch hour registrations for stats/charts with date filtering
+// This is much more efficient than fetching all records
+async function fetchHourRegistrationsForStats(
+  all: boolean = false,
+  startDate?: Date,
+  endDate?: Date
+): Promise<HourRegistration[]> {
+  // For stats, we only need data from the last year maximum
+  // This prevents fetching thousands of records
+  const defaultStartDate = new Date();
+  defaultStartDate.setFullYear(defaultStartDate.getFullYear() - 1); // Last year only
+
+  const actualStartDate = startDate || defaultStartDate;
+  const actualEndDate = endDate || new Date();
+
   const params = new URLSearchParams({
     page: "1",
-    pageSize: "10000", // Large page size to get all records
+    pageSize: "100", // Use reasonable page size
     ...(all && { all: "true" }),
+    startDate: actualStartDate.toISOString().split("T")[0], // YYYY-MM-DD format
+    endDate: actualEndDate.toISOString().split("T")[0],
   });
 
   const response = await fetch(`/api/hour-registrations?${params}`);
@@ -93,12 +112,16 @@ export function useHourRegistrations(
   });
 }
 
-// Hook to fetch all hour registrations (for stats/charts)
-export function useAllHourRegistrations(all: boolean = false) {
+// Hook to fetch hour registrations for stats/charts (with date filtering)
+export function useAllHourRegistrations(
+  all: boolean = false,
+  startDate?: Date,
+  endDate?: Date
+) {
   return useQuery({
-    queryKey: hourRegistrationKeys.allList({ all }),
-    queryFn: () => fetchAllHourRegistrations(all),
-    staleTime: 30 * 1000, // 30 seconds - matches API cache
+    queryKey: hourRegistrationKeys.allList({ all, startDate, endDate }),
+    queryFn: () => fetchHourRegistrationsForStats(all, startDate, endDate),
+    staleTime: 60 * 1000, // 60 seconds - stats don't need to be super fresh
   });
 }
 

@@ -17,8 +17,16 @@ import { useAllHourRegistrations } from "@/hooks/use-hour-registrations";
 // }
 
 export function HourStatsCards() {
+  // Only fetch last year of data for stats - this is much more efficient
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setFullYear(startDate.getFullYear() - 1); // Last year only
+    return { startDate, endDate: now };
+  }, []);
+
   const { data: registrationsData, isLoading: loading } =
-    useAllHourRegistrations(true);
+    useAllHourRegistrations(true, dateRange.startDate, dateRange.endDate);
   const registrations = useMemo(
     () => (Array.isArray(registrationsData) ? registrationsData : []),
     [registrationsData]

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { getContractById, isUserInEXOOrganization } from "@/lib/db/queries";
-import { downloadContractFile } from "@/lib/utils/file-storage";
+import { getExpenseById, isUserInEXOOrganization } from "@/lib/db/queries";
+import { downloadExpenseFile } from "@/lib/utils/file-storage";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -23,46 +23,47 @@ export async function GET(
     }
 
     const { id } = await params;
-    const contractData = await getContractById(id);
+    const expenseData = await getExpenseById(id);
 
-    if (!contractData) {
-      return NextResponse.json(
-        { error: "Contract not found" },
-        { status: 404 }
-      );
+    if (!expenseData) {
+      return NextResponse.json({ error: "Expense not found" }, { status: 404 });
     }
 
     // Check if there's a file in Storage
-    if (contractData.contract.fileStoragePath) {
+    if (expenseData.expense.invoiceStoragePath) {
       try {
-        const fileBuffer = await downloadContractFile(
-          contractData.contract.fileStoragePath
+        const fileBuffer = await downloadExpenseFile(
+          expenseData.expense.invoiceStoragePath
         );
         if (fileBuffer) {
           const filename =
-            contractData.contract.fileName ||
-            `${contractData.contract.name}.pdf`;
+            expenseData.expense.invoiceFileName ||
+            `expense-${expenseData.expense.id}.pdf`;
+
+          // Determine content type based on file type
+          const contentType =
+            expenseData.expense.invoiceFileType || "application/pdf";
 
           return new NextResponse(new Uint8Array(fileBuffer), {
             headers: {
-              "Content-Type": "application/pdf",
+              "Content-Type": contentType,
               "Content-Disposition": `attachment; filename="${filename}"`,
             },
           });
         }
       } catch (error) {
-        console.error("Error downloading contract file from Storage:", error);
+        console.error("Error downloading expense file from Storage:", error);
         // Fall through to return error
       }
     }
 
     // Otherwise return error
     return NextResponse.json(
-      { error: "Contract file not found" },
+      { error: "Expense file not found" },
       { status: 404 }
     );
   } catch (error) {
-    console.error("Error downloading contract:", error);
+    console.error("Error downloading expense file:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -218,6 +218,20 @@
       "when": 1769077720977,
       "tag": "0030_damp_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1769080432209,
+      "tag": "0031_gifted_shockwave",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1769081590490,
+      "tag": "0032_neat_la_nuit",
+      "breakpoints": true
     }
   ]
 }

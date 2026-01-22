@@ -34,6 +34,12 @@ export async function GET(request: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "50");
     const search = searchParams.get("search") || undefined;
     const all = searchParams.get("all") === "true"; // For admin to get all registrations
+    const startDate = searchParams.get("startDate")
+      ? new Date(searchParams.get("startDate")!)
+      : undefined;
+    const endDate = searchParams.get("endDate")
+      ? new Date(searchParams.get("endDate")!)
+      : undefined;
 
     // Validate pagination
     const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
@@ -48,8 +54,14 @@ export async function GET(request: Request) {
         limit,
         offset,
         search,
+        startDate,
+        endDate,
       });
-      totalCount = await getAllHourRegistrationsCount(search);
+      totalCount = await getAllHourRegistrationsCount(
+        search,
+        startDate,
+        endDate
+      );
     } else {
       // Regular users get only their registrations
       const dbUser = await getUserByEmail(user.email);
@@ -61,8 +73,15 @@ export async function GET(request: Request) {
         limit,
         offset,
         search,
+        startDate,
+        endDate,
       });
-      totalCount = await getHourRegistrationsCountByUser(dbUser.id, search);
+      totalCount = await getHourRegistrationsCountByUser(
+        dbUser.id,
+        search,
+        startDate,
+        endDate
+      );
     }
 
     return NextResponse.json(

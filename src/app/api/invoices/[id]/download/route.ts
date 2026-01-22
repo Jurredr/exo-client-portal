@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getInvoiceById, isUserInEXOOrganization } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { generateInvoicePDF } from "@/lib/utils/invoice-pdf";
+import { downloadInvoicePDF } from "@/lib/utils/invoice-storage";
 import { createHash } from "crypto";
 
 // Force dynamic rendering to always fetch fresh organization data
@@ -59,61 +60,36 @@ export async function GET(
       });
     }
 
-    // Check if there's an uploaded PDF
-    if (invoiceData.invoice.pdfUrl) {
-      // If pdfUrl is a data URL (base64), extract and return it
-      if (invoiceData.invoice.pdfUrl.startsWith("data:")) {
-        // Extract base64 data from data URL
-        // Format: data:application/pdf;base64,<base64data>
-        const base64Match = invoiceData.invoice.pdfUrl.match(/^data:.*?;base64,(.+)$/);
-        if (base64Match && base64Match[1]) {
-          const base64Data = base64Match[1];
-          const pdfBuffer = Buffer.from(base64Data, "base64");
-          
-          // Use original filename if available, otherwise generate one
-          const filename = invoiceData.invoice.pdfFileName || `${invoiceData.invoice.invoiceNumber}.pdf`;
-          
+    // Check if there's a PDF in Storage
+    if (invoiceData.invoice.pdfStoragePath) {
+      try {
+        const pdfBuffer = await downloadInvoicePDF(
+          invoiceData.invoice.pdfStoragePath
+        );
+        if (pdfBuffer) {
+          const filename =
+            invoiceData.invoice.pdfFileName ||
+            `${invoiceData.invoice.invoiceNumber}.pdf`;
+
           return new NextResponse(new Uint8Array(pdfBuffer), {
             headers: {
               "Content-Type": "application/pdf",
               "Content-Disposition": `attachment; filename="${filename}"`,
               ETag: `"${etag}"`,
               "Cache-Control": "public, max-age=3600, must-revalidate",
-              "Last-Modified": new Date(invoiceData.invoice.updatedAt).toUTCString(),
+              "Last-Modified": new Date(
+                invoiceData.invoice.updatedAt
+              ).toUTCString(),
             },
           });
         }
-      } else {
-        // If it's a regular URL, redirect to it or fetch it
-        // For now, we'll fetch it and return it
-        try {
-          const response = await fetch(invoiceData.invoice.pdfUrl, {
-            // Add cache headers to the fetch request
-            cache: "force-cache",
-            next: { revalidate: 3600 },
-          });
-          if (response.ok) {
-            const arrayBuffer = await response.arrayBuffer();
-            const filename = invoiceData.invoice.pdfFileName || `${invoiceData.invoice.invoiceNumber}.pdf`;
-            
-            return new NextResponse(new Uint8Array(arrayBuffer), {
-              headers: {
-                "Content-Type": "application/pdf",
-                "Content-Disposition": `attachment; filename="${filename}"`,
-                ETag: `"${etag}"`,
-                "Cache-Control": "public, max-age=3600, must-revalidate",
-                "Last-Modified": new Date(invoiceData.invoice.updatedAt).toUTCString(),
-              },
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching uploaded PDF:", error);
-          // Fall through to generate PDF if fetch fails
-        }
+      } catch (error) {
+        console.error("Error downloading PDF from Storage:", error);
+        // Fall through to generate PDF if download fails
       }
     }
 
-    // If no uploaded PDF, generate PDF
+    // If no PDF in Storage, generate PDF
     // HTTP caching headers will handle browser/CDN caching
     const pdfBuffer = await generateInvoicePDF(invoiceData);
 

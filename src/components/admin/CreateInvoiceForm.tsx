@@ -61,9 +61,10 @@ interface Invoice {
   description: string | null;
   invoiceDate: string | null;
   dueDate: string | null;
-  pdfUrl: string | null;
+  pdfStoragePath: string | null; // Path in Supabase Storage
   pdfFileName: string | null;
   pdfFileType: string | null;
+  pdfSizeBytes: number | null;
   vatIncluded: boolean | null;
   isKOR: boolean;
   lineItems?: InvoiceLineItem[];
@@ -287,29 +288,49 @@ export function CreateInvoiceForm({
 
     setIsSubmitting(true);
     try {
-      let pdfUrl: string | null = null;
+      let pdfStoragePath: string | null = null;
       let pdfFileName: string | null = null;
       let pdfFileType: string | null = null;
+      let pdfSizeBytes: number | null = null;
 
+      // Upload PDF to Storage if a new file is provided
       if (pdfFile) {
-        // New file uploaded
-        const reader = new FileReader();
-        pdfUrl = await new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(pdfFile);
-        });
-        pdfFileName = pdfFile.name;
-        pdfFileType = pdfFile.type;
+        try {
+          const formData = new FormData();
+          formData.append("file", pdfFile);
+          if (invoice?.id) {
+            formData.append("invoiceId", invoice.id);
+          }
+
+          const uploadResponse = await fetch("/api/invoices/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            throw new Error(error.error || "Failed to upload PDF");
+          }
+
+          const uploadResult = await uploadResponse.json();
+          pdfStoragePath = uploadResult.storagePath;
+          pdfFileName = uploadResult.fileName;
+          pdfFileType = uploadResult.fileType;
+          pdfSizeBytes = uploadResult.sizeBytes;
+        } catch (error) {
+          console.error("Error uploading PDF:", error);
+          toast.error("Failed to upload PDF file. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
       } else if (removePdf) {
         // PDF is being removed
-        pdfUrl = null;
+        pdfStoragePath = null;
         pdfFileName = null;
         pdfFileType = null;
+        pdfSizeBytes = null;
       }
-      // If neither pdfFile nor removePdf, we don't set pdfUrl/pdfFileName/pdfFileType
+      // If neither pdfFile nor removePdf, we don't set PDF fields
       // This means the API will preserve the existing PDF (if any)
 
       const url = "/api/invoices";
@@ -330,9 +351,10 @@ export function CreateInvoiceForm({
             // If undefined, the API will preserve the existing PDF
             ...(pdfFile || removePdf
               ? {
-                  pdfUrl: pdfUrl ?? null,
+                  pdfStoragePath: pdfStoragePath ?? null,
                   pdfFileName: pdfFileName ?? null,
                   pdfFileType: pdfFileType ?? null,
+                  pdfSizeBytes: pdfSizeBytes ?? null,
                 }
               : {}),
             lineItems: lineItems.map((item, index) => ({
@@ -350,9 +372,10 @@ export function CreateInvoiceForm({
             transactionType,
             isKOR,
             dueDate: dueDate || null,
-            pdfUrl,
+            pdfStoragePath,
             pdfFileName,
             pdfFileType,
+            pdfSizeBytes,
             invoiceNumber: invoiceNumberOverride.trim() || null,
             lineItems: lineItems.map((item, index) => ({
               ...item,

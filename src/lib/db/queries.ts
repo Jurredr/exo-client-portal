@@ -1442,9 +1442,8 @@ export async function getDashboardStats(
 }
 
 export async function getAllInvoices() {
-  // CRITICAL: Exclude pdfUrl from list queries to avoid transferring large base64 PDFs
-  // pdfUrl can be several MB per invoice, causing massive egress usage
-  // We'll use pdfFileName to check if a PDF exists, and only fetch pdfUrl when downloading
+  // CRITICAL: Exclude pdfStoragePath from list queries to avoid transferring metadata
+  // We'll use pdfFileName to check if a PDF exists, and only fetch pdfStoragePath when downloading
   const results = await db
     .select({
       invoice: {
@@ -1462,9 +1461,10 @@ export async function getAllInvoices() {
         description: invoices.description,
         dueDate: invoices.dueDate,
         paidAt: invoices.paidAt,
-        pdfUrl: sql<string | null>`NULL`.as("pdfUrl"), // Explicitly set to null to avoid transferring data
+        pdfStoragePath: sql<string | null>`NULL`.as("pdfStoragePath"), // Explicitly set to null to avoid transferring data
         pdfFileName: invoices.pdfFileName,
         pdfFileType: invoices.pdfFileType,
+        pdfSizeBytes: invoices.pdfSizeBytes,
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
       },
@@ -1579,7 +1579,7 @@ export async function getAllInvoicesPaginated(options?: {
   limit?: number;
   offset?: number;
 }) {
-  // CRITICAL: Exclude pdfUrl from list queries to avoid transferring large base64 PDFs
+  // CRITICAL: Exclude pdfStoragePath from list queries to avoid transferring metadata
   let query = db
     .select({
       invoice: {
@@ -1598,9 +1598,10 @@ export async function getAllInvoicesPaginated(options?: {
         invoiceDate: invoices.invoiceDate,
         dueDate: invoices.dueDate,
         paidAt: invoices.paidAt,
-        pdfUrl: sql<string | null>`NULL`.as("pdfUrl"), // Explicitly set to null to avoid transferring data
+        pdfStoragePath: sql<string | null>`NULL`.as("pdfStoragePath"), // Explicitly set to null to avoid transferring data
         pdfFileName: invoices.pdfFileName,
         pdfFileType: invoices.pdfFileType,
+        pdfSizeBytes: invoices.pdfSizeBytes,
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
       },
@@ -1740,9 +1741,10 @@ export async function getInvoiceById(invoiceId: string) {
         invoiceDate: invoices.invoiceDate,
         dueDate: invoices.dueDate,
         paidAt: invoices.paidAt,
-        pdfUrl: invoices.pdfUrl,
+        pdfStoragePath: invoices.pdfStoragePath,
         pdfFileName: invoices.pdfFileName,
         pdfFileType: invoices.pdfFileType,
+        pdfSizeBytes: invoices.pdfSizeBytes,
         createdAt: invoices.createdAt,
         updatedAt: invoices.updatedAt,
       },
@@ -1887,9 +1889,10 @@ export async function createInvoice(data: {
   description?: string | null;
   invoiceDate?: Date | null;
   dueDate?: Date | null;
-  pdfUrl?: string | null;
+  pdfStoragePath?: string | null; // Path in Supabase Storage
   pdfFileName?: string | null;
   pdfFileType?: string | null;
+  pdfSizeBytes?: number | null;
   lineItems?: Array<{
     description: string;
     quantity: string;
@@ -1914,9 +1917,10 @@ export async function createInvoice(data: {
       description: data.description || null,
       invoiceDate: data.invoiceDate || null,
       dueDate: data.dueDate || null,
-      pdfUrl: data.pdfUrl || null,
+      pdfStoragePath: data.pdfStoragePath || null,
       pdfFileName: data.pdfFileName || null,
       pdfFileType: data.pdfFileType || null,
+      pdfSizeBytes: data.pdfSizeBytes || null,
     })
     .returning();
 
@@ -1952,9 +1956,10 @@ export async function updateInvoice(
     invoiceDate: Date | null;
     dueDate: Date | null;
     paidAt: Date | null;
-    pdfUrl: string | null;
+    pdfStoragePath: string | null; // Path in Supabase Storage
     pdfFileName: string | null;
     pdfFileType: string | null;
+    pdfSizeBytes: number | null;
     lineItems?: Array<{
       id?: string;
       description: string;
@@ -2003,7 +2008,26 @@ export async function updateInvoice(
 }
 
 export async function deleteInvoice(invoiceId: string) {
+  // Get the invoice first to check if it has a Storage file
+  const invoice = await db
+    .select({ pdfStoragePath: invoices.pdfStoragePath })
+    .from(invoices)
+    .where(eq(invoices.id, invoiceId))
+    .limit(1);
+
+  // Delete the invoice (this will cascade delete line items)
   await db.delete(invoices).where(eq(invoices.id, invoiceId));
+
+  // Delete the PDF from Storage if it exists
+  if (invoice[0]?.pdfStoragePath) {
+    try {
+      const { deleteInvoicePDF } = await import("@/lib/utils/invoice-storage");
+      await deleteInvoicePDF(invoice[0].pdfStoragePath);
+    } catch (error) {
+      // Log error but don't fail the deletion if Storage deletion fails
+      console.error("Error deleting invoice PDF from Storage:", error);
+    }
+  }
 }
 
 export async function invalidateAllInvoiceCaches() {

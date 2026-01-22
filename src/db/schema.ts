@@ -79,12 +79,13 @@ export const legalDocuments = pgTable("legal_documents", {
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
     .notNull(),
-  projectId: uuid("project_id")
-    .references(() => projects.id), // Deprecated: kept for backward compatibility, use contractProjects junction table
+  projectId: uuid("project_id").references(() => projects.id), // Deprecated: kept for backward compatibility, use contractProjects junction table
   name: text("name").notNull(),
   type: text("type").notNull(), // 'agreement', 'nda', 'contract', etc.
   fileUrl: text("file_url"),
-  requiresPortalSignature: boolean("requires_portal_signature").default(true).notNull(), // If false, contract is already signed or doesn't need portal signing
+  requiresPortalSignature: boolean("requires_portal_signature")
+    .default(true)
+    .notNull(), // If false, contract is already signed or doesn't need portal signing
   signed: boolean("signed").default(false).notNull(),
   signedAt: timestamp("signed_at"),
   signature: text("signature"), // Base64 encoded signature image
@@ -154,9 +155,10 @@ export const invoices = pgTable("invoices", {
   invoiceDate: timestamp("invoice_date"), // Manual invoice date (defaults to createdAt if not set)
   dueDate: timestamp("due_date"),
   paidAt: timestamp("paid_at"),
-  pdfUrl: text("pdf_url"), // URL to uploaded invoice PDF file
+  pdfStoragePath: text("pdf_storage_path"), // Path in Supabase Storage (e.g., "invoices/invoice-123.pdf")
   pdfFileName: text("pdf_file_name"), // Original filename
   pdfFileType: text("pdf_file_type"), // MIME type
+  pdfSizeBytes: integer("pdf_size_bytes"), // File size in bytes
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

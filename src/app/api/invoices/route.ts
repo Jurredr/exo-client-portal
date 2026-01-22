@@ -116,9 +116,10 @@ export async function POST(request: Request) {
       description,
       invoiceDate,
       dueDate,
-      pdfUrl,
+      pdfStoragePath, // Path in Supabase Storage
       pdfFileName,
       pdfFileType,
+      pdfSizeBytes,
       invoiceNumber: invoiceNumberOverride,
       lineItems,
     } = body;
@@ -162,9 +163,10 @@ export async function POST(request: Request) {
           description: description || null,
           invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
           dueDate: dueDate ? new Date(dueDate) : null,
-          pdfUrl: pdfUrl || null,
+          pdfStoragePath: pdfStoragePath || null,
           pdfFileName: pdfFileName || null,
           pdfFileType: pdfFileType || null,
+          pdfSizeBytes: pdfSizeBytes || null,
           lineItems: lineItems || undefined,
         });
 
@@ -316,14 +318,17 @@ export async function PATCH(request: Request) {
       ...(updateData.paidAt !== undefined && {
         paidAt: updateData.paidAt ? new Date(updateData.paidAt) : null,
       }),
-      ...(updateData.pdfUrl !== undefined && {
-        pdfUrl: updateData.pdfUrl || null,
+      ...(updateData.pdfStoragePath !== undefined && {
+        pdfStoragePath: updateData.pdfStoragePath || null,
       }),
       ...(updateData.pdfFileName !== undefined && {
         pdfFileName: updateData.pdfFileName || null,
       }),
       ...(updateData.pdfFileType !== undefined && {
         pdfFileType: updateData.pdfFileType || null,
+      }),
+      ...(updateData.pdfSizeBytes !== undefined && {
+        pdfSizeBytes: updateData.pdfSizeBytes || null,
       }),
       ...(updateData.lineItems !== undefined && {
         lineItems: updateData.lineItems,

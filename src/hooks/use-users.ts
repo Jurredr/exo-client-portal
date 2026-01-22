@@ -66,13 +66,24 @@ export const userKeys = {
 };
 
 async function fetchUsers(
-  page: number = 1
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: {
+    organizationId?: string;
+    search?: string;
+  }
 ): Promise<PaginatedResponse<UserData>> {
   const params = new URLSearchParams({
     page: page.toString(),
-    pageSize: "100",
+    pageSize: pageSize.toString(),
     paginate: "true",
   });
+  if (filters?.organizationId) {
+    params.append("organizationId", filters.organizationId);
+  }
+  if (filters?.search) {
+    params.append("search", filters.search);
+  }
   const response = await fetch(`/api/users?${params}`);
   if (!response.ok) {
     throw new Error("Failed to fetch users");
@@ -88,10 +99,17 @@ async function fetchCurrentUser(): Promise<UserData> {
   return response.json();
 }
 
-export function useUsers(page: number = 1) {
+export function useUsers(
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: {
+    organizationId?: string;
+    search?: string;
+  }
+) {
   return useQuery({
-    queryKey: userKeys.list({ page, pageSize: 100 }),
-    queryFn: () => fetchUsers(page),
+    queryKey: userKeys.list({ page, pageSize, ...filters }),
+    queryFn: () => fetchUsers(page, pageSize, filters),
     staleTime: 120 * 1000, // 120 seconds - matches API cache
   });
 }

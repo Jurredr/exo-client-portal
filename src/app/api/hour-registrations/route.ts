@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
     const search = searchParams.get("search") || undefined;
     const all = searchParams.get("all") === "true"; // For admin to get all registrations
     const startDate = searchParams.get("startDate")

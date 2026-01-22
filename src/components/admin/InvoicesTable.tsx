@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { useState, useMemo, useEffect } from "react";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 import { useInvoices, useDeleteInvoice } from "@/hooks/use-invoices";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -24,6 +31,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Download,
   Trash2,
@@ -31,9 +46,14 @@ import {
   ArrowUpDown,
   MoreVertical,
   Pencil,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
-import { EnhancedDataTable } from "@/components/enhanced-data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +61,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CreateInvoiceForm } from "./CreateInvoiceForm";
 
 interface InvoiceData {
@@ -112,18 +141,38 @@ const formatDate = (dateString: string | null) => {
 };
 
 export function InvoicesTable() {
-  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(
+    undefined
+  );
+  const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // TanStack Query hooks - use the selected pageSize for API call
-  // Note: Since EnhancedDataTable does client-side pagination, we fetch the selected pageSize
-  // If you need to see more items, increase the "Rows per page" value
+  // Debounce search query
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // TanStack Query hooks - server-side pagination and filtering
   const { data: invoicesData, isLoading: isLoadingInvoices } = useInvoices(
-    1,
-    pageSize
+    page,
+    pageSize,
+    {
+      ...(statusFilter && { status: statusFilter }),
+      ...(typeFilter && { type: typeFilter }),
+      ...(debouncedSearch && { search: debouncedSearch }),
+    }
   );
   const deleteMutation = useDeleteInvoice();
 
   const invoices = invoicesData?.data || [];
+  const pagination = invoicesData?.pagination;
   const loading = isLoadingInvoices;
 
   const [deleteInvoice, setDeleteInvoice] = useState<InvoiceData | null>(null);
@@ -426,9 +475,22 @@ export function InvoicesTable() {
     []
   );
 
-  // Invoices are now fetched via TanStack Query
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "invoiceNumber", desc: true },
+  ]);
 
-  // Invoices are now fetched via TanStack Query
+  const table = useReactTable({
+    data: invoices,
+    columns,
+    pageCount: pagination?.totalPages ?? 1,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true, // Server-side pagination
+  });
 
   const handleDownload = async (invoice: InvoiceData) => {
     try {
@@ -508,97 +570,243 @@ export function InvoicesTable() {
       <div>
         <div className="flex items-center gap-2">
           <h2 className="text-3xl font-bold">Invoices</h2>
-          <span className="text-sm text-muted-foreground">
-            ({invoices.length})
-          </span>
+          {pagination && (
+            <span className="text-sm text-muted-foreground">
+              ({pagination.totalCount} total)
+            </span>
+          )}
         </div>
         <p className="text-muted-foreground">
           View and manage all invoices for projects and manual invoices
         </p>
       </div>
 
-      <EnhancedDataTable
-        key="invoices-table"
-        columns={columns}
-        data={invoices}
-        searchPlaceholder="Search invoices by number, organization, or project..."
-        searchFn={(row, query) => {
-          const invoiceNumber = row.invoice.invoiceNumber.toLowerCase();
-          const org = row.organization.name.toLowerCase();
-          const project = row.project?.title?.toLowerCase() || "";
-          const description = row.invoice.description?.toLowerCase() || "";
-          return (
-            invoiceNumber.includes(query) ||
-            org.includes(query) ||
-            project.includes(query) ||
-            description.includes(query)
-          );
-        }}
-        filterConfig={{
-          status: {
-            label: "Status",
-            options: INVOICE_STATUSES.map((s) => ({
-              label: s.label,
-              value: s.value,
-            })),
-            getValue: (row) => row.invoice.status,
-          },
-          type: {
-            label: "Type",
-            options: [
-              { label: "Auto", value: "auto" },
-              { label: "Manual", value: "manual" },
-            ],
-            getValue: (row) => row.invoice.type,
-          },
-        }}
-        initialSorting={[{ id: "invoiceNumber", desc: true }]}
-        initialPageSize={pageSize}
-        onPageSizeChange={setPageSize}
-        emptyMessage="No invoices found."
-        isLoading={loading}
-        toolbar={
-          isMobile ? (
-            <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DrawerTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent>
-                <DrawerHeader>
-                  <DrawerTitle>Create Invoice</DrawerTitle>
-                  <DrawerDescription>
-                    Create a new manual invoice
-                  </DrawerDescription>
-                </DrawerHeader>
-                <div className="px-4">
-                  <CreateInvoiceForm onSuccess={handleCreateSuccess} />
-                </div>
-              </DrawerContent>
-            </Drawer>
-          ) : (
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="!max-w-4xl !sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create Invoice</DialogTitle>
-                  <DialogDescription>
-                    Create a new manual invoice for any purpose
-                  </DialogDescription>
-                </DialogHeader>
+      {/* Server-side filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search invoices by number, organization, or project..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <Select
+            value={statusFilter || "all"}
+            onValueChange={(value) => {
+              setStatusFilter(value === "all" ? undefined : value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {INVOICE_STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={typeFilter || "all"}
+            onValueChange={(value) => {
+              setTypeFilter(value === "all" ? undefined : value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="auto">Auto</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {isMobile ? (
+          <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DrawerTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Invoice
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Create Invoice</DrawerTitle>
+                <DrawerDescription>
+                  Create a new manual invoice
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="px-4">
                 <CreateInvoiceForm onSuccess={handleCreateSuccess} />
-              </DialogContent>
-            </Dialog>
-          )
-        }
-      />
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Invoice
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="!max-w-4xl !sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create Invoice</DialogTitle>
+                <DialogDescription>
+                  Create a new manual invoice for any purpose
+                </DialogDescription>
+              </DialogHeader>
+              <CreateInvoiceForm onSuccess={handleCreateSuccess} />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="h-10">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: pageSize }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-${rowIndex}`}>
+                  {columns.map((_, colIndex) => (
+                    <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No invoices found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Server-side Pagination */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">Rows per page</p>
+            <Select
+              value={`${pageSize}`}
+              onValueChange={(value) => {
+                const newPageSize = Number(value);
+                setPageSize(newPageSize);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                {[10, 20, 30, 50, 100].map((size) => (
+                  <SelectItem key={size} value={`${size}`}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center text-sm font-medium">
+              Page {pagination.page} of {pagination.totalPages}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to first page</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to previous page</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to next page</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(pagination.totalPages)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to last page</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DeleteConfirmationDialog
         open={isDeleteOpen}
@@ -638,7 +846,10 @@ export function InvoicesTable() {
                     description: editingInvoice.invoice.description,
                     invoiceDate: editingInvoice.invoice.invoiceDate,
                     dueDate: editingInvoice.invoice.dueDate,
+                    pdfStoragePath:
+                      editingInvoice.invoice.pdfStoragePath || null,
                     pdfFileName: editingInvoice.invoice.pdfFileName || null,
+                    pdfSizeBytes: editingInvoice.invoice.pdfSizeBytes || null,
                     lineItems: editingInvoice.lineItems || undefined,
                   }}
                   onSuccess={handleEditSuccess}
@@ -674,7 +885,9 @@ export function InvoicesTable() {
                   description: editingInvoice.invoice.description,
                   invoiceDate: editingInvoice.invoice.invoiceDate,
                   dueDate: editingInvoice.invoice.dueDate,
+                  pdfStoragePath: editingInvoice.invoice.pdfStoragePath || null,
                   pdfFileName: editingInvoice.invoice.pdfFileName || null,
+                  pdfSizeBytes: editingInvoice.invoice.pdfSizeBytes || null,
                   lineItems: editingInvoice.lineItems || undefined,
                 }}
                 onSuccess={handleEditSuccess}

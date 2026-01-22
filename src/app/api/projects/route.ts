@@ -35,15 +35,28 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "50");
     const usePagination = searchParams.get("paginate") === "true";
+    const status = searchParams.get("status") || undefined;
+    const type = searchParams.get("type") || undefined;
+    const search = searchParams.get("search") || undefined;
 
     if (usePagination) {
       // Validate pagination
       const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
       const offset = (page - 1) * limit;
 
-      const projects = await getAllProjectsPaginated({ limit, offset });
+      const filters = {
+        ...(status && { status }),
+        ...(type && { type }),
+        ...(search && { search }),
+      };
+
+      const projects = await getAllProjectsPaginated({
+        limit,
+        offset,
+        ...filters,
+      });
       const hoursByProject = await getTotalHoursByProject();
-      const totalCount = await getAllProjectsCount();
+      const totalCount = await getAllProjectsCount(filters);
 
       // Add hours to each project
       const projectsWithHours = projects.map((p) => ({

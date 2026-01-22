@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   createExpense,
-  getAllExpenses,
   getAllExpensesPaginated,
   getAllExpensesCount,
   isUserInEXOOrganization,
@@ -30,42 +29,42 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "50");
-    const usePagination = searchParams.get("paginate") === "true";
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const category = searchParams.get("category") || undefined;
+    const search = searchParams.get("search") || undefined;
 
-    if (usePagination) {
-      // Validate pagination
-      const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
-      const offset = (page - 1) * limit;
+    // Validate pagination
+    const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
+    const offset = (page - 1) * limit;
 
-      const expenses = await getAllExpensesPaginated({ limit, offset });
-      const totalCount = await getAllExpensesCount();
+    const filters = {
+      ...(category && { category }),
+      ...(search && { search }),
+    };
 
-      return NextResponse.json(
-        {
-          data: expenses,
-          pagination: {
-            page,
-            pageSize: limit,
-            totalCount,
-            totalPages: Math.ceil(totalCount / limit),
-          },
-        },
-        {
-          headers: {
-            "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
-          },
-        }
-      );
-    }
-
-    // Fallback to non-paginated for backward compatibility
-    const expenses = await getAllExpenses();
-    return NextResponse.json(expenses, {
-      headers: {
-        "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
-      },
+    const expenses = await getAllExpensesPaginated({
+      limit,
+      offset,
+      ...filters,
     });
+    const totalCount = await getAllExpensesCount(filters);
+
+    return NextResponse.json(
+      {
+        data: expenses,
+        pagination: {
+          page,
+          pageSize: limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching expenses:", error);
     return NextResponse.json(

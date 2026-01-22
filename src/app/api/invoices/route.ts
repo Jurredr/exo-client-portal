@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import {
-  getAllInvoices,
   getAllInvoicesPaginated,
   getAllInvoicesCount,
   isUserInEXOOrganization,
@@ -37,46 +36,46 @@ export async function GET(request: Request) {
       return NextResponse.json({ invoiceNumber: nextNumber });
     }
 
-    // Support pagination
+    // Support pagination (default behavior now)
     const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "50");
-    const usePagination = searchParams.get("paginate") === "true";
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const status = searchParams.get("status") || undefined;
+    const type = searchParams.get("type") || undefined;
+    const search = searchParams.get("search") || undefined;
 
-    if (usePagination) {
-      // Validate pagination
-      const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
-      const offset = (page - 1) * limit;
+    // Validate pagination
+    const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
+    const offset = (page - 1) * limit;
 
-      const invoices = await getAllInvoicesPaginated({ limit, offset });
-      const totalCount = await getAllInvoicesCount();
+    const filters = {
+      ...(status && { status }),
+      ...(type && { type }),
+      ...(search && { search }),
+    };
 
-      return NextResponse.json(
-        {
-          data: invoices,
-          pagination: {
-            page,
-            pageSize: limit,
-            totalCount,
-            totalPages: Math.ceil(totalCount / limit),
-          },
-        },
-        {
-          headers: {
-            "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
-          },
-        }
-      );
-    }
-
-    // Fallback to non-paginated for backward compatibility
-    const invoices = await getAllInvoices();
-
-    // Add caching headers to reduce database queries
-    return NextResponse.json(invoices, {
-      headers: {
-        "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
-      },
+    const invoices = await getAllInvoicesPaginated({
+      limit,
+      offset,
+      ...filters,
     });
+    const totalCount = await getAllInvoicesCount(filters);
+
+    return NextResponse.json(
+      {
+        data: invoices,
+        pagination: {
+          page,
+          pageSize: limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching invoices:", error);
     return NextResponse.json(

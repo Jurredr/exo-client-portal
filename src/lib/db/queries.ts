@@ -811,6 +811,8 @@ export async function getAllUsers() {
 export async function getAllUsersPaginated(options?: {
   limit?: number;
   offset?: number;
+  organizationId?: string;
+  search?: string;
 }) {
   // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
   // Get paginated users with their primary organization
@@ -834,8 +836,47 @@ export async function getAllUsersPaginated(options?: {
       },
     })
     .from(users)
-    .leftJoin(organizations, eq(users.organizationId, organizations.id))
-    .orderBy(users.email);
+    .leftJoin(organizations, eq(users.organizationId, organizations.id));
+
+  // Apply filters
+  const conditions = [];
+  if (options?.organizationId) {
+    // Filter by organization - check both primary organization and junction table
+    const userOrgIds = await db
+      .select({ userId: userOrganizations.userId })
+      .from(userOrganizations)
+      .where(eq(userOrganizations.organizationId, options.organizationId));
+    const userIds = userOrgIds.map((row) => row.userId);
+
+    // Also include users with this as primary organization
+    if (userIds.length > 0) {
+      conditions.push(
+        or(
+          eq(users.organizationId, options.organizationId),
+          inArray(users.id, userIds)
+        )!
+      );
+    } else {
+      // If no users in junction table, only check primary organization
+      conditions.push(eq(users.organizationId, options.organizationId));
+    }
+  }
+  if (options?.search) {
+    const searchTerm = `%${options.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${users.email})`, searchTerm),
+        like(sql`LOWER(${users.name})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm)
+      )!
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  query = query.orderBy(users.email) as typeof query;
 
   if (options?.limit) {
     query = query.limit(options.limit) as typeof query;
@@ -883,9 +924,54 @@ export async function getAllUsersPaginated(options?: {
   }));
 }
 
-// Get total count of users
-export async function getAllUsersCount() {
-  const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+// Get total count of users with optional filters
+export async function getAllUsersCount(filters?: {
+  organizationId?: string;
+  search?: string;
+}) {
+  let query = db
+    .select({ count: sql<number>`count(*)` })
+    .from(users)
+    .leftJoin(organizations, eq(users.organizationId, organizations.id));
+
+  const conditions = [];
+  if (filters?.organizationId) {
+    // Filter by organization - check both primary organization and junction table
+    const userOrgIds = await db
+      .select({ userId: userOrganizations.userId })
+      .from(userOrganizations)
+      .where(eq(userOrganizations.organizationId, filters.organizationId));
+    const userIds = userOrgIds.map((row) => row.userId);
+
+    // Also include users with this as primary organization
+    if (userIds.length > 0) {
+      conditions.push(
+        or(
+          eq(users.organizationId, filters.organizationId),
+          inArray(users.id, userIds)
+        )!
+      );
+    } else {
+      // If no users in junction table, only check primary organization
+      conditions.push(eq(users.organizationId, filters.organizationId));
+    }
+  }
+  if (filters?.search) {
+    const searchTerm = `%${filters.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${users.email})`, searchTerm),
+        like(sql`LOWER(${users.name})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm)
+      )!
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const result = await query;
   return Number(result[0]?.count || 0);
 }
 
@@ -952,6 +1038,9 @@ export async function getAllProjects() {
 export async function getAllProjectsPaginated(options?: {
   limit?: number;
   offset?: number;
+  status?: string;
+  type?: string;
+  search?: string;
 }) {
   let query = db
     .select({
@@ -976,8 +1065,32 @@ export async function getAllProjectsPaginated(options?: {
       },
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
-    .orderBy(desc(projects.createdAt));
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id));
+
+  // Apply filters
+  const conditions = [];
+  if (options?.status) {
+    conditions.push(eq(projects.status, options.status));
+  }
+  if (options?.type) {
+    conditions.push(eq(projects.type, options.type));
+  }
+  if (options?.search) {
+    const searchTerm = `%${options.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${projects.title})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${projects.description})`, searchTerm)
+      )!
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  query = query.orderBy(desc(projects.createdAt)) as typeof query;
 
   if (options?.limit) {
     query = query.limit(options.limit) as typeof query;
@@ -989,11 +1102,40 @@ export async function getAllProjectsPaginated(options?: {
   return await query;
 }
 
-// Get total count of projects
-export async function getAllProjectsCount() {
-  const result = await db
+// Get total count of projects with optional filters
+export async function getAllProjectsCount(filters?: {
+  status?: string;
+  type?: string;
+  search?: string;
+}) {
+  let query = db
     .select({ count: sql<number>`count(*)` })
-    .from(projects);
+    .from(projects)
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id));
+
+  const conditions = [];
+  if (filters?.status) {
+    conditions.push(eq(projects.status, filters.status));
+  }
+  if (filters?.type) {
+    conditions.push(eq(projects.type, filters.type));
+  }
+  if (filters?.search) {
+    const searchTerm = `%${filters.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${projects.title})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${projects.description})`, searchTerm)
+      )!
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const result = await query;
   return Number(result[0]?.count || 0);
 }
 
@@ -1736,6 +1878,9 @@ export async function getAllInvoices() {
 export async function getAllInvoicesPaginated(options?: {
   limit?: number;
   offset?: number;
+  status?: string;
+  type?: string;
+  search?: string;
 }) {
   // CRITICAL: Exclude pdfStoragePath from list queries to avoid transferring metadata
   let query = db
@@ -1773,8 +1918,33 @@ export async function getAllInvoicesPaginated(options?: {
     })
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
-    .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
-    .orderBy(desc(invoices.createdAt));
+    .innerJoin(organizations, eq(invoices.organizationId, organizations.id));
+
+  // Apply filters
+  const conditions = [];
+  if (options?.status) {
+    conditions.push(eq(invoices.status, options.status));
+  }
+  if (options?.type) {
+    conditions.push(eq(invoices.type, options.type));
+  }
+  if (options?.search) {
+    const searchTerm = `%${options.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${invoices.invoiceNumber})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm),
+        like(sql`LOWER(${invoices.description})`, searchTerm)
+      )!
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  query = query.orderBy(desc(invoices.createdAt)) as typeof query;
 
   if (options?.limit) {
     query = query.limit(options.limit) as typeof query;
@@ -1871,11 +2041,45 @@ export async function getAllInvoicesPaginated(options?: {
   });
 }
 
-// Get total count of invoices
-export async function getAllInvoicesCount() {
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(invoices);
+// Get total count of invoices with optional filters
+export async function getAllInvoicesCount(filters?: {
+  status?: string;
+  type?: string;
+  search?: string;
+}) {
+  // If search is needed, we need joins, so build query with joins upfront
+  let query = filters?.search
+    ? db
+        .select({ count: sql<number>`count(*)` })
+        .from(invoices)
+        .leftJoin(projects, eq(invoices.projectId, projects.id))
+        .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
+    : db.select({ count: sql<number>`count(*)` }).from(invoices);
+
+  // Apply same filters as getAllInvoicesPaginated
+  const conditions = [];
+  if (filters?.status) {
+    conditions.push(eq(invoices.status, filters.status));
+  }
+  if (filters?.type) {
+    conditions.push(eq(invoices.type, filters.type));
+  }
+  if (filters?.search) {
+    const searchTerm = `%${filters.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${invoices.invoiceNumber})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm),
+        like(sql`LOWER(${invoices.description})`, searchTerm)
+      )!
+    );
+  }
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const result = await query;
   return Number(result[0]?.count || 0);
 }
 
@@ -2375,6 +2579,187 @@ export async function getContractById(contractId: string) {
   };
 }
 
+// Paginated version of getAllContracts
+export async function getAllContractsPaginated(options?: {
+  limit?: number;
+  offset?: number;
+  signed?: string; // "signed" or "pending"
+  search?: string;
+}) {
+  let query = db
+    .select({
+      contract: {
+        id: contracts.id,
+        organizationId: contracts.organizationId,
+        name: contracts.name,
+        type: contracts.type,
+        fileStoragePath: contracts.fileStoragePath,
+        fileName: contracts.fileName,
+        fileSizeBytes: contracts.fileSizeBytes,
+        requiresPortalSignature: contracts.requiresPortalSignature,
+        signed: contracts.signed,
+        signedAt: contracts.signedAt,
+        signature: contracts.signature,
+        signedBy: contracts.signedBy,
+        createdAt: contracts.createdAt,
+      },
+      organization: {
+        id: organizations.id,
+        name: organizations.name,
+      },
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+      signedByUser: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
+    })
+    .from(contracts)
+    .innerJoin(organizations, eq(contracts.organizationId, organizations.id))
+    .leftJoin(projects, eq(contracts.projectId, projects.id))
+    .leftJoin(users, eq(contracts.signedBy, users.id));
+
+  // Apply filters
+  const conditions = [eq(contracts.type, "contract")];
+  if (options?.signed === "signed") {
+    conditions.push(eq(contracts.signed, true));
+  } else if (options?.signed === "pending") {
+    conditions.push(eq(contracts.signed, false));
+  }
+  if (options?.search) {
+    const searchTerm = `%${options.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${contracts.name})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm)
+      )!
+    );
+  }
+
+  query = query.where(and(...conditions)) as typeof query;
+
+  query = query.orderBy(desc(contracts.createdAt)) as typeof query;
+
+  if (options?.limit) {
+    query = query.limit(options.limit) as typeof query;
+  }
+  if (options?.offset) {
+    query = query.offset(options.offset) as typeof query;
+  }
+
+  const contractsList = await query;
+
+  // Get all project associations from junction table
+  const allContractProjectIds = contractsList.map((c) => c.contract.id);
+  const projectAssociations =
+    allContractProjectIds.length > 0
+      ? await db
+          .select({
+            contractId: contractProjects.contractId,
+            project: {
+              id: projects.id,
+              title: projects.title,
+            },
+            organization: {
+              id: organizations.id,
+              name: organizations.name,
+            },
+          })
+          .from(contractProjects)
+          .innerJoin(projects, eq(contractProjects.projectId, projects.id))
+          .innerJoin(
+            organizations,
+            eq(projects.organizationId, organizations.id)
+          )
+          .where(inArray(contractProjects.contractId, allContractProjectIds))
+      : [];
+
+  // Group projects by contract ID
+  const projectsByContract = new Map<string, typeof projectAssociations>();
+  projectAssociations.forEach((assoc) => {
+    if (!projectsByContract.has(assoc.contractId)) {
+      projectsByContract.set(assoc.contractId, []);
+    }
+    projectsByContract.get(assoc.contractId)!.push(assoc);
+  });
+
+  // Attach projects to each contract
+  return contractsList.map((contract) => {
+    const associatedProjects =
+      projectsByContract.get(contract.contract.id) || [];
+    // If no projects from junction table but has legacy projectId, use that
+    if (associatedProjects.length === 0 && contract.project) {
+      return {
+        ...contract,
+        projects: [contract.project],
+        organizations: [contract.organization],
+      };
+    }
+
+    // Get unique organizations from projects
+    const allOrganizations = new Map<string, typeof contract.organization>();
+    allOrganizations.set(contract.organization.id, contract.organization);
+    associatedProjects.forEach((assoc) => {
+      if (!allOrganizations.has(assoc.organization.id)) {
+        allOrganizations.set(assoc.organization.id, assoc.organization);
+      }
+    });
+
+    return {
+      ...contract,
+      projects: associatedProjects.map((a) => a.project),
+      organizations: Array.from(allOrganizations.values()),
+    };
+  });
+}
+
+// Get total count of contracts with optional filters
+export async function getAllContractsCount(filters?: {
+  signed?: string; // "signed" or "pending"
+  search?: string;
+}) {
+  // If search is needed, we need joins, so build query with joins upfront
+  let query = filters?.search
+    ? db
+        .select({ count: sql<number>`count(*)` })
+        .from(contracts)
+        .innerJoin(
+          organizations,
+          eq(contracts.organizationId, organizations.id)
+        )
+        .leftJoin(projects, eq(contracts.projectId, projects.id))
+    : db.select({ count: sql<number>`count(*)` }).from(contracts);
+
+  // Always filter by type="contract", then apply additional filters
+  const conditions = [eq(contracts.type, "contract")];
+
+  if (filters?.signed === "signed") {
+    conditions.push(eq(contracts.signed, true));
+  } else if (filters?.signed === "pending") {
+    conditions.push(eq(contracts.signed, false));
+  }
+
+  if (filters?.search) {
+    const searchTerm = `%${filters.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${contracts.name})`, searchTerm),
+        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm)
+      )!
+    );
+  }
+
+  query = query.where(and(...conditions)) as typeof query;
+
+  const result = await query;
+  return Number(result[0]?.count || 0);
+}
+
 export async function createContract(data: {
   organizationId: string;
   projectIds?: string[];
@@ -2568,6 +2953,8 @@ export async function getAllExpenses() {
 export async function getAllExpensesPaginated(options?: {
   limit?: number;
   offset?: number;
+  category?: string;
+  search?: string;
 }) {
   let query = db
     .select({
@@ -2593,8 +2980,31 @@ export async function getAllExpensesPaginated(options?: {
       },
     })
     .from(expenses)
-    .innerJoin(users, eq(expenses.userId, users.id))
-    .orderBy(desc(expenses.date));
+    .innerJoin(users, eq(expenses.userId, users.id));
+
+  // Apply filters
+  const conditions = [];
+  if (options?.category) {
+    conditions.push(eq(expenses.category, options.category));
+  }
+  if (options?.search) {
+    const searchTerm = `%${options.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${expenses.description})`, searchTerm),
+        like(sql`LOWER(${expenses.category})`, searchTerm),
+        like(sql`LOWER(${expenses.vendor})`, searchTerm),
+        like(sql`LOWER(${users.name})`, searchTerm),
+        like(sql`LOWER(${users.email})`, searchTerm)
+      )!
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  query = query.orderBy(desc(expenses.date)) as typeof query;
 
   if (options?.limit) {
     query = query.limit(options.limit) as typeof query;
@@ -2606,11 +3016,41 @@ export async function getAllExpensesPaginated(options?: {
   return await query;
 }
 
-// Get total count of expenses
-export async function getAllExpensesCount() {
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(expenses);
+// Get total count of expenses with optional filters
+export async function getAllExpensesCount(filters?: {
+  category?: string;
+  search?: string;
+}) {
+  // If search is needed, we need joins, so build query with joins upfront
+  let query = filters?.search
+    ? db
+        .select({ count: sql<number>`count(*)` })
+        .from(expenses)
+        .innerJoin(users, eq(expenses.userId, users.id))
+    : db.select({ count: sql<number>`count(*)` }).from(expenses);
+
+  // Apply same filters as getAllExpensesPaginated
+  const conditions = [];
+  if (filters?.category) {
+    conditions.push(eq(expenses.category, filters.category));
+  }
+  if (filters?.search) {
+    const searchTerm = `%${filters.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${expenses.description})`, searchTerm),
+        like(sql`LOWER(${expenses.category})`, searchTerm),
+        like(sql`LOWER(${expenses.vendor})`, searchTerm),
+        like(sql`LOWER(${users.name})`, searchTerm),
+        like(sql`LOWER(${users.email})`, searchTerm)
+      )!
+    );
+  }
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const result = await query;
   return Number(result[0]?.count || 0);
 }
 

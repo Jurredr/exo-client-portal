@@ -66,18 +66,44 @@ export const contractKeys = {
   detail: (id: string) => [...contractKeys.all, "detail", id] as const,
 };
 
-async function fetchContracts(): Promise<ContractData[]> {
-  const response = await fetch("/api/contracts");
+interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
+}
+
+async function fetchContracts(
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: {
+    signed?: string;
+    search?: string;
+  }
+): Promise<PaginatedResponse<ContractData>> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    pageSize: pageSize.toString(),
+    ...(filters?.signed && { signed: filters.signed }),
+    ...(filters?.search && { search: filters.search }),
+  });
+  const response = await fetch(`/api/contracts?${params}`);
   if (!response.ok) {
     throw new Error("Failed to fetch contracts");
   }
   const data = await response.json();
   // Normalize null values to undefined for optional fields
-  return data.map((contract: ContractData) => ({
-    ...contract,
-    project: contract.project ?? undefined,
-    organization: contract.organization ?? undefined,
-  }));
+  return {
+    ...data,
+    data: data.data.map((contract: ContractData) => ({
+      ...contract,
+      project: contract.project ?? undefined,
+      organization: contract.organization ?? undefined,
+    })),
+  };
 }
 
 async function fetchContractById(id: string): Promise<ContractData> {
@@ -94,10 +120,17 @@ async function fetchContractById(id: string): Promise<ContractData> {
   };
 }
 
-export function useContracts() {
+export function useContracts(
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: {
+    signed?: string;
+    search?: string;
+  }
+) {
   return useQuery({
-    queryKey: contractKeys.lists(),
-    queryFn: fetchContracts,
+    queryKey: [...contractKeys.lists(), page, pageSize, filters],
+    queryFn: () => fetchContracts(page, pageSize, filters),
     staleTime: 60 * 1000, // 60 seconds - matches API cache
   });
 }

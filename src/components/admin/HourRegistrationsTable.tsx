@@ -38,9 +38,34 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconDotsVertical } from "@tabler/icons-react";
-import { Plus, ArrowUpDown, Pencil } from "lucide-react";
+import {
+  Plus,
+  ArrowUpDown,
+  Pencil,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import { toast } from "sonner";
-import { EnhancedDataTable } from "@/components/enhanced-data-table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 
 interface HourRegistration {
   id: string;
@@ -349,15 +374,29 @@ interface Project {
 }
 
 export function HourRegistrationsTable() {
-  // TanStack Query hooks
+  // TanStack Query hooks - server-side pagination with default page size 10
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Debounce search query
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const { data: registrationsData, isLoading: isLoadingRegistrations } =
-    useHourRegistrations(1, undefined, true);
+    useHourRegistrations(page, debouncedSearch || undefined, true);
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
   const createMutation = useCreateHourRegistration();
   const updateMutation = useUpdateHourRegistration();
   const deleteMutation = useDeleteHourRegistration();
 
   const registrations = registrationsData?.data || [];
+  const pagination = registrationsData?.pagination;
   const loading = isLoadingRegistrations || isLoadingProjects;
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
@@ -653,239 +692,355 @@ export function HourRegistrationsTable() {
     [handleDelete, handleEdit]
   );
 
-  const projectFilterOptions = useMemo(() => {
-    return projects.map((project: Project) => ({
-      label: project.title,
-      value: project.id,
-    }));
-  }, [projects]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "date", desc: true },
+  ]);
+
+  const table = useReactTable({
+    data: registrations,
+    columns,
+    pageCount: pagination?.totalPages ?? 1,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true, // Server-side pagination
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Hour Registrations</h2>
-          <p className="text-muted-foreground">
-            View and manage hour registrations
-          </p>
+          {pagination && (
+            <p className="text-muted-foreground">
+              {pagination.totalCount} total registrations
+            </p>
+          )}
         </div>
       </div>
-      <EnhancedDataTable
-        columns={columns}
-        data={registrations}
-        searchPlaceholder="Search by description, user, or project..."
-        searchFn={(row, query) => {
-          const description = row.description.toLowerCase();
-          const userName = (row.user.name || "").toLowerCase();
-          const userEmail = row.user.email.toLowerCase();
-          const projectTitle = (row.project?.title || "").toLowerCase();
-          return (
-            description.includes(query) ||
-            userName.includes(query) ||
-            userEmail.includes(query) ||
-            projectTitle.includes(query)
-          );
-        }}
-        filterConfig={
-          projectFilterOptions.length > 0
-            ? {
-                project: {
-                  label: "Project",
-                  options: [
-                    { label: "None", value: "none" },
-                    ...projectFilterOptions,
-                  ],
-                  getValue: (row) => row.project?.id || "none",
-                },
-              }
-            : undefined
-        }
-        initialSorting={[{ id: "date", desc: true }]}
-        emptyMessage="No hour registrations found."
-        isLoading={loading}
-        toolbar={
-          <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Entry
+
+      {/* Server-side search */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by description, user, or project..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Manual Entry</DialogTitle>
-                <DialogDescription>
-                  Manually log hours for a specific date
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleManualEntry} className="space-y-4">
+            )}
+          </div>
+        </div>
+        <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Entry
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Manual Entry</DialogTitle>
+              <DialogDescription>
+                Manually log hours for a specific date
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleManualEntry} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="manual-date">Date *</Label>
+                <Input
+                  id="manual-date"
+                  type="date"
+                  value={manualEntry.date}
+                  onChange={(e) =>
+                    setManualEntry({ ...manualEntry, date: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-category">Work Category *</Label>
+                <Select
+                  value={manualEntry.category}
+                  onValueChange={(value) =>
+                    setManualEntry({
+                      ...manualEntry,
+                      category: value as
+                        | "client"
+                        | "administration"
+                        | "brainstorming"
+                        | "research"
+                        | "labs"
+                        | "client_acquisition"
+                        | "content_creation"
+                        | "traveling",
+                    })
+                  }
+                >
+                  <SelectTrigger id="manual-category" className="w-full">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="client">Client Work</SelectItem>
+                    <SelectItem value="administration">
+                      Administration
+                    </SelectItem>
+                    <SelectItem value="brainstorming">Brainstorming</SelectItem>
+                    <SelectItem value="research">Research</SelectItem>
+                    <SelectItem value="client_acquisition">
+                      Client Acquisition
+                    </SelectItem>
+                    <SelectItem value="labs">EXO Labs</SelectItem>
+                    <SelectItem value="content_creation">
+                      Content Creation
+                    </SelectItem>
+                    <SelectItem value="traveling">Traveling</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(manualEntry.category === "client" ||
+                manualEntry.category === "labs" ||
+                manualEntry.category === "content_creation") && (
                 <div className="space-y-2">
-                  <Label htmlFor="manual-date">Date *</Label>
-                  <Input
-                    id="manual-date"
-                    type="date"
-                    value={manualEntry.date}
-                    onChange={(e) =>
-                      setManualEntry({ ...manualEntry, date: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="manual-category">Work Category *</Label>
+                  <Label htmlFor="manual-project">
+                    Project{" "}
+                    {manualEntry.category === "client" ? "(Optional)" : ""}
+                  </Label>
                   <Select
-                    value={manualEntry.category}
+                    value={manualEntry.projectId || "none"}
                     onValueChange={(value) =>
                       setManualEntry({
                         ...manualEntry,
-                        category: value as
-                          | "client"
-                          | "administration"
-                          | "brainstorming"
-                          | "research"
-                          | "labs"
-                          | "client_acquisition"
-                          | "content_creation"
-                          | "traveling",
+                        projectId: value === "none" ? undefined : value,
                       })
                     }
                   >
-                    <SelectTrigger id="manual-category" className="w-full">
-                      <SelectValue placeholder="Select category" />
+                    <SelectTrigger id="manual-project" className="w-full">
+                      <SelectValue placeholder="Select a project" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="client">Client Work</SelectItem>
-                      <SelectItem value="administration">
-                        Administration
-                      </SelectItem>
-                      <SelectItem value="brainstorming">
-                        Brainstorming
-                      </SelectItem>
-                      <SelectItem value="research">Research</SelectItem>
-                      <SelectItem value="client_acquisition">
-                        Client Acquisition
-                      </SelectItem>
-                      <SelectItem value="labs">EXO Labs</SelectItem>
-                      <SelectItem value="content_creation">
-                        Content Creation
-                      </SelectItem>
-                      <SelectItem value="traveling">Traveling</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
+                      {projects.map((project: Project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.title}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                {(manualEntry.category === "client" ||
-                  manualEntry.category === "labs" ||
-                  manualEntry.category === "content_creation") && (
-                  <div className="space-y-2">
-                    <Label htmlFor="manual-project">
-                      Project{" "}
-                      {manualEntry.category === "client" ? "(Optional)" : ""}
-                    </Label>
-                    <Select
-                      value={manualEntry.projectId || "none"}
-                      onValueChange={(value) =>
-                        setManualEntry({
-                          ...manualEntry,
-                          projectId: value === "none" ? undefined : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger id="manual-project" className="w-full">
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {projects.map((project: Project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="manual-hours">Hours</Label>
-                    <Input
-                      id="manual-hours"
-                      type="number"
-                      min="0"
-                      value={manualEntry.hours}
-                      onChange={(e) =>
-                        setManualEntry({
-                          ...manualEntry,
-                          hours: e.target.value,
-                        })
-                      }
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="manual-minutes">Minutes</Label>
-                    <Input
-                      id="manual-minutes"
-                      type="number"
-                      min="0"
-                      max="59"
-                      value={manualEntry.minutes}
-                      onChange={(e) =>
-                        setManualEntry({
-                          ...manualEntry,
-                          minutes: e.target.value,
-                        })
-                      }
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="manual-description">Description *</Label>
-                  <Textarea
-                    id="manual-description"
-                    placeholder={
-                      manualEntry.category === "administration"
-                        ? "Describe the administrative work you did..."
-                        : manualEntry.category === "brainstorming"
-                          ? "Describe your brainstorming session..."
-                          : manualEntry.category === "research"
-                            ? "Describe the research you conducted..."
-                            : manualEntry.category === "client_acquisition"
-                              ? "Describe the client acquisition activities..."
-                              : manualEntry.category === "content_creation"
-                                ? "Describe the content you created..."
-                                : manualEntry.category === "traveling"
-                                  ? "Describe your travel activities..."
-                                  : "Describe the work you did..."
-                    }
-                    value={manualEntry.description}
+                  <Label htmlFor="manual-hours">Hours</Label>
+                  <Input
+                    id="manual-hours"
+                    type="number"
+                    min="0"
+                    value={manualEntry.hours}
                     onChange={(e) =>
                       setManualEntry({
                         ...manualEntry,
-                        description: e.target.value,
+                        hours: e.target.value,
                       })
                     }
-                    rows={4}
-                    required
+                    placeholder="0"
                   />
                 </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsManualEntryOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Add Entry"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        }
-      />
+                <div className="space-y-2">
+                  <Label htmlFor="manual-minutes">Minutes</Label>
+                  <Input
+                    id="manual-minutes"
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={manualEntry.minutes}
+                    onChange={(e) =>
+                      setManualEntry({
+                        ...manualEntry,
+                        minutes: e.target.value,
+                      })
+                    }
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-description">Description *</Label>
+                <Textarea
+                  id="manual-description"
+                  placeholder={
+                    manualEntry.category === "administration"
+                      ? "Describe the administrative work you did..."
+                      : manualEntry.category === "brainstorming"
+                        ? "Describe your brainstorming session..."
+                        : manualEntry.category === "research"
+                          ? "Describe the research you conducted..."
+                          : manualEntry.category === "client_acquisition"
+                            ? "Describe the client acquisition activities..."
+                            : manualEntry.category === "content_creation"
+                              ? "Describe the content you created..."
+                              : manualEntry.category === "traveling"
+                                ? "Describe your travel activities..."
+                                : "Describe the work you did..."
+                  }
+                  value={manualEntry.description}
+                  onChange={(e) =>
+                    setManualEntry({
+                      ...manualEntry,
+                      description: e.target.value,
+                    })
+                  }
+                  rows={4}
+                  required
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsManualEntryOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Add Entry"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="h-10">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 10 }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-${rowIndex}`}>
+                  {columns.map((_, colIndex) => (
+                    <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No hour registrations found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Server-side Pagination */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">Rows per page</p>
+            <Select value="10" disabled onValueChange={() => {}}>
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder="10" />
+              </SelectTrigger>
+              <SelectContent side="top">
+                <SelectItem value="10">10</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center text-sm font-medium">
+              Page {pagination.page} of {pagination.totalPages}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to first page</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to previous page</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to next page</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(pagination.totalPages)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to last page</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

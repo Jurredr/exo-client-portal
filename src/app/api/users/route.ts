@@ -30,14 +30,21 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "50");
     const usePagination = searchParams.get("paginate") === "true";
+    const organizationId = searchParams.get("organizationId") || undefined;
+    const search = searchParams.get("search") || undefined;
 
     if (usePagination) {
       // Validate pagination
       const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
       const offset = (page - 1) * limit;
 
-      const users = await getAllUsersPaginated({ limit, offset });
-      const totalCount = await getAllUsersCount();
+      const filters = {
+        ...(organizationId && { organizationId }),
+        ...(search && { search }),
+      };
+
+      const users = await getAllUsersPaginated({ limit, offset, ...filters });
+      const totalCount = await getAllUsersCount(filters);
 
       return NextResponse.json(
         {
@@ -207,7 +214,6 @@ export async function PATCH(request: Request) {
         imageSizeBytes: imageSizeBytes || null,
       }),
       ...(orgIds !== undefined && { organizationIds: orgIds }),
-      ...(image !== undefined && { image: image || null }),
     });
 
     return NextResponse.json(updatedUser);

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 import { useProjects, useDeleteProject } from "@/hooks/use-projects";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -52,11 +59,16 @@ import {
   Pencil,
   ArrowUpDown,
   MoreVertical,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { CreateProjectForm } from "./CreateProjectForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import Link from "next/link";
-import { EnhancedDataTable } from "@/components/enhanced-data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,6 +76,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProjectData {
   project: {
@@ -145,14 +166,64 @@ const formatHours = (decimalHours: number) => {
 };
 
 export function ProjectsTable() {
-  // TanStack Query hooks
-  const { data: projectsData, isLoading: isLoadingProjects } = useProjects(1);
+  // Separate pagination for client projects
+  const [clientPage, setClientPage] = useState(1);
+  const [clientPageSize, setClientPageSize] = useState(10);
+  const [clientStatusFilter, setClientStatusFilter] = useState<
+    string | undefined
+  >(undefined);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+
+  // Separate pagination for labs projects
+  const [labsPage, setLabsPage] = useState(1);
+  const [labsPageSize, setLabsPageSize] = useState(10);
+  const [labsStatusFilter, setLabsStatusFilter] = useState<string | undefined>(
+    undefined
+  );
+  const [labsSearchQuery, setLabsSearchQuery] = useState("");
+
+  // Debounce search queries
+  const [debouncedClientSearch, setDebouncedClientSearch] = useState("");
+  const [debouncedLabsSearch, setDebouncedLabsSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedClientSearch(clientSearchQuery);
+      setClientPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [clientSearchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedLabsSearch(labsSearchQuery);
+      setLabsPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [labsSearchQuery]);
+
+  // TanStack Query hooks - separate queries for client and labs projects
+  const { data: clientProjectsData, isLoading: isLoadingClientProjects } =
+    useProjects(clientPage, clientPageSize, {
+      type: "client",
+      ...(clientStatusFilter && { status: clientStatusFilter }),
+      ...(debouncedClientSearch && { search: debouncedClientSearch }),
+    });
+  const { data: labsProjectsData, isLoading: isLoadingLabsProjects } =
+    useProjects(labsPage, labsPageSize, {
+      type: "labs",
+      ...(labsStatusFilter && { status: labsStatusFilter }),
+      ...(debouncedLabsSearch && { search: debouncedLabsSearch }),
+    });
   const { isLoading: isLoadingOrganizations } = useOrganizations();
   const deleteMutation = useDeleteProject();
 
-  const projects = projectsData?.data || [];
-  // const organizations = organizationsData?.map((org) => ({ id: org.id, name: org.name })) || []; // Unused but kept for potential future use
-  const loading = isLoadingProjects || isLoadingOrganizations;
+  const clientProjects = clientProjectsData?.data || [];
+  const clientPagination = clientProjectsData?.pagination;
+  const labsProjects = labsProjectsData?.data || [];
+  const labsPagination = labsProjectsData?.pagination;
+  const loading =
+    isLoadingClientProjects || isLoadingLabsProjects || isLoadingOrganizations;
 
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(
     null
@@ -165,12 +236,6 @@ export function ProjectsTable() {
   const [deleteProject, setDeleteProject] = useState<ProjectData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const isMobile = useIsMobile();
-
-  // Separate projects into client and labs
-  const clientProjects = projects.filter(
-    (p) => p.project.type === "client" || !p.project.type
-  );
-  const labsProjects = projects.filter((p) => p.project.type === "labs");
 
   const columns: ColumnDef<ProjectData>[] = useMemo(
     () => [
@@ -427,6 +492,45 @@ export function ProjectsTable() {
     []
   );
 
+  // Columns for labs projects (without subtotal)
+  const labsColumns: ColumnDef<ProjectData>[] = useMemo(
+    () => columns.filter((col) => col.id !== "subtotal"),
+    [columns]
+  );
+
+  const [clientSorting, setClientSorting] = useState<SortingState>([
+    { id: "title", desc: false },
+  ]);
+  const [labsSorting, setLabsSorting] = useState<SortingState>([
+    { id: "title", desc: false },
+  ]);
+
+  const clientTable = useReactTable({
+    data: clientProjects,
+    columns,
+    pageCount: clientPagination?.totalPages ?? 1,
+    state: {
+      sorting: clientSorting,
+    },
+    onSortingChange: setClientSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true, // Server-side pagination
+  });
+
+  const labsTable = useReactTable({
+    data: labsProjects,
+    columns: labsColumns,
+    pageCount: labsPagination?.totalPages ?? 1,
+    state: {
+      sorting: labsSorting,
+    },
+    onSortingChange: setLabsSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true, // Server-side pagination
+  });
+
   // Projects and organizations are now fetched via TanStack Query
 
   const handleRowClick = (project: ProjectData) => {
@@ -679,12 +783,6 @@ export function ProjectsTable() {
     </>
   );
 
-  // Columns for labs projects (without subtotal)
-  const labsColumns: ColumnDef<ProjectData>[] = useMemo(
-    () => columns.filter((col) => col.id !== "subtotal"),
-    [columns]
-  );
-
   return (
     <div className="space-y-8">
       <div>
@@ -694,39 +792,60 @@ export function ProjectsTable() {
         </p>
       </div>
 
-      <EnhancedDataTable
-        columns={columns}
-        data={clientProjects}
-        searchPlaceholder="Search projects by title or organization..."
-        searchFn={(row, query) => {
-          const title = row.project.title.toLowerCase();
-          const org = row.organization.name.toLowerCase();
-          return title.includes(query) || org.includes(query);
-        }}
-        filterConfig={{
-          status: {
-            label: "Status",
-            options: PROJECT_STATUSES.map((s) => ({
-              label: s.label,
-              value: s.value,
-            })),
-            getValue: (row) => row.project.status,
-          },
-          stage: {
-            label: "Stage",
-            options: CLIENT_PROJECT_STAGES.map((s) => ({
-              label: s.label,
-              value: s.value,
-            })),
-            getValue: (row) => row.project.stage,
-          },
-        }}
-        initialSorting={[{ id: "title", desc: false }]}
-        onRowClick={handleRowClick}
-        emptyMessage="No client projects found."
-        isLoading={loading}
-        toolbar={
-          isMobile ? (
+      {/* Client Projects Table */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-xl font-semibold">Client Projects</h3>
+          {clientPagination && (
+            <span className="text-sm text-muted-foreground">
+              ({clientPagination.totalCount} total)
+            </span>
+          )}
+        </div>
+
+        {/* Client Projects Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4">
+          <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search client projects..."
+                value={clientSearchQuery}
+                onChange={(e) => setClientSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {clientSearchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setClientSearchQuery("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <Select
+              value={clientStatusFilter || "all"}
+              onValueChange={(value) => {
+                setClientStatusFilter(value === "all" ? undefined : value);
+                setClientPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {PROJECT_STATUSES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {isMobile ? (
             <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DrawerTrigger asChild>
                 <Button>
@@ -764,49 +883,325 @@ export function ProjectsTable() {
                 <CreateProjectForm onSuccess={handleCreateSuccess} />
               </DialogContent>
             </Dialog>
-          )
-        }
-      />
-
-      <div className="mt-8">
-        <div className="mb-4">
-          <h2 className="text-2xl font-semibold">EXO Labs Projects</h2>
-          <p className="text-muted-foreground">
-            Internal EXO Labs products and initiatives
-          </p>
+          )}
+        </div>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              {clientTable.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} className="h-10">
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: clientPageSize }).map((_, rowIndex) => (
+                  <TableRow key={`skeleton-${rowIndex}`}>
+                    {columns.map((_, colIndex) => (
+                      <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                        <Skeleton className="h-8 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : clientTable.getRowModel().rows?.length ? (
+                clientTable.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    onClick={() => handleRowClick(row.original)}
+                    className="cursor-pointer"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No client projects found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
 
-        <EnhancedDataTable
-          columns={labsColumns}
-          data={labsProjects}
-          searchPlaceholder="Search EXO Labs projects..."
-          searchFn={(row, query) => {
-            const title = row.project.title.toLowerCase();
-            return title.includes(query);
-          }}
-          filterConfig={{
-            status: {
-              label: "Status",
-              options: PROJECT_STATUSES.map((s) => ({
-                label: s.label,
-                value: s.value,
-              })),
-              getValue: (row) => row.project.status,
-            },
-            stage: {
-              label: "Stage",
-              options: LABS_PROJECT_STAGES.map((s) => ({
-                label: s.label,
-                value: s.value,
-              })),
-              getValue: (row) => row.project.stage,
-            },
-          }}
-          initialSorting={[{ id: "title", desc: false }]}
-          onRowClick={handleRowClick}
-          emptyMessage="No EXO Labs projects found."
-          isLoading={loading}
-        />
+        {/* Client Projects Pagination */}
+        {clientPagination && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">Rows per page</p>
+              <Select
+                value={`${clientPageSize}`}
+                onValueChange={(value) => {
+                  const newPageSize = Number(value);
+                  setClientPageSize(newPageSize);
+                  setClientPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={clientPageSize} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 20, 30, 50, 100].map((size) => (
+                    <SelectItem key={size} value={`${size}`}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center text-sm font-medium">
+                Page {clientPagination.page} of {clientPagination.totalPages}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setClientPage(1)}
+                  disabled={clientPage === 1}
+                >
+                  <span className="sr-only">Go to first page</span>
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setClientPage(clientPage - 1)}
+                  disabled={clientPage === 1}
+                >
+                  <span className="sr-only">Go to previous page</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setClientPage(clientPage + 1)}
+                  disabled={clientPage >= clientPagination.totalPages}
+                >
+                  <span className="sr-only">Go to next page</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setClientPage(clientPagination.totalPages)}
+                  disabled={clientPage >= clientPagination.totalPages}
+                >
+                  <span className="sr-only">Go to last page</span>
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* EXO Labs Projects Table */}
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-xl font-semibold">EXO Labs Projects</h3>
+          {labsPagination && (
+            <span className="text-sm text-muted-foreground">
+              ({labsPagination.totalCount} total)
+            </span>
+          )}
+        </div>
+
+        {/* Labs Projects Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4">
+          <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search EXO Labs projects..."
+                value={labsSearchQuery}
+                onChange={(e) => setLabsSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {labsSearchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setLabsSearchQuery("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <Select
+              value={labsStatusFilter || "all"}
+              onValueChange={(value) => {
+                setLabsStatusFilter(value === "all" ? undefined : value);
+                setLabsPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {PROJECT_STATUSES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              {labsTable.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} className="h-10">
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: labsPageSize }).map((_, rowIndex) => (
+                  <TableRow key={`skeleton-${rowIndex}`}>
+                    {labsColumns.map((_, colIndex) => (
+                      <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                        <Skeleton className="h-8 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : labsTable.getRowModel().rows?.length ? (
+                labsTable.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    onClick={() => handleRowClick(row.original)}
+                    className="cursor-pointer"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={labsColumns.length}
+                    className="h-24 text-center"
+                  >
+                    No EXO Labs projects found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Labs Projects Pagination */}
+        {labsPagination && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">Rows per page</p>
+              <Select
+                value={`${labsPageSize}`}
+                onValueChange={(value) => {
+                  const newPageSize = Number(value);
+                  setLabsPageSize(newPageSize);
+                  setLabsPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={labsPageSize} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 20, 30, 50, 100].map((size) => (
+                    <SelectItem key={size} value={`${size}`}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center text-sm font-medium">
+                Page {labsPagination.page} of {labsPagination.totalPages}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setLabsPage(1)}
+                  disabled={labsPage === 1}
+                >
+                  <span className="sr-only">Go to first page</span>
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setLabsPage(labsPage - 1)}
+                  disabled={labsPage === 1}
+                >
+                  <span className="sr-only">Go to previous page</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setLabsPage(labsPage + 1)}
+                  disabled={labsPage >= labsPagination.totalPages}
+                >
+                  <span className="sr-only">Go to next page</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setLabsPage(labsPagination.totalPages)}
+                  disabled={labsPage >= labsPagination.totalPages}
+                >
+                  <span className="sr-only">Go to last page</span>
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {isMobile ? (

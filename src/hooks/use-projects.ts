@@ -69,13 +69,28 @@ export const projectKeys = {
 };
 
 async function fetchProjects(
-  page: number = 1
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: {
+    status?: string;
+    type?: string;
+    search?: string;
+  }
 ): Promise<PaginatedResponse<ProjectData>> {
   const params = new URLSearchParams({
     page: page.toString(),
-    pageSize: "100",
+    pageSize: pageSize.toString(),
     paginate: "true",
   });
+  if (filters?.status) {
+    params.append("status", filters.status);
+  }
+  if (filters?.type) {
+    params.append("type", filters.type);
+  }
+  if (filters?.search) {
+    params.append("search", filters.search);
+  }
   const response = await fetch(`/api/projects?${params}`);
   if (!response.ok) {
     throw new Error("Failed to fetch projects");
@@ -92,10 +107,18 @@ async function fetchAllProjects(): Promise<ProjectData[]> {
   return response.json();
 }
 
-export function useProjects(page: number = 1) {
+export function useProjects(
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: {
+    status?: string;
+    type?: string;
+    search?: string;
+  }
+) {
   return useQuery({
-    queryKey: projectKeys.list({ page, pageSize: 100 }),
-    queryFn: () => fetchProjects(page),
+    queryKey: projectKeys.list({ page, pageSize, ...filters }),
+    queryFn: () => fetchProjects(page, pageSize, filters),
     staleTime: 60 * 1000, // 60 seconds - matches API cache
   });
 }

@@ -71,12 +71,17 @@ export const expenseKeys = {
 
 async function fetchExpenses(
   page: number = 1,
-  pageSize: number = 50
+  pageSize: number = 10,
+  filters?: {
+    category?: string;
+    search?: string;
+  }
 ): Promise<PaginatedResponse<ExpenseData>> {
   const params = new URLSearchParams({
     page: page.toString(),
     pageSize: pageSize.toString(),
-    paginate: "true",
+    ...(filters?.category && { category: filters.category }),
+    ...(filters?.search && { search: filters.search }),
   });
   const response = await fetch(`/api/expenses?${params}`);
   if (!response.ok) {
@@ -85,10 +90,17 @@ async function fetchExpenses(
   return response.json();
 }
 
-export function useExpenses(page: number = 1, pageSize: number = 50) {
+export function useExpenses(
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: {
+    category?: string;
+    search?: string;
+  }
+) {
   return useQuery({
-    queryKey: expenseKeys.list({ page, pageSize }),
-    queryFn: () => fetchExpenses(page, pageSize),
+    queryKey: expenseKeys.list({ page, pageSize, ...filters }),
+    queryFn: () => fetchExpenses(page, pageSize, filters),
     staleTime: 60 * 1000, // 60 seconds - matches API cache
   });
 }

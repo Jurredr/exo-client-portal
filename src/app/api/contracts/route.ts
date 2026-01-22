@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
-  getAllContracts,
+  getAllContractsPaginated,
+  getAllContractsCount,
   isUserInEXOOrganization,
   createContract,
   updateContract,
@@ -9,7 +10,7 @@ import {
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const {
@@ -25,12 +26,44 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const contracts = await getAllContracts();
-    return NextResponse.json(contracts, {
-      headers: {
-        "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
-      },
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const signed = searchParams.get("signed") || undefined;
+    const search = searchParams.get("search") || undefined;
+
+    // Validate pagination
+    const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page
+    const offset = (page - 1) * limit;
+
+    const filters = {
+      ...(signed && { signed }),
+      ...(search && { search }),
+    };
+
+    const contracts = await getAllContractsPaginated({
+      limit,
+      offset,
+      ...filters,
     });
+    const totalCount = await getAllContractsCount(filters);
+
+    return NextResponse.json(
+      {
+        data: contracts,
+        pagination: {
+          page,
+          pageSize: limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching contracts:", error);
     return NextResponse.json(

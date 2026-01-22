@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { useState, useMemo, useEffect } from "react";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 import { useContracts, useDeleteContract } from "@/hooks/use-contracts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -31,9 +38,31 @@ import {
   ArrowUpDown,
   MoreVertical,
   Pen,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
-import { EnhancedDataTable } from "@/components/enhanced-data-table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,11 +120,36 @@ const formatDate = (dateString: string | null) => {
 };
 
 export function ContractsTable() {
-  // TanStack Query hooks
-  const { data: contractsData = [], isLoading: loading } = useContracts();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [signedFilter, setSignedFilter] = useState<string | undefined>(
+    undefined
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Debounce search query
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // TanStack Query hooks - server-side pagination and filtering
+  const { data: contractsData, isLoading: loading } = useContracts(
+    page,
+    pageSize,
+    {
+      ...(signedFilter && { signed: signedFilter }),
+      ...(debouncedSearch && { search: debouncedSearch }),
+    }
+  );
   const deleteMutation = useDeleteContract();
 
-  const contracts = contractsData;
+  const contracts = contractsData?.data || [];
+  const pagination = contractsData?.pagination;
 
   const [deleteContract, setDeleteContract] = useState<ContractData | null>(
     null
@@ -393,6 +447,23 @@ export function ContractsTable() {
     []
   );
 
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "name", desc: false },
+  ]);
+
+  const table = useReactTable({
+    data: contracts,
+    columns,
+    pageCount: pagination?.totalPages ?? 1,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true, // Server-side pagination
+  });
+
   // Contracts are now fetched via TanStack Query
 
   const handleDelete = async () => {
@@ -426,91 +497,224 @@ export function ContractsTable() {
       <div>
         <div className="flex items-center gap-2">
           <h2 className="text-3xl font-bold">Contracts</h2>
-          <span className="text-sm text-muted-foreground">
-            ({contracts.length})
-          </span>
+          {pagination && (
+            <span className="text-sm text-muted-foreground">
+              ({pagination.totalCount} total)
+            </span>
+          )}
         </div>
         <p className="text-muted-foreground">
           View and manage all contracts for projects
         </p>
       </div>
 
-      <EnhancedDataTable
-        columns={columns}
-        data={contracts}
-        searchPlaceholder="Search contracts by name, project, or organization..."
-        searchFn={(row, query) => {
-          const name = row.contract.name.toLowerCase();
-          const projects = row.projects || (row.project ? [row.project] : []);
-          const projectTitles = projects
-            .map((p) => p.title.toLowerCase())
-            .join(" ");
-          const organizations =
-            row.organizations || (row.organization ? [row.organization] : []);
-          const orgNames = organizations
-            .map((o) => o.name.toLowerCase())
-            .join(" ");
-          return (
-            name.includes(query) ||
-            projectTitles.includes(query) ||
-            orgNames.includes(query)
-          );
-        }}
-        filterConfig={{
-          status: {
-            label: "Status",
-            options: [
-              { label: "Signed", value: "signed" },
-              { label: "Pending", value: "pending" },
-            ],
-            getValue: (row) => (row.contract.signed ? "signed" : "pending"),
-          },
-        }}
-        initialSorting={[{ id: "name", desc: false }]}
-        emptyMessage="No contracts found."
-        isLoading={loading}
-        toolbar={
-          isMobile ? (
-            <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DrawerTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Contract
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent>
-                <DrawerHeader>
-                  <DrawerTitle>Create Contract</DrawerTitle>
-                  <DrawerDescription>
-                    Create a new contract for a project
-                  </DrawerDescription>
-                </DrawerHeader>
-                <div className="px-4">
-                  <CreateContractForm onSuccess={handleCreateSuccess} />
-                </div>
-              </DrawerContent>
-            </Drawer>
-          ) : (
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Contract
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create Contract</DialogTitle>
-                  <DialogDescription>
-                    Create a new contract for a project
-                  </DialogDescription>
-                </DialogHeader>
+      {/* Server-side filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search contracts by name, project, or organization..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <Select
+            value={signedFilter || "all"}
+            onValueChange={(value) => {
+              setSignedFilter(value === "all" ? undefined : value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="signed">Signed</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {isMobile ? (
+          <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DrawerTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Contract
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Create Contract</DrawerTitle>
+                <DrawerDescription>
+                  Create a new contract for a project
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="px-4">
                 <CreateContractForm onSuccess={handleCreateSuccess} />
-              </DialogContent>
-            </Dialog>
-          )
-        }
-      />
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Contract
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create Contract</DialogTitle>
+                <DialogDescription>
+                  Create a new contract for a project
+                </DialogDescription>
+              </DialogHeader>
+              <CreateContractForm onSuccess={handleCreateSuccess} />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="h-10">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: pageSize }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-${rowIndex}`}>
+                  {columns.map((_, colIndex) => (
+                    <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No contracts found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Server-side Pagination */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">Rows per page</p>
+            <Select
+              value={`${pageSize}`}
+              onValueChange={(value) => {
+                const newPageSize = Number(value);
+                setPageSize(newPageSize);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                {[10, 20, 30, 50, 100].map((size) => (
+                  <SelectItem key={size} value={`${size}`}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center text-sm font-medium">
+              Page {pagination.page} of {pagination.totalPages}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to first page</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to previous page</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to next page</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(pagination.totalPages)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to last page</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>

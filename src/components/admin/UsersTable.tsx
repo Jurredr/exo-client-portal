@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+  Column,
+} from "@tanstack/react-table";
 import { useUsers, useDeleteUser, useUpdateUser } from "@/hooks/use-users";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -27,6 +35,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
@@ -38,12 +53,25 @@ import {
   ArrowUpDown,
   Phone,
   FileText,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { CreateUserForm } from "./CreateUserForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { createClient } from "@/lib/supabase/client";
-import { EnhancedDataTable } from "@/components/enhanced-data-table";
 import { OrganizationCombobox } from "@/components/organization-combobox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -60,7 +88,8 @@ interface UserData {
     name: string | null;
     phone: string | null;
     note: string | null;
-    image: string | null;
+    imageStoragePath: string | null; // Path in Supabase Storage
+    imageSizeBytes: number | null;
     organizationId: string | null;
     createdAt: string;
     updatedAt: string;
@@ -77,14 +106,39 @@ interface UserData {
 }
 
 export function UsersTable() {
-  // TanStack Query hooks
-  const { data: usersData, isLoading: isLoadingUsers } = useUsers(1);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [organizationFilter, setOrganizationFilter] = useState<
+    string | undefined
+  >(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Debounce search query
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // TanStack Query hooks - server-side pagination and filtering
+  const { data: usersData, isLoading: isLoadingUsers } = useUsers(
+    page,
+    pageSize,
+    {
+      ...(organizationFilter && { organizationId: organizationFilter }),
+      ...(debouncedSearch && { search: debouncedSearch }),
+    }
+  );
   const { data: organizationsData, isLoading: isLoadingOrganizations } =
     useOrganizations();
   const deleteMutation = useDeleteUser();
   const updateMutation = useUpdateUser();
 
   const users = usersData?.data || [];
+  const pagination = usersData?.pagination;
   const organizations = useMemo(
     () =>
       organizationsData?.map((org) => ({
@@ -109,12 +163,13 @@ export function UsersTable() {
   const isMobile = useIsMobile();
   const prevSelectedUserIdRef = useRef<string | null>(null);
 
-  const columns: ColumnDef<UserData>[] = useMemo(
+  const columns = useMemo(
     () => [
       {
         id: "avatar",
         header: "",
-        cell: ({ row }) => {
+        accessorFn: (row: UserData) => row.user.id, // Avatar column doesn't need sorting
+        cell: ({ row }: { row: { original: UserData } }) => {
           const user = row.original.user;
           const getInitials = (name: string | null) => {
             if (!name) return user.email?.charAt(0).toUpperCase() || "U";
@@ -143,9 +198,9 @@ export function UsersTable() {
         size: 50,
       },
       {
-        accessorKey: "user.email",
+        accessorFn: (row: UserData) => row.user.email,
         id: "email",
-        header: ({ column }) => {
+        header: ({ column }: { column: Column<UserData, unknown> }) => {
           return (
             <Button
               variant="ghost"
@@ -159,20 +214,23 @@ export function UsersTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
+        cell: ({ row }: { row: { original: UserData } }) => (
           <div className="font-medium">{row.original.user.email}</div>
         ),
         enableSorting: true,
-        sortingFn: (rowA, rowB) => {
+        sortingFn: (
+          rowA: { original: UserData },
+          rowB: { original: UserData }
+        ) => {
           return rowA.original.user.email.localeCompare(
             rowB.original.user.email
           );
         },
       },
       {
-        accessorKey: "user.name",
+        accessorFn: (row: UserData) => row.user.name,
         id: "name",
-        header: ({ column }) => {
+        header: ({ column }: { column: Column<UserData, unknown> }) => {
           return (
             <Button
               variant="ghost"
@@ -186,22 +244,25 @@ export function UsersTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
+        cell: ({ row }: { row: { original: UserData } }) => (
           <div className="text-muted-foreground">
             {row.original.user.name || "—"}
           </div>
         ),
         enableSorting: true,
-        sortingFn: (rowA, rowB) => {
+        sortingFn: (
+          rowA: { original: UserData },
+          rowB: { original: UserData }
+        ) => {
           const nameA = rowA.original.user.name || "";
           const nameB = rowB.original.user.name || "";
           return nameA.localeCompare(nameB);
         },
       },
       {
-        accessorKey: "organization.name",
+        accessorFn: (row: UserData) => row.organization?.name,
         id: "organization",
-        header: ({ column }) => {
+        header: ({ column }: { column: Column<UserData, unknown> }) => {
           return (
             <Button
               variant="ghost"
@@ -215,7 +276,7 @@ export function UsersTable() {
             </Button>
           );
         },
-        cell: ({ row }) => {
+        cell: ({ row }: { row: { original: UserData } }) => {
           const orgs =
             row.original.organizations ||
             (row.original.organization ? [row.original.organization] : []);
@@ -233,16 +294,19 @@ export function UsersTable() {
           );
         },
         enableSorting: true,
-        sortingFn: (rowA, rowB) => {
+        sortingFn: (
+          rowA: { original: UserData },
+          rowB: { original: UserData }
+        ) => {
           const orgA = rowA.original.organization?.name || "";
           const orgB = rowB.original.organization?.name || "";
           return orgA.localeCompare(orgB);
         },
       },
       {
-        accessorKey: "user.createdAt",
+        accessorFn: (row: UserData) => row.user.createdAt,
         id: "createdAt",
-        header: ({ column }) => {
+        header: ({ column }: { column: Column<UserData, unknown> }) => {
           return (
             <Button
               variant="ghost"
@@ -256,7 +320,7 @@ export function UsersTable() {
             </Button>
           );
         },
-        cell: ({ row }) => {
+        cell: ({ row }: { row: { original: UserData } }) => {
           const date = new Date(row.original.user.createdAt);
           const day = date.getDate().toString().padStart(2, "0");
           const month = (date.getMonth() + 1).toString().padStart(2, "0");
@@ -268,7 +332,10 @@ export function UsersTable() {
           );
         },
         enableSorting: true,
-        sortingFn: (rowA, rowB) => {
+        sortingFn: (
+          rowA: { original: UserData },
+          rowB: { original: UserData }
+        ) => {
           const dateA = new Date(rowA.original.user.createdAt).getTime();
           const dateB = new Date(rowB.original.user.createdAt).getTime();
           return dateA - dateB;
@@ -277,7 +344,7 @@ export function UsersTable() {
       {
         id: "actions",
         header: "Actions",
-        cell: ({ row }) => {
+        cell: ({ row }: { row: { original: UserData } }) => {
           const isCurrentUser = currentUserEmail === row.original.user.email;
           return (
             <DropdownMenu>
@@ -332,6 +399,23 @@ export function UsersTable() {
     [currentUserEmail]
   );
 
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "email", desc: false },
+  ]);
+
+  const table = useReactTable({
+    data: users,
+    columns: columns as ColumnDef<UserData>[],
+    pageCount: pagination?.totalPages ?? 1,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true, // Server-side pagination
+  });
+
   useEffect(() => {
     // Fetch current user email
     const fetchCurrentUser = async () => {
@@ -356,10 +440,6 @@ export function UsersTable() {
     setSelectedUser(user);
     setIsEditOpen(true);
   };
-
-  const organizationFilterOptions = useMemo(() => {
-    return organizations.map((org) => ({ label: org.name, value: org.id }));
-  }, [organizations]);
 
   useEffect(() => {
     if (
@@ -517,89 +597,231 @@ export function UsersTable() {
       <div>
         <div className="flex items-center gap-2">
           <h2 className="text-3xl font-bold">Users</h2>
-          <span className="text-sm text-muted-foreground">
-            ({users.length})
-          </span>
+          {pagination && (
+            <span className="text-sm text-muted-foreground">
+              ({pagination.totalCount} total)
+            </span>
+          )}
         </div>
         <p className="text-muted-foreground">Manage user accounts</p>
       </div>
 
-      <EnhancedDataTable
-        columns={columns}
-        data={users}
-        searchPlaceholder="Search users by email or name..."
-        searchFn={(row, query) => {
-          const email = row.user.email.toLowerCase();
-          const name = (row.user.name || "").toLowerCase();
-          return email.includes(query) || name.includes(query);
-        }}
-        filterConfig={
-          organizationFilterOptions.length > 0
-            ? {
-                organization: {
-                  label: "Organization",
-                  options: [
-                    { label: "None", value: "none" },
-                    ...organizationFilterOptions,
-                  ],
-                  getValue: (row) => {
-                    const orgs =
-                      row.organizations ||
-                      (row.organization ? [row.organization] : []);
-                    if (orgs.length === 0) return "none";
-                    // Return all organization IDs for filtering
-                    return orgs.map((org) => org.id).join(",");
-                  },
-                },
-              }
-            : undefined
-        }
-        initialSorting={[{ id: "email", desc: false }]}
-        onRowClick={handleRowClick}
-        emptyMessage="No users found."
-        isLoading={loading}
-        toolbar={
-          isMobile ? (
-            <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DrawerTrigger asChild>
-                <Button>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent>
-                <DrawerHeader>
-                  <DrawerTitle>Create Client Account</DrawerTitle>
-                  <DrawerDescription>
-                    Create a new user account for a client
-                  </DrawerDescription>
-                </DrawerHeader>
-                <div className="px-4">
-                  <CreateUserForm onSuccess={handleCreateSuccess} />
-                </div>
-              </DrawerContent>
-            </Drawer>
-          ) : (
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create Client Account</DialogTitle>
-                  <DialogDescription>
-                    Create a new user account for a client
-                  </DialogDescription>
-                </DialogHeader>
+      {/* Server-side filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users by email or name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {organizations.length > 0 && (
+            <Select
+              value={organizationFilter || "all"}
+              onValueChange={(value) => {
+                setOrganizationFilter(value === "all" ? undefined : value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Organization" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Organizations</SelectItem>
+                {organizations.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        {isMobile ? (
+          <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DrawerTrigger asChild>
+              <Button>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Create Client Account</DrawerTitle>
+                <DrawerDescription>
+                  Create a new user account for a client
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="px-4">
                 <CreateUserForm onSuccess={handleCreateSuccess} />
-              </DialogContent>
-            </Dialog>
-          )
-        }
-      />
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Client Account</DialogTitle>
+                <DialogDescription>
+                  Create a new user account for a client
+                </DialogDescription>
+              </DialogHeader>
+              <CreateUserForm onSuccess={handleCreateSuccess} />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="h-10">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: pageSize }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-${rowIndex}`}>
+                  {columns.map((_, colIndex) => (
+                    <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  onClick={() => handleRowClick(row.original)}
+                  className="cursor-pointer"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No users found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Server-side Pagination */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">Rows per page</p>
+            <Select
+              value={`${pageSize}`}
+              onValueChange={(value) => {
+                const newPageSize = Number(value);
+                setPageSize(newPageSize);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                {[10, 20, 30, 50, 100].map((size) => (
+                  <SelectItem key={size} value={`${size}`}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center text-sm font-medium">
+              Page {pagination.page} of {pagination.totalPages}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to first page</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to previous page</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to next page</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(pagination.totalPages)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to last page</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>

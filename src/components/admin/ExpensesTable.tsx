@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { useState, useMemo, useEffect } from "react";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 import { useExpenses, useDeleteExpense } from "@/hooks/use-expenses";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -30,9 +37,31 @@ import {
   ArrowUpDown,
   MoreVertical,
   Pencil,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
-import { EnhancedDataTable } from "@/components/enhanced-data-table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,19 +111,48 @@ const formatAmount = (amount: string, currency: string = "EUR") => {
   }).format(num);
 };
 
-export function ExpensesTable() {
-  const [pageSize, setPageSize] = useState(50);
+const EXPENSE_CATEGORIES = [
+  "Office",
+  "Software",
+  "Travel",
+  "Equipment",
+  "Marketing",
+  "Utilities",
+  "Professional Services",
+  "Other",
+];
 
-  // TanStack Query hooks - use the selected pageSize for API call
-  // Note: Since EnhancedDataTable does client-side pagination, we fetch the selected pageSize
-  // If you need to see more items, increase the "Rows per page" value
+export function ExpensesTable() {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(
+    undefined
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Debounce search query
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // TanStack Query hooks - server-side pagination and filtering
   const { data: expensesData, isLoading: isLoadingExpenses } = useExpenses(
-    1,
-    pageSize
+    page,
+    pageSize,
+    {
+      ...(categoryFilter && { category: categoryFilter }),
+      ...(debouncedSearch && { search: debouncedSearch }),
+    }
   );
   const deleteMutation = useDeleteExpense();
 
   const expenses = expensesData?.data || [];
+  const pagination = expensesData?.pagination;
   const loading = isLoadingExpenses;
 
   const [deleteExpense, setDeleteExpense] = useState<ExpenseData | null>(null);
@@ -332,7 +390,22 @@ export function ExpensesTable() {
     []
   );
 
-  // Expenses are now fetched via TanStack Query
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "date", desc: true },
+  ]);
+
+  const table = useReactTable({
+    data: expenses,
+    columns,
+    pageCount: pagination?.totalPages ?? 1,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true, // Server-side pagination
+  });
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
@@ -359,76 +432,227 @@ export function ExpensesTable() {
       <div>
         <div className="flex items-center gap-2">
           <h2 className="text-3xl font-bold">Expenses</h2>
-          <span className="text-sm text-muted-foreground">
-            ({expenses.length})
-          </span>
+          {pagination && (
+            <span className="text-sm text-muted-foreground">
+              ({pagination.totalCount} total)
+            </span>
+          )}
         </div>
         <p className="text-muted-foreground">
-          Track and manage business expenses
+          View and manage all business expenses
         </p>
       </div>
 
-      <EnhancedDataTable
-        columns={columns}
-        data={expenses}
-        searchPlaceholder="Search expenses by description, category, or vendor..."
-        searchFn={(row, query) => {
-          const description = row.expense.description.toLowerCase();
-          const category = (row.expense.category || "").toLowerCase();
-          const vendor = (row.expense.vendor || "").toLowerCase();
-          return (
-            description.includes(query) ||
-            category.includes(query) ||
-            vendor.includes(query)
-          );
-        }}
-        initialSorting={[{ id: "date", desc: true }]}
-        initialPageSize={pageSize}
-        onPageSizeChange={setPageSize}
-        emptyMessage="No expenses found."
-        isLoading={loading}
-        toolbar={
-          isMobile ? (
-            <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DrawerTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Expense
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent>
-                <DrawerHeader>
-                  <DrawerTitle>Create Expense</DrawerTitle>
-                  <DrawerDescription>
-                    Add a new business expense
-                  </DrawerDescription>
-                </DrawerHeader>
-                <div className="px-4">
-                  <CreateExpenseForm onSuccess={handleCreateSuccess} />
-                </div>
-              </DrawerContent>
-            </Drawer>
-          ) : (
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Expense
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create Expense</DialogTitle>
-                  <DialogDescription>
-                    Add a new business expense
-                  </DialogDescription>
-                </DialogHeader>
+      {/* Server-side filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search expenses by description, category, or vendor..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <Select
+            value={categoryFilter || "all"}
+            onValueChange={(value) => {
+              setCategoryFilter(value === "all" ? undefined : value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {EXPENSE_CATEGORIES.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {isMobile ? (
+          <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DrawerTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Create Expense</DrawerTitle>
+                <DrawerDescription>
+                  Add a new business expense
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="px-4">
                 <CreateExpenseForm onSuccess={handleCreateSuccess} />
-              </DialogContent>
-            </Dialog>
-          )
-        }
-      />
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create Expense</DialogTitle>
+                <DialogDescription>
+                  Add a new business expense
+                </DialogDescription>
+              </DialogHeader>
+              <CreateExpenseForm onSuccess={handleCreateSuccess} />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="h-10">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: pageSize }).map((_, rowIndex) => (
+                <TableRow key={`skeleton-${rowIndex}`}>
+                  {columns.map((_, colIndex) => (
+                    <TableCell key={`skeleton-${rowIndex}-${colIndex}`}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No expenses found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Server-side Pagination */}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">Rows per page</p>
+            <Select
+              value={`${pageSize}`}
+              onValueChange={(value) => {
+                const newPageSize = Number(value);
+                setPageSize(newPageSize);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                {[10, 20, 30, 50, 100].map((size) => (
+                  <SelectItem key={size} value={`${size}`}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center text-sm font-medium">
+              Page {pagination.page} of {pagination.totalPages}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to first page</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+              >
+                <span className="sr-only">Go to previous page</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to next page</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => setPage(pagination.totalPages)}
+                disabled={page >= pagination.totalPages}
+              >
+                <span className="sr-only">Go to last page</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>

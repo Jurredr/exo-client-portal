@@ -55,7 +55,7 @@ async function fetchHourRegistrations(
 ): Promise<PaginatedResponse<HourRegistration>> {
   const params = new URLSearchParams({
     page: page.toString(),
-    pageSize: "100",
+    pageSize: "10",
     ...(search && { search }),
     ...(all && { all: "true" }),
   });
@@ -106,7 +106,7 @@ export function useHourRegistrations(
   all: boolean = false
 ) {
   return useQuery({
-    queryKey: hourRegistrationKeys.list({ page, pageSize: 100, search, all }),
+    queryKey: hourRegistrationKeys.list({ page, pageSize: 10, search, all }),
     queryFn: () => fetchHourRegistrations(page, search, all),
     staleTime: 30 * 1000, // 30 seconds - matches API cache
   });

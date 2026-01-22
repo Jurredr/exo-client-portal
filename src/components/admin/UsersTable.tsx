@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
-  ColumnDef,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -405,7 +404,8 @@ export function UsersTable() {
 
   const table = useReactTable({
     data: users,
-    columns: columns as ColumnDef<UserData>[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    columns: columns as any,
     pageCount: pagination?.totalPages ?? 1,
     state: {
       sorting,

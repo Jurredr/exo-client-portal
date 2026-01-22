@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { isUserInEXOOrganization, getUserByEmail } from "@/lib/db/queries";
+import { isUserInEXOOrganization } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 const STORAGE_BUCKET = "expenses";

@@ -1791,7 +1791,8 @@ export async function getAllInvoices() {
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
     .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
-    .orderBy(desc(invoices.createdAt));
+    // Sort by invoice number (INV-YYYY-NNNN) for stable, expected ordering
+    .orderBy(desc(invoices.invoiceNumber), desc(invoices.createdAt));
 
   // Fetch all line items for all invoices in one query
   const invoiceIds = results.map((r) => r.invoice.id);
@@ -1958,7 +1959,11 @@ export async function getAllInvoicesPaginated(options?: {
     query = query.where(and(...conditions)) as typeof query;
   }
 
-  query = query.orderBy(desc(invoices.createdAt)) as typeof query;
+  // Sort by invoice number (INV-YYYY-NNNN) for stable, expected ordering
+  query = query.orderBy(
+    desc(invoices.invoiceNumber),
+    desc(invoices.createdAt)
+  ) as typeof query;
 
   if (options?.limit) {
     query = query.limit(options.limit) as typeof query;

@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { DollarSign, Calendar, Upload, X, FileText } from "lucide-react";
+import { DollarSign, Calendar, Upload, X, FileText, Copy } from "lucide-react";
 
 const EXPENSE_CATEGORIES = [
   "Office",
@@ -216,6 +216,34 @@ export function CreateExpenseForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {expense?.id && (
+        <div className="space-y-2 rounded-lg border p-3 bg-muted/30">
+          <Label htmlFor="expense-id">Expense ID</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="expense-id"
+              value={expense.id}
+              readOnly
+              className="font-mono text-xs"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(expense.id);
+                  toast.success("Expense ID copied");
+                } catch {
+                  toast.error("Failed to copy expense ID");
+                }
+              }}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="expense-description">Description *</Label>
         <Textarea

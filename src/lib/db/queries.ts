@@ -11,7 +11,18 @@ import {
   contractProjects,
   expenses,
 } from "@/db/schema";
-import { eq, desc, sql, inArray, gte, lte, and, like, or } from "drizzle-orm";
+import {
+  eq,
+  desc,
+  sql,
+  inArray,
+  gte,
+  lte,
+  and,
+  like,
+  or,
+  isNull,
+} from "drizzle-orm";
 import {
   ADMIN_EMAIL_DOMAIN,
   EXO_ORGANIZATION_NAME,
@@ -1261,9 +1272,8 @@ export async function deleteOrganization(organizationId: string) {
   // Delete the image from Storage if it exists
   if (org[0]?.imageStoragePath) {
     try {
-      const { deleteOrganizationImage } = await import(
-        "@/lib/utils/image-storage"
-      );
+      const { deleteOrganizationImage } =
+        await import("@/lib/utils/image-storage");
       await deleteOrganizationImage(org[0].imageStoragePath);
     } catch (error) {
       // Log error but don't fail the deletion if Storage deletion fails
@@ -1402,7 +1412,7 @@ export async function getDashboardStats(
       createdAt: invoices.createdAt,
     })
     .from(invoices)
-    .where(eq(invoices.status, "paid"));
+    .where(and(eq(invoices.status, "paid"), isNull(invoices.expenseId)));
 
   // Calculate total revenue (debits add, credits subtract)
   let totalRevenue = 0;
@@ -1538,7 +1548,7 @@ export async function getDashboardStats(
       currency: invoices.currency,
     })
     .from(invoices)
-    .where(eq(invoices.status, "paid"))
+    .where(and(eq(invoices.status, "paid"), isNull(invoices.expenseId)))
     .orderBy(invoices.dueDate);
 
   // Group revenue by date/month (debits add, credits subtract)
@@ -1752,6 +1762,7 @@ export async function getAllInvoices() {
         invoiceNumber: invoices.invoiceNumber,
         projectId: invoices.projectId,
         organizationId: invoices.organizationId,
+        expenseId: invoices.expenseId,
         amount: invoices.amount,
         currency: invoices.currency,
         status: invoices.status,
@@ -1823,6 +1834,7 @@ export async function getAllInvoices() {
       const isCredit = result.invoice.transactionType === "credit";
       const vatIncluded = result.invoice.vatIncluded ?? true;
       const isKOR = result.invoice.isKOR || false;
+      const isReimbursement = result.invoice.expenseId !== null;
 
       // For credit invoices, make amount negative
       if (isCredit) {
@@ -1831,7 +1843,8 @@ export async function getAllInvoices() {
 
       const quantity = "1";
       let unitPrice: string;
-      const taxPercentage = isKOR ? "0" : VAT_PERCENTAGE.toString();
+      const taxPercentage =
+        isKOR || isReimbursement ? "0" : VAT_PERCENTAGE.toString();
 
       if (vatIncluded && !isKOR) {
         // Calculate unit price without VAT
@@ -1890,6 +1903,7 @@ export async function getAllInvoicesPaginated(options?: {
         invoiceNumber: invoices.invoiceNumber,
         projectId: invoices.projectId,
         organizationId: invoices.organizationId,
+        expenseId: invoices.expenseId,
         amount: invoices.amount,
         currency: invoices.currency,
         status: invoices.status,
@@ -1995,6 +2009,7 @@ export async function getAllInvoicesPaginated(options?: {
       const isCredit = result.invoice.transactionType === "credit";
       const vatIncluded = result.invoice.vatIncluded ?? true;
       const isKOR = result.invoice.isKOR || false;
+      const isReimbursement = result.invoice.expenseId !== null;
 
       if (isCredit) {
         amountValue = -Math.abs(amountValue);
@@ -2002,7 +2017,8 @@ export async function getAllInvoicesPaginated(options?: {
 
       const quantity = "1";
       let unitPrice: string;
-      const taxPercentage = isKOR ? "0" : VAT_PERCENTAGE.toString();
+      const taxPercentage =
+        isKOR || isReimbursement ? "0" : VAT_PERCENTAGE.toString();
 
       if (vatIncluded && !isKOR) {
         const subtotal = amountValue / (1 + VAT_PERCENTAGE / 100);
@@ -2091,6 +2107,7 @@ export async function getInvoiceById(invoiceId: string) {
         invoiceNumber: invoices.invoiceNumber,
         projectId: invoices.projectId,
         organizationId: invoices.organizationId,
+        expenseId: invoices.expenseId,
         amount: invoices.amount,
         currency: invoices.currency,
         status: invoices.status,
@@ -2153,6 +2170,7 @@ export async function getInvoiceById(invoiceId: string) {
     const isCredit = result[0].invoice.transactionType === "credit";
     const vatIncluded = result[0].invoice.vatIncluded ?? true;
     const isKOR = result[0].invoice.isKOR || false;
+    const isReimbursement = result[0].invoice.expenseId !== null;
 
     // For credit invoices, make amount negative
     if (isCredit) {
@@ -2161,7 +2179,8 @@ export async function getInvoiceById(invoiceId: string) {
 
     const quantity = "1";
     let unitPrice: string;
-    const taxPercentage = isKOR ? "0" : VAT_PERCENTAGE.toString();
+    const taxPercentage =
+      isKOR || isReimbursement ? "0" : VAT_PERCENTAGE.toString();
 
     if (vatIncluded && !isKOR) {
       // Calculate unit price without VAT
@@ -2239,6 +2258,7 @@ export async function createInvoice(data: {
   invoiceNumber: string;
   projectId?: string | null;
   organizationId: string;
+  expenseId?: string | null;
   amount: string;
   currency?: string;
   status?: string;
@@ -2266,6 +2286,7 @@ export async function createInvoice(data: {
       invoiceNumber: data.invoiceNumber,
       projectId: data.projectId || null,
       organizationId: data.organizationId,
+      expenseId: data.expenseId ?? null,
       amount: data.amount,
       currency: data.currency || "EUR",
       status: data.status || "draft",
@@ -2305,6 +2326,7 @@ export async function updateInvoice(
     organizationId: string;
     projectId: string | null;
     status: string;
+    expenseId: string | null;
     amount: string;
     currency: string;
     transactionType: string;

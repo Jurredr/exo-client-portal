@@ -76,6 +76,7 @@ interface InvoiceData {
   invoice: {
     id: string;
     invoiceNumber: string;
+    expenseId: string | null;
     amount: string;
     currency: string;
     status: string;

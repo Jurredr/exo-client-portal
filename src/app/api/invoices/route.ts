@@ -8,9 +8,17 @@ import {
   deleteInvoice,
   updateInvoice,
   getInvoiceById,
+  getExpenseById,
   invalidateAllInvoiceCaches,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
+
+function parseMoney(amount: string): number {
+  if (!amount) return 0;
+  const cleaned = amount.replace(/[€$,\s]/g, "").trim();
+  const parsed = parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 export async function GET(request: Request) {
   try {
@@ -105,6 +113,7 @@ export async function POST(request: Request) {
     const {
       projectId,
       organizationId,
+      expenseId,
       amount,
       currency,
       status,
@@ -122,6 +131,11 @@ export async function POST(request: Request) {
       lineItems,
     } = body;
 
+    const normalizedExpenseId =
+      typeof expenseId === "string" && expenseId.trim()
+        ? expenseId.trim()
+        : null;
+
     if (!organizationId || typeof organizationId !== "string") {
       return NextResponse.json(
         { error: "Organization ID is required" },
@@ -129,9 +143,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!amount || typeof amount !== "string") {
+    if ((!amount || typeof amount !== "string") && !normalizedExpenseId) {
       return NextResponse.json(
-        { error: "Amount is required" },
+        { error: "Amount is required (unless this is a reimbursement)" },
         { status: 400 }
       );
     }
@@ -147,24 +161,56 @@ export async function POST(request: Request) {
 
     while (retries < maxRetries) {
       try {
+        // If expenseId is provided, this invoice is a reimbursement linked 1:1 to an expense.
+        // In that case, we force 0% tax and generate a single line item from the expense.
+        let finalAmount = amount;
+        let finalCurrency = currency || "EUR";
+        let finalIsKOR = isKOR || false;
+        let finalLineItems = lineItems || undefined;
+
+        if (normalizedExpenseId) {
+          const expense = await getExpenseById(normalizedExpenseId);
+          if (!expense) {
+            return NextResponse.json(
+              { error: "Expense not found" },
+              { status: 400 }
+            );
+          }
+
+          const expenseAmount = parseMoney(expense.expense.amount).toFixed(2);
+          finalAmount = expenseAmount;
+          finalCurrency = expense.expense.currency || "EUR";
+          finalIsKOR = false; // reimbursement is not KOR; tax is handled via 0% line item
+          finalLineItems = [
+            {
+              description: `Reimbursement: ${expense.expense.description}`,
+              quantity: "1",
+              unitPrice: expenseAmount,
+              taxPercentage: "0",
+              order: 0,
+            },
+          ];
+        }
+
         const invoice = await createInvoice({
           invoiceNumber,
           projectId: projectId || null,
           organizationId,
-          amount,
-          currency: currency || "EUR",
+          expenseId: normalizedExpenseId,
+          amount: finalAmount,
+          currency: finalCurrency,
           status: status || "draft",
           type: type || "manual",
           transactionType: transactionType || "debit",
           vatIncluded: vatIncluded !== undefined ? vatIncluded : null,
-          isKOR: isKOR || false,
+          isKOR: finalIsKOR,
           description: description || null,
           invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
           dueDate: dueDate ? new Date(dueDate) : null,
           pdfStoragePath: pdfStoragePath || null,
           pdfFileName: pdfFileName || null,
           pdfSizeBytes: pdfSizeBytes || null,
-          lineItems: lineItems || undefined,
+          lineItems: finalLineItems,
         });
 
         return NextResponse.json(invoice, { status: 201 });
@@ -282,7 +328,64 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
+    const normalizedExpenseId =
+      typeof updateData.expenseId === "string" && updateData.expenseId.trim()
+        ? updateData.expenseId.trim()
+        : updateData.expenseId === null
+          ? null
+          : undefined;
+
+    // If expenseId is being set/changed, force reimbursement rules (0% tax, 1 line item derived from expense).
+    let reimbursementOverride:
+      | {
+          expenseId: string | null;
+          amount?: string;
+          currency?: string;
+          isKOR?: boolean;
+          lineItems?: Array<{
+            description: string;
+            quantity: string;
+            unitPrice: string;
+            taxPercentage: string;
+            order: number;
+          }>;
+        }
+      | undefined;
+
+    if (normalizedExpenseId !== undefined) {
+      if (normalizedExpenseId) {
+        const expense = await getExpenseById(normalizedExpenseId);
+        if (!expense) {
+          return NextResponse.json(
+            { error: "Expense not found" },
+            { status: 400 }
+          );
+        }
+
+        const expenseAmount = parseMoney(expense.expense.amount).toFixed(2);
+        reimbursementOverride = {
+          expenseId: normalizedExpenseId,
+          amount: expenseAmount,
+          currency: expense.expense.currency || "EUR",
+          isKOR: false,
+          lineItems: [
+            {
+              description: `Reimbursement: ${expense.expense.description}`,
+              quantity: "1",
+              unitPrice: expenseAmount,
+              taxPercentage: "0",
+              order: 0,
+            },
+          ],
+        };
+      } else {
+        // Clearing the reimbursement link
+        reimbursementOverride = { expenseId: null };
+      }
+    }
+
     const invoice = await updateInvoice(id, {
+      ...(reimbursementOverride || {}),
       ...(updateData.organizationId && {
         organizationId: updateData.organizationId,
       }),
@@ -324,9 +427,11 @@ export async function PATCH(request: Request) {
       ...(updateData.pdfSizeBytes !== undefined && {
         pdfSizeBytes: updateData.pdfSizeBytes || null,
       }),
-      ...(updateData.lineItems !== undefined && {
-        lineItems: updateData.lineItems,
-      }),
+      ...(reimbursementOverride?.lineItems
+        ? { lineItems: reimbursementOverride.lineItems }
+        : updateData.lineItems !== undefined
+          ? { lineItems: updateData.lineItems }
+          : {}),
     });
 
     return NextResponse.json(invoice);

@@ -6,6 +6,7 @@ interface InvoiceData {
     invoiceNumber: string;
     projectId: string | null;
     organizationId: string;
+    expenseId: string | null;
     amount: string;
     currency: string;
     status: string;
@@ -54,6 +55,7 @@ interface PaginatedResponse<T> {
 interface CreateInvoiceData {
   projectId?: string | null;
   organizationId: string;
+  expenseId?: string | null;
   amount: string;
   currency: string;
   status?: string;
@@ -77,6 +79,7 @@ interface UpdateInvoiceData {
   id: string;
   projectId?: string | null;
   organizationId?: string;
+  expenseId?: string | null;
   amount?: string;
   currency?: string;
   status?: string;

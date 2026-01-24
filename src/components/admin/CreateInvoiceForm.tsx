@@ -54,6 +54,7 @@ interface Invoice {
   invoiceNumber: string;
   organizationId: string;
   projectId: string | null;
+  expenseId: string | null;
   amount: string;
   currency: string;
   status: string;
@@ -97,6 +98,8 @@ export function CreateInvoiceForm({
   const [transactionType, setTransactionType] = useState<"debit" | "credit">(
     (invoice?.transactionType as "debit" | "credit") || "debit"
   );
+  const [expenseId, setExpenseId] = useState<string>(invoice?.expenseId || "");
+  const isReimbursement = expenseId.trim().length > 0;
   const [isKOR, setIsKOR] = useState<boolean>(
     invoice?.isKOR !== undefined ? invoice.isKOR : false
   );
@@ -191,12 +194,19 @@ export function CreateInvoiceForm({
 
   // When KOR is enabled, set all tax percentages to 0
   useEffect(() => {
-    if (isKOR) {
+    if (isKOR || isReimbursement) {
       setLineItems((items) =>
         items.map((item) => ({ ...item, taxPercentage: "0" }))
       );
     }
-  }, [isKOR]);
+  }, [isKOR, isReimbursement]);
+
+  // Reimbursements imply 0% tax, but are not KOR
+  useEffect(() => {
+    if (isReimbursement && isKOR) {
+      setIsKOR(false);
+    }
+  }, [isReimbursement, isKOR]);
 
   // Reset PDF state when invoice changes (e.g., when opening edit modal)
   useEffect(() => {
@@ -265,24 +275,29 @@ export function CreateInvoiceForm({
       return;
     }
 
-    // Validate line items
-    const hasValidItems = lineItems.some(
-      (item) =>
-        item.description.trim() &&
-        parseFloat(item.quantity) > 0 &&
-        parseFloat(item.unitPrice) > 0
-    );
+    // Validate line items for non-reimbursement invoices only.
+    // Reimbursements are derived from the linked expense server-side.
+    let total = calculateTotal();
+    if (!isReimbursement) {
+      const hasValidItems = lineItems.some(
+        (item) =>
+          item.description.trim() &&
+          parseFloat(item.quantity) > 0 &&
+          parseFloat(item.unitPrice) > 0
+      );
 
-    if (!hasValidItems) {
-      toast.error("At least one valid line item is required");
-      return;
-    }
+      if (!hasValidItems) {
+        toast.error("At least one valid line item is required");
+        return;
+      }
 
-    // Calculate total
-    const total = calculateTotal();
-    if (total <= 0) {
-      toast.error("Total amount must be greater than 0");
-      return;
+      if (total <= 0) {
+        toast.error("Total amount must be greater than 0");
+        return;
+      }
+    } else {
+      // For reimbursements the backend will set amount from the expense; send a placeholder.
+      total = 0;
     }
 
     setIsSubmitting(true);
@@ -336,6 +351,7 @@ export function CreateInvoiceForm({
             id: invoice.id,
             organizationId,
             projectId: projectId || null,
+            expenseId: expenseId.trim() || null,
             amount: total.toFixed(2),
             currency,
             status,
@@ -352,14 +368,19 @@ export function CreateInvoiceForm({
                   pdfSizeBytes: pdfSizeBytes ?? null,
                 }
               : {}),
-            lineItems: lineItems.map((item, index) => ({
-              ...item,
-              order: index,
-            })),
+            ...(isReimbursement
+              ? {}
+              : {
+                  lineItems: lineItems.map((item, index) => ({
+                    ...item,
+                    order: index,
+                  })),
+                }),
           }
         : {
             organizationId,
             projectId: projectId || null,
+            expenseId: expenseId.trim() || null,
             amount: total.toFixed(2),
             currency,
             status,
@@ -371,10 +392,14 @@ export function CreateInvoiceForm({
             pdfFileName,
             pdfSizeBytes,
             invoiceNumber: invoiceNumberOverride.trim() || null,
-            lineItems: lineItems.map((item, index) => ({
-              ...item,
-              order: index,
-            })),
+            ...(isReimbursement
+              ? {}
+              : {
+                  lineItems: lineItems.map((item, index) => ({
+                    ...item,
+                    order: index,
+                  })),
+                }),
           };
 
       const response = await fetch(url, {
@@ -396,6 +421,7 @@ export function CreateInvoiceForm({
       if (!invoice) {
         setOrganizationId("");
         setProjectId("");
+        setExpenseId("");
         setCurrency("EUR");
         setStatus("draft");
         setTransactionType("debit");
@@ -501,6 +527,19 @@ export function CreateInvoiceForm({
           </SelectContent>
         </Select>
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="invoice-expense-id">Expense ID (Reimbursement)</Label>
+        <Input
+          id="invoice-expense-id"
+          value={expenseId}
+          onChange={(e) => setExpenseId(e.target.value)}
+          placeholder="Paste an expense UUID to mark this invoice as a reimbursement"
+        />
+        <p className="text-xs text-muted-foreground">
+          When set, this invoice becomes a reimbursement linked 1:1 to that
+          expense and automatically uses 0% tax.
+        </p>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="invoice-currency">Currency *</Label>
@@ -576,6 +615,7 @@ export function CreateInvoiceForm({
           id="is-kor"
           checked={isKOR}
           onCheckedChange={(checked) => setIsKOR(checked === true)}
+          disabled={isReimbursement}
         />
         <Label htmlFor="is-kor" className="text-sm font-normal cursor-pointer">
           Kleine ondernemersregeling (KOR) - No tax charged
@@ -591,11 +631,18 @@ export function CreateInvoiceForm({
             variant="outline"
             size="sm"
             onClick={addLineItem}
+            disabled={isReimbursement}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
         </div>
+        {isReimbursement && (
+          <p className="text-sm text-muted-foreground">
+            This invoice is a reimbursement. Items and amounts will be generated
+            from the linked expense.
+          </p>
+        )}
         <div className="space-y-3">
           {lineItems.map((item, index) => {
             const quantity = parseFloat(item.quantity) || 0;
@@ -665,7 +712,7 @@ export function CreateInvoiceForm({
                     onChange={(e) =>
                       updateLineItem(index, "taxPercentage", e.target.value)
                     }
-                    disabled={isKOR}
+                    disabled={isKOR || isReimbursement}
                     required
                     className="w-full"
                   />
@@ -701,7 +748,7 @@ export function CreateInvoiceForm({
               Total:{" "}
               <span className="text-base font-bold">
                 {currency === "EUR" ? "€" : "$"}
-                {total.toFixed(2)}
+                {isReimbursement ? "—" : total.toFixed(2)}
               </span>
             </div>
           </div>

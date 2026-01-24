@@ -139,6 +139,24 @@ export const userOrganizations = pgTable(
   })
 );
 
+export const expenses = pgTable("expenses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+  description: text("description").notNull(),
+  amount: text("amount").notNull(), // Stored as text to preserve formatting
+  currency: text("currency").notNull().default("EUR"), // USD, EUR
+  date: timestamp("date").defaultNow().notNull(),
+  category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
+  vendor: text("vendor"), // Where the expense was made (store, company, etc.)
+  invoiceStoragePath: text("invoice_storage_path"), // Path in Supabase Storage (e.g., "expenses/expense-123.pdf")
+  invoiceFileName: text("invoice_file_name"), // Original filename
+  invoiceSizeBytes: integer("invoice_size_bytes"), // File size in bytes
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
   invoiceNumber: text("invoice_number").notNull().unique(),
@@ -148,6 +166,11 @@ export const invoices = pgTable("invoices", {
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
     .notNull(),
+  expenseId: uuid("expense_id")
+    .references(() => expenses.id, {
+      onDelete: "set null",
+    })
+    .unique(),
   amount: text("amount").notNull(), // Stored as text to preserve formatting (total amount)
   currency: text("currency").notNull().default("EUR"), // USD, EUR
   status: text("status").notNull().default("draft"), // draft, sent, paid, overdue, cancelled
@@ -180,24 +203,6 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
     .notNull()
     .default("0"), // Tax percentage (0-100)
   order: integer("order").notNull().default(0), // Order of items in the invoice
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const expenses = pgTable("expenses", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .references(() => users.id)
-    .notNull(),
-  description: text("description").notNull(),
-  amount: text("amount").notNull(), // Stored as text to preserve formatting
-  currency: text("currency").notNull().default("EUR"), // USD, EUR
-  date: timestamp("date").defaultNow().notNull(),
-  category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
-  vendor: text("vendor"), // Where the expense was made (store, company, etc.)
-  invoiceStoragePath: text("invoice_storage_path"), // Path in Supabase Storage (e.g., "expenses/expense-123.pdf")
-  invoiceFileName: text("invoice_file_name"), // Original filename
-  invoiceSizeBytes: integer("invoice_size_bytes"), // File size in bytes
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

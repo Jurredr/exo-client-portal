@@ -21,6 +21,7 @@ interface InvoiceData {
     transactionType: string;
     vatIncluded: boolean | null;
     isKOR: boolean;
+    expenseId?: string | null;
     description: string | null;
     dueDate: string | Date | null;
     paidAt: string | Date | null;
@@ -72,6 +73,7 @@ export async function generateInvoicePDF(
     const currency = invoice.currency || project?.currency || "EUR";
     const isCredit = invoice.transactionType === "credit";
     const isKOR = invoice.isKOR || false;
+    const isReimbursement = Boolean(invoice.expenseId);
 
     // Process line items
     const processedItems = lineItems
@@ -166,9 +168,18 @@ export async function generateInvoicePDF(
       .fontSize(20)
       .font("Helvetica-Bold")
       .fillColor("white")
-      .text(isCredit ? "CREDIT INVOICE" : "INVOICE", leftMargin, currentY, {
-        width: leftColumnWidth - leftMargin * 2,
-      });
+      .text(
+        isReimbursement
+          ? "REIMBURSEMENT"
+          : isCredit
+            ? "CREDIT INVOICE"
+            : "INVOICE",
+        leftMargin,
+        currentY,
+        {
+          width: leftColumnWidth - leftMargin * 2,
+        }
+      );
     currentY += 50;
 
     // Invoice details (labels in white, values in gray)
@@ -181,6 +192,11 @@ export async function generateInvoicePDF(
     doc.text("Invoice Date:", leftMargin, currentY).fillColor("white");
     doc.text(invoiceDate, leftMargin, currentY + 12).fillColor("#747474");
     currentY += 30;
+    if (isReimbursement) {
+      doc.text("Type:", leftMargin, currentY).fillColor("white");
+      doc.text("Reimbursement", leftMargin, currentY + 12).fillColor("#747474");
+      currentY += 30;
+    }
     if (dueDate) {
       doc.text("Due Date:", leftMargin, currentY).fillColor("white");
       doc.text(dueDate, leftMargin, currentY + 12).fillColor("#747474");

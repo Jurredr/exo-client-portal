@@ -367,19 +367,27 @@ export function InvoicesTable() {
         accessorKey: "invoice.transactionType",
         id: "transactionType",
         header: "Transaction Type",
-        cell: ({ row }) => (
-          <Badge
-            variant={
-              row.original.invoice.transactionType === "credit"
-                ? "default"
-                : "outline"
-            }
-          >
-            {row.original.invoice.transactionType === "credit"
-              ? "Credit"
-              : "Debit"}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          const isReimbursement = row.original.invoice.expenseId !== null;
+
+          if (isReimbursement) {
+            return <Badge variant="secondary">Reimbursement</Badge>;
+          }
+
+          return (
+            <Badge
+              variant={
+                row.original.invoice.transactionType === "credit"
+                  ? "default"
+                  : "outline"
+              }
+            >
+              {row.original.invoice.transactionType === "credit"
+                ? "Credit"
+                : "Debit"}
+            </Badge>
+          );
+        },
         enableSorting: false,
       },
       {

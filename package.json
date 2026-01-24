@@ -85,11 +85,11 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
+      "bun lint:fix",
+      "bun format"
     ],
     "*.{json,md,yml,yaml,css,scss}": [
-      "prettier --write"
+      "bun format"
     ]
   },
   "husky": {

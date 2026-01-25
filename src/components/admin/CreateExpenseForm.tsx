@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import {
+  useCreateExpense,
+  useUpdateExpense,
+  type CreateExpenseData,
+  type UpdateExpenseData,
+} from "@/hooks/use-expenses";
+import { useCurrentUser } from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,7 +70,11 @@ export function CreateExpenseForm({
   // For existing files in Storage, we just show the filename
   const [invoicePreview, setInvoicePreview] = useState<string | null>(null);
   const [removeInvoice, setRemoveInvoice] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: currentUser } = useCurrentUser();
+  const createExpenseMutation = useCreateExpense();
+  const updateExpenseMutation = useUpdateExpense();
+  const isSubmitting =
+    createExpenseMutation.isPending || updateExpenseMutation.isPending;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,7 +111,6 @@ export function CreateExpenseForm({
       return;
     }
 
-    setIsSubmitting(true);
     try {
       let invoiceStoragePath: string | null = null;
       let invoiceFileName: string | null = null;
@@ -132,7 +142,6 @@ export function CreateExpenseForm({
         } catch (error) {
           console.error("Error uploading file:", error);
           toast.error("Failed to upload file. Please try again.");
-          setIsSubmitting(false);
           return;
         }
       } else if (removeInvoice) {
@@ -144,73 +153,70 @@ export function CreateExpenseForm({
       // If neither invoiceFile nor removeInvoice, we don't set file fields
       // This means the API will preserve the existing file (if any)
 
-      const url = expense ? `/api/expenses` : `/api/expenses`;
-      const method = expense ? "PATCH" : "POST";
-      const body = expense
-        ? {
-            id: expense.id,
-            description: description.trim(),
-            amount: amount.trim(),
-            currency,
-            date: date || null,
-            category: category || null,
-            vendor: vendor.trim() || null,
-            // Only include file fields if they're explicitly set (new file or removal)
-            ...(invoiceFile || removeInvoice
-              ? {
-                  invoiceStoragePath: invoiceStoragePath ?? null,
-                  invoiceFileName: invoiceFileName ?? null,
-                  invoiceSizeBytes: invoiceSizeBytes ?? null,
-                }
-              : {}),
-          }
-        : {
-            description: description.trim(),
-            amount: amount.trim(),
-            currency,
-            date: date || null,
-            category: category || null,
-            vendor: vendor.trim() || null,
-            invoiceStoragePath,
-            invoiceFileName,
-            invoiceSizeBytes,
-          };
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.error || `Failed to ${expense ? "update" : "create"} expense`
-        );
+      if (expense) {
+        const updateData: UpdateExpenseData = {
+          id: expense.id,
+          description: description.trim(),
+          amount: amount.trim(),
+          currency,
+          date: date || null,
+          category: category || null,
+          vendor: vendor.trim() || null,
+          // Only include file fields if they're explicitly set (new file or removal)
+          ...(invoiceFile || removeInvoice
+            ? {
+                invoiceStoragePath: invoiceStoragePath ?? null,
+                invoiceFileName: invoiceFileName ?? null,
+                invoiceSizeBytes: invoiceSizeBytes ?? null,
+              }
+            : {}),
+        };
+        updateExpenseMutation.mutate(updateData, {
+          onSuccess: () => {
+            toast.success("Expense updated successfully");
+            onSuccess?.();
+          },
+          onError: (error: Error) => {
+            toast.error(error.message || "Failed to update expense");
+          },
+        });
+      } else {
+        const createData: CreateExpenseData = {
+          userId: currentUser?.user.id || "", // Required by interface, but API gets it from session
+          description: description.trim(),
+          amount: amount.trim(),
+          currency,
+          date: date || null,
+          category: category || null,
+          vendor: vendor.trim() || null,
+          invoiceStoragePath,
+          invoiceFileName,
+          invoiceSizeBytes,
+        };
+        createExpenseMutation.mutate(createData, {
+          onSuccess: () => {
+            toast.success("Expense created successfully");
+            setDescription("");
+            setAmount("");
+            setCurrency("EUR");
+            setDate("");
+            setCategory("");
+            setVendor("");
+            setInvoiceFile(null);
+            setInvoicePreview(null);
+            onSuccess?.();
+          },
+          onError: (error: Error) => {
+            toast.error(error.message || "Failed to create expense");
+          },
+        });
       }
-
-      toast.success(`Expense ${expense ? "updated" : "created"} successfully`);
-      if (!expense) {
-        setDescription("");
-        setAmount("");
-        setCurrency("EUR");
-        setDate("");
-        setCategory("");
-        setVendor("");
-        setInvoiceFile(null);
-        setInvoicePreview(null);
-      }
-      onSuccess?.();
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : `Failed to ${expense ? "update" : "create"} expense`
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

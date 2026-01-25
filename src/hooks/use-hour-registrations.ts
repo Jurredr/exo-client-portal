@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { dashboardStatsKeys } from "./use-dashboard-stats";
 
 interface HourRegistration {
   id: string;
@@ -105,10 +106,17 @@ export function useHourRegistrations(
   search?: string,
   all: boolean = false
 ) {
+  const queryKey = hourRegistrationKeys.list({
+    page,
+    pageSize: 10,
+    search,
+    all,
+  });
+
   return useQuery({
-    queryKey: hourRegistrationKeys.list({ page, pageSize: 10, search, all }),
+    queryKey,
     queryFn: () => fetchHourRegistrations(page, search, all),
-    staleTime: 30 * 1000, // 30 seconds - matches API cache
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -121,7 +129,7 @@ export function useAllHourRegistrations(
   return useQuery({
     queryKey: hourRegistrationKeys.allList({ all, startDate, endDate }),
     queryFn: () => fetchHourRegistrationsForStats(all, startDate, endDate),
-    staleTime: 60 * 1000, // 60 seconds - stats don't need to be super fresh
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -147,13 +155,29 @@ export function useCreateHourRegistration() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      // Invalidate and refetch hour registrations
-      queryClient.invalidateQueries({
-        queryKey: hourRegistrationKeys.lists(),
+    onSuccess: async () => {
+      // Invalidate all hour registration queries (marks them as stale)
+      await queryClient.invalidateQueries({
+        queryKey: hourRegistrationKeys.all,
+      });
+      // Force immediate refetch of all active queries (bypasses staleTime)
+      await queryClient.refetchQueries({
+        queryKey: hourRegistrationKeys.all,
+        type: "active",
+      });
+      // Also invalidate and refetch dashboard stats since they include hour data
+      await queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
       });
       // Also trigger the custom event for components not using React Query
       window.dispatchEvent(new Event("hour-registration-saved"));
+    },
+    onError: (error) => {
+      console.error("Failed to create hour registration:", error);
     },
   });
 }
@@ -182,8 +206,22 @@ export function useUpdateHourRegistration() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all hour registration queries (marks them as stale)
       queryClient.invalidateQueries({
-        queryKey: hourRegistrationKeys.lists(),
+        queryKey: hourRegistrationKeys.all,
+      });
+      // Force immediate refetch of all active queries (bypasses staleTime)
+      queryClient.refetchQueries({
+        queryKey: hourRegistrationKeys.all,
+        type: "active",
+      });
+      // Also invalidate and refetch dashboard stats since they include hour data
+      queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
       });
       window.dispatchEvent(new Event("hour-registration-saved"));
     },
@@ -205,8 +243,22 @@ export function useDeleteHourRegistration() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all hour registration queries (marks them as stale)
       queryClient.invalidateQueries({
-        queryKey: hourRegistrationKeys.lists(),
+        queryKey: hourRegistrationKeys.all,
+      });
+      // Force immediate refetch of all active queries (bypasses staleTime)
+      queryClient.refetchQueries({
+        queryKey: hourRegistrationKeys.all,
+        type: "active",
+      });
+      // Also invalidate and refetch dashboard stats since they include hour data
+      queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
       });
     },
   });

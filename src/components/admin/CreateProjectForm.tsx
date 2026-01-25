@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { useCreateProject } from "@/hooks/use-projects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +47,8 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   );
 
   const [exoOrgId, setExoOrgId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createProjectMutation = useCreateProject();
+  const isSubmitting = createProjectMutation.isPending;
 
   // Find EXO organization
   useEffect(() => {
@@ -83,51 +85,39 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    createProjectMutation.mutate(
+      {
+        title: title.trim(),
+        description: description.trim() || null,
+        organizationId,
+        type: projectType,
+        subtotal: subtotal && subtotal.trim() ? subtotal.trim() : null,
+        currency: currency || "EUR",
+        status,
+        stage,
+        startDate: startDate || null,
+        deadline: projectType === "labs" ? null : deadline || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Project created successfully");
+          setTitle("");
+          setDescription("");
+          setProjectType("client");
+          setOrganizationId("");
+          setSubtotal("");
+          setCurrency("EUR");
+          setStatus("active");
+          setStage(getDefaultStage("client"));
+          setStartDate("");
+          setDeadline("");
+          onSuccess?.();
         },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim() || null,
-          organizationId,
-          type: projectType,
-          subtotal: subtotal && subtotal.trim() ? subtotal.trim() : null,
-          currency: currency || "EUR",
-          status,
-          stage,
-          startDate: startDate || null,
-          deadline: projectType === "labs" ? null : deadline || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create project");
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to create project");
+        },
       }
-
-      toast.success("Project created successfully");
-      setTitle("");
-      setDescription("");
-      setProjectType("client");
-      setOrganizationId("");
-      setSubtotal("");
-      setCurrency("EUR");
-      setStatus("active");
-      setStage(getDefaultStage("client"));
-      setStartDate("");
-      setDeadline("");
-      onSuccess?.();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create project"
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   return (

@@ -110,7 +110,7 @@ export function useUsers(
   return useQuery({
     queryKey: userKeys.list({ page, pageSize, ...filters }),
     queryFn: () => fetchUsers(page, pageSize, filters),
-    staleTime: 120 * 1000, // 120 seconds - matches API cache
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -140,8 +140,12 @@ export function useCreateUser() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: userKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: userKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -164,12 +168,12 @@ export function useUpdateUser() {
       }
       return response.json();
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: userKeys.detail(variables.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: userKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: userKeys.all,
+        type: "active",
       });
-      queryClient.invalidateQueries({ queryKey: userKeys.me() });
     },
   });
 }

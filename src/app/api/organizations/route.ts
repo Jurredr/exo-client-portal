@@ -27,7 +27,9 @@ export async function GET() {
     const organizations = await getAllOrganizations();
     return NextResponse.json(organizations, {
       headers: {
-        "Cache-Control": "private, max-age=120, must-revalidate", // Cache for 2 minutes
+        "Cache-Control": "no-cache, no-store, must-revalidate", // Don't cache to ensure fresh data
+        Pragma: "no-cache",
+        Expires: "0",
       },
     });
   } catch (error) {

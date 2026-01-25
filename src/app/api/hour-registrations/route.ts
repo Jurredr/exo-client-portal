@@ -84,6 +84,8 @@ export async function GET(request: Request) {
       );
     }
 
+    // Add cache-busting header to ensure fresh data after mutations
+    // Using no-cache to prevent browser/CDN caching issues
     return NextResponse.json(
       {
         data: registrations,
@@ -96,7 +98,9 @@ export async function GET(request: Request) {
       },
       {
         headers: {
-          "Cache-Control": "private, max-age=30, must-revalidate", // Cache for 30 seconds
+          "Cache-Control": "no-cache, no-store, must-revalidate", // Don't cache to ensure fresh data
+          Pragma: "no-cache",
+          Expires: "0",
         },
       }
     );

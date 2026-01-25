@@ -3,6 +3,12 @@
 import { useState, useEffect } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useAllProjects } from "@/hooks/use-projects";
+import {
+  useCreateContract,
+  useUpdateContract,
+  type CreateContractData,
+  type UpdateContractData,
+} from "@/hooks/use-contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +77,10 @@ export function CreateContractForm({
     [];
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createContractMutation = useCreateContract();
+  const updateContractMutation = useUpdateContract();
+  const isSubmitting =
+    createContractMutation.isPending || updateContractMutation.isPending;
 
   // Filter projects by organization
   useEffect(() => {
@@ -121,7 +130,6 @@ export function CreateContractForm({
       return;
     }
 
-    setIsSubmitting(true);
     try {
       let fileStoragePath: string | null = null;
       let fileName: string | null = null;
@@ -153,71 +161,64 @@ export function CreateContractForm({
         } catch (error) {
           console.error("Error uploading PDF:", error);
           toast.error("Failed to upload PDF file. Please try again.");
-          setIsSubmitting(false);
           return;
         }
       }
 
-      const url = "/api/contracts";
-      const method = contract ? "PATCH" : "POST";
-      const body = contract
-        ? {
-            id: contract.id,
-            organizationId,
-            projectIds,
-            name: name.trim(),
-            // Only send file fields if a new file was uploaded
-            ...(contractFile
-              ? {
-                  fileStoragePath: fileStoragePath ?? null,
-                  fileName: fileName ?? null,
-                  fileSizeBytes: fileSizeBytes ?? null,
-                }
-              : {}),
-            requiresPortalSignature,
-          }
-        : {
-            organizationId,
-            projectIds,
-            name: name.trim(),
-            fileStoragePath,
-            fileName,
-            fileSizeBytes,
-            requiresPortalSignature,
-          };
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.error || `Failed to ${contract ? "update" : "create"} contract`
-        );
+      if (contract) {
+        const updateData: UpdateContractData = {
+          id: contract.id,
+          organizationId,
+          projectIds,
+          name: name.trim(),
+          requiresPortalSignature,
+          // Only send file fields if a new file was uploaded
+          ...(contractFile
+            ? {
+                fileStoragePath: fileStoragePath ?? null,
+                fileName: fileName ?? null,
+                fileSizeBytes: fileSizeBytes ?? null,
+              }
+            : {}),
+        };
+        updateContractMutation.mutate(updateData, {
+          onSuccess: () => {
+            toast.success("Contract updated successfully");
+            onSuccess?.();
+          },
+          onError: (error: Error) => {
+            toast.error(error.message || "Failed to update contract");
+          },
+        });
+      } else {
+        const createData: CreateContractData = {
+          organizationId,
+          projectIds,
+          name: name.trim(),
+          fileStoragePath,
+          fileName,
+          fileSizeBytes,
+          requiresPortalSignature,
+        };
+        createContractMutation.mutate(createData, {
+          onSuccess: () => {
+            toast.success("Contract created successfully");
+            setOrganizationId("");
+            setProjectIds([]);
+            setName("");
+            setContractFile(null);
+            setRequiresPortalSignature(true);
+            onSuccess?.();
+          },
+          onError: (error: Error) => {
+            toast.error(error.message || "Failed to create contract");
+          },
+        });
       }
-
-      toast.success(
-        `Contract ${contract ? "updated" : "created"} successfully`
-      );
-      if (!contract) {
-        setOrganizationId("");
-        setProjectIds([]);
-        setName("");
-        setContractFile(null);
-        setRequiresPortalSignature(true);
-      }
-      onSuccess?.();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to create contract"
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

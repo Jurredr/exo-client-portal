@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { dashboardStatsKeys } from "./use-dashboard-stats";
 
 interface InvoiceData {
   invoice: {
@@ -66,6 +67,10 @@ interface CreateInvoiceData {
   description?: string | null;
   invoiceDate?: Date | string | null;
   dueDate?: Date | string | null;
+  pdfStoragePath?: string | null;
+  pdfFileName?: string | null;
+  pdfSizeBytes?: number | null;
+  invoiceNumber?: string | null;
   lineItems?: Array<{
     description: string;
     quantity: string;
@@ -90,6 +95,9 @@ interface UpdateInvoiceData {
   description?: string | null;
   invoiceDate?: Date | string | null;
   dueDate?: Date | string | null;
+  pdfStoragePath?: string | null;
+  pdfFileName?: string | null;
+  pdfSizeBytes?: number | null;
   lineItems?: Array<{
     description: string;
     quantity: string;
@@ -155,7 +163,7 @@ export function useInvoices(
   return useQuery({
     queryKey: invoiceKeys.list({ page, pageSize, ...filters }),
     queryFn: () => fetchInvoices(page, pageSize, filters),
-    staleTime: 60 * 1000, // 60 seconds - matches API cache
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -185,9 +193,20 @@ export function useCreateInvoice() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.nextNumber() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: invoiceKeys.all,
+        type: "active",
+      });
+      // Also invalidate dashboard stats since invoices affect revenue
+      await queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -210,8 +229,20 @@ export function useUpdateInvoice() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: invoiceKeys.all,
+        type: "active",
+      });
+      // Also invalidate dashboard stats since invoices affect revenue
+      await queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -229,8 +260,20 @@ export function useDeleteInvoice() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: invoiceKeys.all,
+        type: "active",
+      });
+      // Also invalidate dashboard stats since invoices affect revenue
+      await queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
+      });
     },
   });
 }

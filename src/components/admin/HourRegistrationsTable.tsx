@@ -388,8 +388,11 @@ export function HourRegistrationsTable() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data: registrationsData, isLoading: isLoadingRegistrations } =
-    useHourRegistrations(page, debouncedSearch || undefined, true);
+  const {
+    data: registrationsData,
+    isLoading: isLoadingRegistrations,
+    refetch,
+  } = useHourRegistrations(page, debouncedSearch || undefined, true);
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
   const createMutation = useCreateHourRegistration();
   const updateMutation = useUpdateHourRegistration();
@@ -491,12 +494,12 @@ export function HourRegistrationsTable() {
   useEffect(() => {
     const handleRefresh = () => {
       // React Query will automatically refetch, but we can trigger it manually if needed
-      // The mutation hooks already handle invalidation
+      refetch();
     };
     window.addEventListener("hour-registration-saved", handleRefresh);
     return () =>
       window.removeEventListener("hour-registration-saved", handleRefresh);
-  }, []);
+  }, [refetch]);
 
   const handleDelete = useCallback(
     async (id: string) => {

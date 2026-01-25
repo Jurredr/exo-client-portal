@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { dashboardStatsKeys } from "./use-dashboard-stats";
 
 interface ProjectData {
   project: {
@@ -119,7 +120,7 @@ export function useProjects(
   return useQuery({
     queryKey: projectKeys.list({ page, pageSize, ...filters }),
     queryFn: () => fetchProjects(page, pageSize, filters),
-    staleTime: 60 * 1000, // 60 seconds - matches API cache
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -128,7 +129,7 @@ export function useAllProjects() {
   return useQuery({
     queryKey: [...projectKeys.all, "all"],
     queryFn: fetchAllProjects,
-    staleTime: 60 * 1000, // 60 seconds
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -150,8 +151,20 @@ export function useCreateProject() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: projectKeys.all,
+        type: "active",
+      });
+      // Also invalidate dashboard stats since projects affect stats
+      await queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -174,8 +187,20 @@ export function useUpdateProject() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: projectKeys.all,
+        type: "active",
+      });
+      // Also invalidate dashboard stats since projects affect stats
+      await queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -193,8 +218,20 @@ export function useDeleteProject() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: projectKeys.all,
+        type: "active",
+      });
+      // Also invalidate dashboard stats since projects affect stats
+      await queryClient.invalidateQueries({
+        queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.refetchQueries({
+        queryKey: dashboardStatsKeys.all,
+        type: "active",
+      });
     },
   });
 }

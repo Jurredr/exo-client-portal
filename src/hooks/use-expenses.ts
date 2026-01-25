@@ -101,7 +101,7 @@ export function useExpenses(
   return useQuery({
     queryKey: expenseKeys.list({ page, pageSize, ...filters }),
     queryFn: () => fetchExpenses(page, pageSize, filters),
-    staleTime: 60 * 1000, // 60 seconds - matches API cache
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -123,8 +123,12 @@ export function useCreateExpense() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: expenseKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: expenseKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -147,8 +151,12 @@ export function useUpdateExpense() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: expenseKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: expenseKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -166,8 +174,12 @@ export function useDeleteExpense() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: expenseKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: expenseKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: expenseKeys.all,
+        type: "active",
+      });
     },
   });
 }

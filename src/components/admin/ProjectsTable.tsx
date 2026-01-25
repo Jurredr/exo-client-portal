@@ -9,7 +9,11 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { useProjects, useDeleteProject } from "@/hooks/use-projects";
+import {
+  useProjects,
+  useDeleteProject,
+  useUpdateProject,
+} from "@/hooks/use-projects";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -217,6 +221,7 @@ export function ProjectsTable() {
     });
   const { isLoading: isLoadingOrganizations } = useOrganizations();
   const deleteMutation = useDeleteProject();
+  const updateMutation = useUpdateProject();
 
   const clientProjects = clientProjectsData?.data || [];
   const clientPagination = clientProjectsData?.pagination;
@@ -574,36 +579,29 @@ export function ProjectsTable() {
     const subtotal =
       subtotalValue && subtotalValue.trim() ? subtotalValue.trim() : null;
 
-    try {
-      const response = await fetch("/api/projects", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+    updateMutation.mutate(
+      {
+        id: selectedProject.project.id,
+        title,
+        description: description || null,
+        status,
+        stage,
+        type: projectType,
+        subtotal: projectType === "labs" ? null : subtotal,
+        currency: editCurrency,
+        startDate: startDate || null,
+        deadline: projectType === "labs" ? null : deadline || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Project updated successfully");
+          setIsEditOpen(false);
         },
-        body: JSON.stringify({
-          id: selectedProject.project.id,
-          title,
-          description: description || null,
-          status,
-          stage,
-          type: projectType,
-          subtotal: projectType === "labs" ? null : subtotal,
-          currency: editCurrency,
-          startDate: startDate || null,
-          deadline: projectType === "labs" ? null : deadline || null,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update project");
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to update project");
+        },
       }
-
-      toast.success("Project updated successfully");
-      setIsEditOpen(false);
-      // React Query will automatically refetch projects
-    } catch {
-      toast.error("Failed to update project");
-    }
+    );
   };
 
   const handleCreateSuccess = () => {

@@ -56,7 +56,7 @@ export function useOrganizations() {
   return useQuery({
     queryKey: organizationKeys.lists(),
     queryFn: fetchOrganizations,
-    staleTime: 120 * 1000, // 120 seconds - matches API cache
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -78,8 +78,12 @@ export function useCreateOrganization() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: organizationKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -102,8 +106,12 @@ export function useUpdateOrganization() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: organizationKeys.all,
+        type: "active",
+      });
     },
   });
 }
@@ -121,8 +129,12 @@ export function useDeleteOrganization() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: organizationKeys.all,
+        type: "active",
+      });
     },
   });
 }

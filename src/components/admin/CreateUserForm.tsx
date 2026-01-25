@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { useCreateUser } from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,9 +31,10 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
   // TanStack Query hooks
   const { data: organizationsData, isLoading: isLoadingOrgs } =
     useOrganizations();
+  const createUserMutation = useCreateUser();
   const organizations = organizationsData || [];
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmitting = createUserMutation.isPending;
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
 
@@ -106,44 +108,41 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         }
       }
 
-      // Create the user with image storage path
-      const response = await fetch("/api/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      // Create the user with image storage path using the hook
+      createUserMutation.mutate(
+        {
           email: email.trim(),
           name: name.trim() || null,
           phone: phone.trim() || null,
           note: note.trim() || null,
           organizationIds:
-            selectedOrganizationIds.length > 0 ? selectedOrganizationIds : null,
+            selectedOrganizationIds.length > 0
+              ? selectedOrganizationIds
+              : undefined,
           imageStoragePath,
           imageSizeBytes,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create user");
-      }
-
-      toast.success("User created successfully");
-      setEmail("");
-      setName("");
-      setPhone("");
-      setNote("");
-      setSelectedOrganizationIds([]);
-      setImagePreview(null);
-      setImageFile(null);
-      onSuccess?.();
+        },
+        {
+          onSuccess: () => {
+            toast.success("User created successfully");
+            setEmail("");
+            setName("");
+            setPhone("");
+            setNote("");
+            setSelectedOrganizationIds([]);
+            setImagePreview(null);
+            setImageFile(null);
+            onSuccess?.();
+          },
+          onError: (error: Error) => {
+            toast.error(error.message || "Failed to create user");
+          },
+        }
+      );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to create user"
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

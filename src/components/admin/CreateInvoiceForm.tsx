@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useNextInvoiceNumber } from "@/hooks/use-invoices";
+import {
+  useNextInvoiceNumber,
+  useCreateInvoice,
+  useUpdateInvoice,
+  type CreateInvoiceData,
+  type UpdateInvoiceData,
+} from "@/hooks/use-invoices";
 import { useAllProjects } from "@/hooks/use-projects";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
@@ -126,6 +132,8 @@ export function CreateInvoiceForm({
     useOrganizations();
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
   const { data: nextInvoiceNumberData } = useNextInvoiceNumber();
+  const createInvoiceMutation = useCreateInvoice();
+  const updateInvoiceMutation = useUpdateInvoice();
 
   const organizations =
     organizationsData
@@ -134,7 +142,8 @@ export function CreateInvoiceForm({
   const nextInvoiceNumber = nextInvoiceNumberData?.invoiceNumber || "";
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmitting =
+    createInvoiceMutation.isPending || updateInvoiceMutation.isPending;
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [removePdf, setRemovePdf] = useState(false);
   const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
@@ -300,7 +309,6 @@ export function CreateInvoiceForm({
       total = 0;
     }
 
-    setIsSubmitting(true);
     try {
       let pdfStoragePath: string | null = null;
       let pdfFileName: string | null = null;
@@ -332,7 +340,6 @@ export function CreateInvoiceForm({
         } catch (error) {
           console.error("Error uploading PDF:", error);
           toast.error("Failed to upload PDF file. Please try again.");
-          setIsSubmitting(false);
           return;
         }
       } else if (removePdf) {
@@ -344,109 +351,105 @@ export function CreateInvoiceForm({
       // If neither pdfFile nor removePdf, we don't set PDF fields
       // This means the API will preserve the existing PDF (if any)
 
-      const url = "/api/invoices";
-      const method = invoice ? "PATCH" : "POST";
-      const body = invoice
-        ? {
-            id: invoice.id,
-            organizationId,
-            projectId: projectId || null,
-            expenseId: expenseId.trim() || null,
-            amount: total.toFixed(2),
-            currency,
-            status,
-            transactionType,
-            isKOR,
-            invoiceDate: invoiceDate || null,
-            dueDate: dueDate || null,
-            // Only include PDF fields if they're explicitly set (new file or removal)
-            // If undefined, the API will preserve the existing PDF
-            ...(pdfFile || removePdf
-              ? {
-                  pdfStoragePath: pdfStoragePath ?? null,
-                  pdfFileName: pdfFileName ?? null,
-                  pdfSizeBytes: pdfSizeBytes ?? null,
-                }
-              : {}),
-            ...(isReimbursement
-              ? {}
-              : {
-                  lineItems: lineItems.map((item, index) => ({
-                    ...item,
-                    order: index,
-                  })),
-                }),
-          }
-        : {
-            organizationId,
-            projectId: projectId || null,
-            expenseId: expenseId.trim() || null,
-            amount: total.toFixed(2),
-            currency,
-            status,
-            type: "manual",
-            transactionType,
-            isKOR,
-            dueDate: dueDate || null,
-            pdfStoragePath,
-            pdfFileName,
-            pdfSizeBytes,
-            invoiceNumber: invoiceNumberOverride.trim() || null,
-            ...(isReimbursement
-              ? {}
-              : {
-                  lineItems: lineItems.map((item, index) => ({
-                    ...item,
-                    order: index,
-                  })),
-                }),
-          };
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.error || `Failed to ${invoice ? "update" : "create"} invoice`
-        );
-      }
-
-      toast.success(`Invoice ${invoice ? "updated" : "created"} successfully`);
-      if (!invoice) {
-        setOrganizationId("");
-        setProjectId("");
-        setExpenseId("");
-        setCurrency("EUR");
-        setStatus("draft");
-        setTransactionType("debit");
-        setIsKOR(false);
-        setDueDate("");
-        setPdfFile(null);
-        setInvoiceNumberOverride("");
-        setLineItems([
-          {
-            description: "",
-            quantity: "1",
-            unitPrice: "",
-            taxPercentage: "21",
+      if (invoice) {
+        const updateData: UpdateInvoiceData = {
+          id: invoice.id,
+          organizationId,
+          projectId: projectId || null,
+          expenseId: expenseId.trim() || null,
+          amount: total.toFixed(2),
+          currency,
+          status,
+          transactionType,
+          isKOR,
+          invoiceDate: invoiceDate || null,
+          dueDate: dueDate || null,
+          // Only include PDF fields if they're explicitly set (new file or removal)
+          // If undefined, the API will preserve the existing PDF
+          ...(pdfFile || removePdf
+            ? {
+                pdfStoragePath: pdfStoragePath ?? null,
+                pdfFileName: pdfFileName ?? null,
+                pdfSizeBytes: pdfSizeBytes ?? null,
+              }
+            : {}),
+          ...(isReimbursement
+            ? {}
+            : {
+                lineItems: lineItems.map((item, index) => ({
+                  ...item,
+                  order: index,
+                })),
+              }),
+        };
+        updateInvoiceMutation.mutate(updateData, {
+          onSuccess: () => {
+            toast.success("Invoice updated successfully");
+            onSuccess?.();
           },
-        ]);
+          onError: (error: Error) => {
+            toast.error(error.message || "Failed to update invoice");
+          },
+        });
+      } else {
+        const createData: CreateInvoiceData = {
+          organizationId,
+          projectId: projectId || null,
+          expenseId: expenseId.trim() || null,
+          amount: total.toFixed(2),
+          currency,
+          status,
+          type: "manual",
+          transactionType,
+          isKOR,
+          dueDate: dueDate || null,
+          pdfStoragePath,
+          pdfFileName,
+          pdfSizeBytes,
+          invoiceNumber: invoiceNumberOverride.trim() || null,
+          ...(isReimbursement
+            ? {}
+            : {
+                lineItems: lineItems.map((item, index) => ({
+                  ...item,
+                  order: index,
+                })),
+              }),
+        };
+        createInvoiceMutation.mutate(createData, {
+          onSuccess: () => {
+            toast.success("Invoice created successfully");
+            setOrganizationId("");
+            setProjectId("");
+            setExpenseId("");
+            setCurrency("EUR");
+            setStatus("draft");
+            setTransactionType("debit");
+            setIsKOR(false);
+            setDueDate("");
+            setPdfFile(null);
+            setInvoiceNumberOverride("");
+            setLineItems([
+              {
+                description: "",
+                quantity: "1",
+                unitPrice: "",
+                taxPercentage: "21",
+              },
+            ]);
+            onSuccess?.();
+          },
+          onError: (error: Error) => {
+            toast.error(error.message || "Failed to create invoice");
+          },
+        });
       }
-      onSuccess?.();
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : `Failed to ${invoice ? "update" : "create"} invoice`
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

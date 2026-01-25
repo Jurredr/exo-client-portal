@@ -131,7 +131,7 @@ export function useContracts(
   return useQuery({
     queryKey: [...contractKeys.lists(), page, pageSize, filters],
     queryFn: () => fetchContracts(page, pageSize, filters),
-    staleTime: 60 * 1000, // 60 seconds - matches API cache
+    staleTime: 0, // No stale time - always refetch when invalidated
   });
 }
 
@@ -186,10 +186,11 @@ export function useUpdateContract() {
       }
       return response.json();
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: contractKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: contractKeys.detail(variables.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: contractKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: contractKeys.all,
+        type: "active",
       });
     },
   });
@@ -208,8 +209,12 @@ export function useDeleteContract() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: contractKeys.lists() });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: contractKeys.all });
+      await queryClient.refetchQueries({
+        queryKey: contractKeys.all,
+        type: "active",
+      });
     },
   });
 }

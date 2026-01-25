@@ -76,7 +76,9 @@ export async function GET(request: Request) {
         },
         {
           headers: {
-            "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+            "Cache-Control": "no-cache, no-store, must-revalidate", // Don't cache to ensure fresh data
+            Pragma: "no-cache",
+            Expires: "0",
           },
         }
       );
@@ -94,7 +96,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(projectsWithHours, {
       headers: {
-        "Cache-Control": "private, max-age=60, must-revalidate", // Cache for 1 minute
+        "Cache-Control": "no-cache, no-store, must-revalidate", // Don't cache to ensure fresh data
+        Pragma: "no-cache",
+        Expires: "0",
       },
     });
   } catch (error) {

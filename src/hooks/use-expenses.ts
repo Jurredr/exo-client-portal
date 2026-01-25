@@ -34,7 +34,7 @@ interface PaginatedResponse<T> {
   };
 }
 
-interface CreateExpenseData {
+export interface CreateExpenseData {
   userId: string;
   description: string;
   amount: string;
@@ -47,7 +47,7 @@ interface CreateExpenseData {
   invoiceFileName?: string | null;
 }
 
-interface UpdateExpenseData {
+export interface UpdateExpenseData {
   id: string;
   userId?: string;
   description?: string;

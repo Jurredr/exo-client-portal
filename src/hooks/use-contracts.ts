@@ -39,7 +39,7 @@ interface ContractData {
   } | null;
 }
 
-interface CreateContractData {
+export interface CreateContractData {
   organizationId: string;
   projectIds?: string[];
   name: string;
@@ -49,7 +49,7 @@ interface CreateContractData {
   requiresPortalSignature?: boolean;
 }
 
-interface UpdateContractData {
+export interface UpdateContractData {
   id: string;
   organizationId?: string;
   projectIds?: string[];

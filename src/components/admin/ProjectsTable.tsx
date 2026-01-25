@@ -573,7 +573,7 @@ export function ProjectsTable() {
     const subtotalValue = formData.get("subtotal") as string;
     const startDate = formData.get("startDate") as string;
     const deadline = formData.get("deadline") as string;
-    const projectType = selectedProject.project.type;
+    const projectType = selectedProject.project.type as "client" | "labs";
 
     // Convert empty string to null for subtotal
     const subtotal =

@@ -111,6 +111,11 @@ export function CreateExpenseForm({
       return;
     }
 
+    if (!date) {
+      toast.error("Date is required");
+      return;
+    }
+
     try {
       let invoiceStoragePath: string | null = null;
       let invoiceFileName: string | null = null;
@@ -159,7 +164,7 @@ export function CreateExpenseForm({
           description: description.trim(),
           amount: amount.trim(),
           currency,
-          date: date || null,
+          ...(date ? { date } : {}),
           category: category || null,
           vendor: vendor.trim() || null,
           // Only include file fields if they're explicitly set (new file or removal)
@@ -186,7 +191,7 @@ export function CreateExpenseForm({
           description: description.trim(),
           amount: amount.trim(),
           currency,
-          date: date || null,
+          date: date, // date is validated above, so it's guaranteed to be a string
           category: category || null,
           vendor: vendor.trim() || null,
           invoiceStoragePath,

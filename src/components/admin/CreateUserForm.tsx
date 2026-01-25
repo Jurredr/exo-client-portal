@@ -73,7 +73,6 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
-    setIsSubmitting(true);
     try {
       let imageStoragePath: string | null = null;
       let imageSizeBytes: number | null = null;
@@ -103,7 +102,6 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         } catch (error) {
           console.error("Error uploading image:", error);
           toast.error("Failed to upload image. Please try again.");
-          setIsSubmitting(false);
           return;
         }
       }

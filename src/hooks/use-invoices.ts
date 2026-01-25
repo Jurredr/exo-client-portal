@@ -53,7 +53,7 @@ interface PaginatedResponse<T> {
   };
 }
 
-interface CreateInvoiceData {
+export interface CreateInvoiceData {
   projectId?: string | null;
   organizationId: string;
   expenseId?: string | null;
@@ -80,7 +80,7 @@ interface CreateInvoiceData {
   }>;
 }
 
-interface UpdateInvoiceData {
+export interface UpdateInvoiceData {
   id: string;
   projectId?: string | null;
   organizationId?: string;

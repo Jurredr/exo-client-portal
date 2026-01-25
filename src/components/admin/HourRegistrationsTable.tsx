@@ -329,12 +329,6 @@ const createColumns = (
     header: "Actions",
     cell: ({ row }) => {
       const handleDelete = async () => {
-        if (
-          !confirm("Are you sure you want to delete this hour registration?")
-        ) {
-          return;
-        }
-
         await onDelete(row.original.id);
       };
 

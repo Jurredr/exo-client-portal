@@ -49,6 +49,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // interface DashboardStatsData {
 //   revenue: {
@@ -189,21 +190,80 @@ export default function DashboardStats() {
   if (loading || !stats) {
     return (
       <div className="space-y-8">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 w-full">
-          {[1, 2].map((i) => (
-            <Card key={i} className="p-6 py-4 w-full">
-              <CardContent className="p-0">
-                <div className="flex items-center justify-between">
-                  <dt className="text-sm font-medium text-muted-foreground">
-                    Loading...
-                  </dt>
-                </div>
-                <dd className="text-3xl font-semibold text-foreground mt-2">
-                  —
-                </dd>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Revenue Section Skeleton */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-2">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-8 w-32" />
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 w-full">
+            {[1, 2].map((i) => (
+              <Card key={i} className="p-6 py-4 w-full">
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <Skeleton className="h-8 w-24 mt-2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[250px] w-full" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Hours Section Skeleton */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 w-full">
+            {[1, 2].map((i) => (
+              <Card key={i} className="p-6 py-4 w-full">
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <Skeleton className="h-8 w-24 mt-2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[250px] w-full" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Projects Section Skeleton */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 w-full">
+            {[1, 2].map((i) => (
+              <Card key={i} className="p-6 py-4 w-full">
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <Skeleton className="h-8 w-24 mt-2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[250px] w-full" />
+            </CardContent>
+          </Card>
         </div>
       </div>
     );

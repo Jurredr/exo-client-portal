@@ -48,6 +48,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -514,6 +515,96 @@ export function HourRegistrationsTable() {
     [deleteMutation]
   );
 
+  const handleExportCSV = useCallback(async () => {
+    try {
+      toast.loading("Exporting hour registrations...", { id: "export-csv" });
+
+      // Fetch all registrations in batches (API limits pageSize to 100)
+      const allRegistrations: HourRegistration[] = [];
+      let page = 1;
+      let hasMore = true;
+      const pageSize = 100;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          pageSize: pageSize.toString(),
+          all: "true",
+        });
+
+        const response = await fetch(`/api/hour-registrations?${params}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch hour registrations");
+        }
+
+        const data = await response.json();
+        allRegistrations.push(...data.data);
+
+        hasMore = page < data.pagination.totalPages;
+        page++;
+      }
+
+      // Convert to CSV
+      const headers = [
+        "Date",
+        "User",
+        "User Email",
+        "Description",
+        "Project",
+        "Category",
+        "Hours",
+        "Logged At",
+      ];
+
+      const rows = allRegistrations.map((reg) => {
+        const date = new Date(reg.date);
+        const loggedAt = new Date(reg.createdAt);
+        const hours = parseFloat(reg.hours);
+        const hoursFormatted = formatHours(hours);
+
+        return [
+          date.toLocaleDateString("en-GB"), // DD/MM/YYYY format
+          reg.user.name || reg.user.email,
+          reg.user.email,
+          `"${reg.description.replace(/"/g, '""')}"`, // Escape quotes in CSV
+          reg.project?.title || "",
+          reg.category,
+          hoursFormatted,
+          loggedAt.toLocaleDateString("en-GB"),
+        ];
+      });
+
+      // Create CSV content
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((row) => row.join(",")),
+      ].join("\n");
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `hour-registrations-${new Date().toISOString().split("T")[0]}.csv`
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        `Exported ${allRegistrations.length} hour registration(s)`,
+        { id: "export-csv" }
+      );
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      toast.error("Failed to export hour registrations", { id: "export-csv" });
+    }
+  }, []);
+
   const handleManualEntry = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -742,184 +833,192 @@ export function HourRegistrationsTable() {
             )}
           </div>
         </div>
-        <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Entry
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Manual Entry</DialogTitle>
-              <DialogDescription>
-                Manually log hours for a specific date
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleManualEntry} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="manual-date">Date *</Label>
-                <Input
-                  id="manual-date"
-                  type="date"
-                  value={manualEntry.date}
-                  onChange={(e) =>
-                    setManualEntry({ ...manualEntry, date: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="manual-category">Work Category *</Label>
-                <Select
-                  value={manualEntry.category}
-                  onValueChange={(value) =>
-                    setManualEntry({
-                      ...manualEntry,
-                      category: value as
-                        | "client"
-                        | "administration"
-                        | "brainstorming"
-                        | "research"
-                        | "labs"
-                        | "client_acquisition"
-                        | "content_creation"
-                        | "traveling",
-                    })
-                  }
-                >
-                  <SelectTrigger id="manual-category" className="w-full">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="client">Client Work</SelectItem>
-                    <SelectItem value="administration">
-                      Administration
-                    </SelectItem>
-                    <SelectItem value="brainstorming">Brainstorming</SelectItem>
-                    <SelectItem value="research">Research</SelectItem>
-                    <SelectItem value="client_acquisition">
-                      Client Acquisition
-                    </SelectItem>
-                    <SelectItem value="labs">EXO Labs</SelectItem>
-                    <SelectItem value="content_creation">
-                      Content Creation
-                    </SelectItem>
-                    <SelectItem value="traveling">Traveling</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {(manualEntry.category === "client" ||
-                manualEntry.category === "labs" ||
-                manualEntry.category === "content_creation") && (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportCSV}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Entry
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Manual Entry</DialogTitle>
+                <DialogDescription>
+                  Manually log hours for a specific date
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleManualEntry} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="manual-project">
-                    Project{" "}
-                    {manualEntry.category === "client" ? "(Optional)" : ""}
-                  </Label>
+                  <Label htmlFor="manual-date">Date *</Label>
+                  <Input
+                    id="manual-date"
+                    type="date"
+                    value={manualEntry.date}
+                    onChange={(e) =>
+                      setManualEntry({ ...manualEntry, date: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="manual-category">Work Category *</Label>
                   <Select
-                    value={manualEntry.projectId || "none"}
+                    value={manualEntry.category}
                     onValueChange={(value) =>
                       setManualEntry({
                         ...manualEntry,
-                        projectId: value === "none" ? undefined : value,
+                        category: value as
+                          | "client"
+                          | "administration"
+                          | "brainstorming"
+                          | "research"
+                          | "labs"
+                          | "client_acquisition"
+                          | "content_creation"
+                          | "traveling",
                       })
                     }
                   >
-                    <SelectTrigger id="manual-project" className="w-full">
-                      <SelectValue placeholder="Select a project" />
+                    <SelectTrigger id="manual-category" className="w-full">
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {projects.map((project: Project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.title}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="client">Client Work</SelectItem>
+                      <SelectItem value="administration">
+                        Administration
+                      </SelectItem>
+                      <SelectItem value="brainstorming">
+                        Brainstorming
+                      </SelectItem>
+                      <SelectItem value="research">Research</SelectItem>
+                      <SelectItem value="client_acquisition">
+                        Client Acquisition
+                      </SelectItem>
+                      <SelectItem value="labs">EXO Labs</SelectItem>
+                      <SelectItem value="content_creation">
+                        Content Creation
+                      </SelectItem>
+                      <SelectItem value="traveling">Traveling</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
+                {(manualEntry.category === "client" ||
+                  manualEntry.category === "labs" ||
+                  manualEntry.category === "content_creation") && (
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-project">
+                      Project{" "}
+                      {manualEntry.category === "client" ? "(Optional)" : ""}
+                    </Label>
+                    <Select
+                      value={manualEntry.projectId || "none"}
+                      onValueChange={(value) =>
+                        setManualEntry({
+                          ...manualEntry,
+                          projectId: value === "none" ? undefined : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="manual-project" className="w-full">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {projects.map((project: Project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-hours">Hours</Label>
+                    <Input
+                      id="manual-hours"
+                      type="number"
+                      min="0"
+                      value={manualEntry.hours}
+                      onChange={(e) =>
+                        setManualEntry({
+                          ...manualEntry,
+                          hours: e.target.value,
+                        })
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-minutes">Minutes</Label>
+                    <Input
+                      id="manual-minutes"
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={manualEntry.minutes}
+                      onChange={(e) =>
+                        setManualEntry({
+                          ...manualEntry,
+                          minutes: e.target.value,
+                        })
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="manual-hours">Hours</Label>
-                  <Input
-                    id="manual-hours"
-                    type="number"
-                    min="0"
-                    value={manualEntry.hours}
+                  <Label htmlFor="manual-description">Description *</Label>
+                  <Textarea
+                    id="manual-description"
+                    placeholder={
+                      manualEntry.category === "administration"
+                        ? "Describe the administrative work you did..."
+                        : manualEntry.category === "brainstorming"
+                          ? "Describe your brainstorming session..."
+                          : manualEntry.category === "research"
+                            ? "Describe the research you conducted..."
+                            : manualEntry.category === "client_acquisition"
+                              ? "Describe the client acquisition activities..."
+                              : manualEntry.category === "content_creation"
+                                ? "Describe the content you created..."
+                                : manualEntry.category === "traveling"
+                                  ? "Describe your travel activities..."
+                                  : "Describe the work you did..."
+                    }
+                    value={manualEntry.description}
                     onChange={(e) =>
                       setManualEntry({
                         ...manualEntry,
-                        hours: e.target.value,
+                        description: e.target.value,
                       })
                     }
-                    placeholder="0"
+                    rows={4}
+                    required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="manual-minutes">Minutes</Label>
-                  <Input
-                    id="manual-minutes"
-                    type="number"
-                    min="0"
-                    max="59"
-                    value={manualEntry.minutes}
-                    onChange={(e) =>
-                      setManualEntry({
-                        ...manualEntry,
-                        minutes: e.target.value,
-                      })
-                    }
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="manual-description">Description *</Label>
-                <Textarea
-                  id="manual-description"
-                  placeholder={
-                    manualEntry.category === "administration"
-                      ? "Describe the administrative work you did..."
-                      : manualEntry.category === "brainstorming"
-                        ? "Describe your brainstorming session..."
-                        : manualEntry.category === "research"
-                          ? "Describe the research you conducted..."
-                          : manualEntry.category === "client_acquisition"
-                            ? "Describe the client acquisition activities..."
-                            : manualEntry.category === "content_creation"
-                              ? "Describe the content you created..."
-                              : manualEntry.category === "traveling"
-                                ? "Describe your travel activities..."
-                                : "Describe the work you did..."
-                  }
-                  value={manualEntry.description}
-                  onChange={(e) =>
-                    setManualEntry({
-                      ...manualEntry,
-                      description: e.target.value,
-                    })
-                  }
-                  rows={4}
-                  required
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsManualEntryOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Add Entry"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsManualEntryOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Saving..." : "Add Entry"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Table */}

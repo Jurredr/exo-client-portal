@@ -55,6 +55,7 @@ interface Organization {
   id: string;
   name: string;
   imageStoragePath: string | null;
+  imageSizeBytes: number | null;
   address?: string | null;
   kvkNumber?: string | null;
   btwNumber?: string | null;

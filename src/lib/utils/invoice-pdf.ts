@@ -555,12 +555,12 @@ export async function generateInvoicePDF(
 
     // Calculate positions for right alignment
     const amountX = totalsStartX + priceWidth;
-    doc.font("Helvetica").fillColor("black");
+    doc.fontSize(10).font("Helvetica").fillColor("black");
     const symbolText = `${symbol}${space}`;
-    const symbolWidth = doc.widthOfString(symbolText, { fontSize: 10 });
+    const symbolWidth = doc.widthOfString(symbolText);
 
-    doc.font("Helvetica-Bold").fillColor("black");
-    const numberWidth = doc.widthOfString(numberPart, { fontSize: 10 });
+    doc.fontSize(10).font("Helvetica-Bold").fillColor("black");
+    const numberWidth = doc.widthOfString(numberPart);
     const totalWidth = symbolWidth + numberWidth;
 
     // Render symbol in regular font (positioned first from the right)

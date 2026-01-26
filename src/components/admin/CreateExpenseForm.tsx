@@ -20,7 +20,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { DollarSign, Calendar, Upload, X, FileText, Copy } from "lucide-react";
+import {
+  DollarSign,
+  Calendar,
+  Upload,
+  X,
+  FileText,
+  Copy,
+  Loader2,
+} from "lucide-react";
 
 const EXPENSE_CATEGORIES = [
   "Office",
@@ -420,13 +428,16 @@ export function CreateExpenseForm({
           disabled={isSubmitting}
           className={expense && onCancel ? "flex-1" : "w-full"}
         >
-          {isSubmitting
-            ? expense
-              ? "Updating..."
-              : "Creating..."
-            : expense
-              ? "Update Expense"
-              : "Create Expense"}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {expense ? "Updating..." : "Creating..."}
+            </>
+          ) : expense ? (
+            "Update Expense"
+          ) : (
+            "Create Expense"
+          )}
         </Button>
       </div>
     </form>

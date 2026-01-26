@@ -9,7 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { UserPlus, Mail, User, X, Phone, FileText } from "lucide-react";
+import {
+  UserPlus,
+  Mail,
+  User,
+  X,
+  Phone,
+  FileText,
+  Loader2,
+} from "lucide-react";
 import { OrganizationCombobox } from "@/components/organization-combobox";
 
 // interface Organization {
@@ -253,8 +261,17 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
-        <UserPlus className="h-4 w-4 mr-2" />
-        {isSubmitting ? "Creating..." : "Create User"}
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Creating...
+          </>
+        ) : (
+          <>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Create User
+          </>
+        )}
       </Button>
     </form>
   );

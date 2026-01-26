@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, Upload, X } from "lucide-react";
+import { FileText, Upload, X, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProjectCombobox } from "@/components/project-combobox";
 import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
@@ -345,14 +345,17 @@ export function CreateContractForm({
         </p>
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full">
-        <FileText className="h-4 w-4 mr-2" />
-        {isSubmitting
-          ? contract
-            ? "Updating..."
-            : "Creating..."
-          : contract
-            ? "Update Contract"
-            : "Create Contract"}
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            {contract ? "Updating..." : "Creating..."}
+          </>
+        ) : (
+          <>
+            <FileText className="h-4 w-4 mr-2" />
+            {contract ? "Update Contract" : "Create Contract"}
+          </>
+        )}
       </Button>
     </form>
   );

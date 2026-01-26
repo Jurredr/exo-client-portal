@@ -30,6 +30,7 @@ import {
   X,
   ArrowUpDown,
   MoreVertical,
+  Loader2,
 } from "lucide-react";
 import { CreateOrganizationForm } from "./CreateOrganizationForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
@@ -78,8 +79,10 @@ export function OrganizationsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteOrg, setDeleteOrg] = useState<Organization | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState<boolean>(false);
   const [address, setAddress] = useState<string>("");
   const [kvkNumber, setKvkNumber] = useState<string>("");
   const [btwNumber, setBtwNumber] = useState<string>("");
@@ -87,6 +90,48 @@ export function OrganizationsTable() {
   const [telephone, setTelephone] = useState<string>("");
   const prevSelectedOrgIdRef = useRef<string | null>(null);
   const isMobile = useIsMobile();
+
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    if (!selectedOrg || !isEditOpen) return false;
+
+    // Get current name from form input
+    const nameInput = document.getElementById("edit-name") as HTMLInputElement;
+    const currentName = nameInput?.value.trim() || "";
+
+    return (
+      currentName !== originalName ||
+      address.trim() !== originalAddress ||
+      kvkNumber.trim() !== originalKvkNumber ||
+      btwNumber.trim() !== originalBtwNumber ||
+      email.trim() !== originalEmail ||
+      telephone.trim() !== originalTelephone ||
+      imageFile !== null ||
+      removeImage ||
+      (removeImage && originalImageStoragePath !== null) ||
+      (imageFile === null &&
+        !removeImage &&
+        originalImageStoragePath === null &&
+        selectedOrg.imageStoragePath !== null)
+    );
+  }, [
+    selectedOrg,
+    isEditOpen,
+    originalName,
+    originalAddress,
+    originalKvkNumber,
+    originalBtwNumber,
+    originalEmail,
+    originalTelephone,
+    originalImageStoragePath,
+    address,
+    kvkNumber,
+    btwNumber,
+    email,
+    telephone,
+    imageFile,
+    removeImage,
+  ]);
 
   const columns: ColumnDef<Organization>[] = useMemo(
     () => [
@@ -254,16 +299,20 @@ export function OrganizationsTable() {
   useEffect(() => {
     if (selectedOrg && prevSelectedOrgIdRef.current !== selectedOrg.id) {
       prevSelectedOrgIdRef.current = selectedOrg.id;
-      // Only update image preview if no user-uploaded image exists
-      if (!imageFile) {
-        setTimeout(() => {
-          if (selectedOrg.imageStoragePath) {
-            setImagePreview(`/api/organizations/${selectedOrg.id}/image`);
-          } else {
-            setImagePreview(null);
-          }
-        }, 0);
-      }
+    }
+    // Reset and set image preview when modal opens or organization changes
+    if (selectedOrg && isEditOpen) {
+      // Reset image-related state when opening modal
+      setImageFile(null);
+      setRemoveImage(false);
+      // Set image preview from existing image
+      setTimeout(() => {
+        if (selectedOrg.imageStoragePath) {
+          setImagePreview(`/api/organizations/${selectedOrg.id}/image`);
+        } else {
+          setImagePreview(null);
+        }
+      }, 0);
       setTimeout(() => {
         setAddress(selectedOrg.address || "");
         setKvkNumber(selectedOrg.kvkNumber || "");
@@ -272,7 +321,7 @@ export function OrganizationsTable() {
         setTelephone(selectedOrg.telephone || "");
       }, 0);
     }
-  }, [selectedOrg, imageFile]);
+  }, [selectedOrg, isEditOpen]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -296,6 +345,7 @@ export function OrganizationsTable() {
       };
       reader.readAsDataURL(file);
       setImageFile(file);
+      setRemoveImage(false); // Reset remove flag when new file is selected
     }
   };
 
@@ -303,11 +353,15 @@ export function OrganizationsTable() {
     e.preventDefault();
     if (!selectedOrg) return;
 
+    // Set submitting state immediately for instant UI feedback
+    setIsSubmitting(true);
+
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const name = formData.get("name") as string;
 
     if (!name.trim()) {
       toast.error("Organization name is required");
+      setIsSubmitting(false);
       return;
     }
 
@@ -337,6 +391,7 @@ export function OrganizationsTable() {
       } catch (error) {
         console.error("Error uploading image:", error);
         toast.error("Failed to upload image. Please try again.");
+        setIsSubmitting(false);
         return;
       }
     }
@@ -345,13 +400,17 @@ export function OrganizationsTable() {
       {
         id: selectedOrg.id,
         name: name.trim(),
-        // Only include image fields if a new file was uploaded
-        ...(imageFile
-          ? {
-              imageStoragePath: imageStoragePath ?? null,
-              imageSizeBytes: imageSizeBytes ?? null,
-            }
-          : {}),
+        // Preserve existing image if no new file and not removing, otherwise use new/removed values
+        imageStoragePath: removeImage
+          ? null
+          : imageFile
+            ? (imageStoragePath ?? null)
+            : (selectedOrg.imageStoragePath ?? null),
+        imageSizeBytes: removeImage
+          ? null
+          : imageFile
+            ? (imageSizeBytes ?? null)
+            : (selectedOrg.imageSizeBytes ?? null),
         address: address.trim() || null,
         kvkNumber: kvkNumber.trim() || null,
         btwNumber: btwNumber.trim() || null,
@@ -364,14 +423,17 @@ export function OrganizationsTable() {
           setIsEditOpen(false);
           setImagePreview(null);
           setImageFile(null);
+          setRemoveImage(false);
           setAddress("");
           setKvkNumber("");
           setBtwNumber("");
           setEmail("");
           setTelephone("");
+          setIsSubmitting(false);
         },
         onError: (error: Error) => {
           toast.error(error.message || "Failed to update organization");
+          setIsSubmitting(false);
         },
       }
     );
@@ -510,9 +572,25 @@ export function OrganizationsTable() {
                           onChange={handleImageChange}
                           className="cursor-pointer"
                         />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Max 5MB. Image will be converted to base64.
-                        </p>
+                        {selectedOrg?.imageStoragePath &&
+                          !imageFile &&
+                          !removeImage && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Current file:{" "}
+                              {selectedOrg.imageStoragePath.split("/").pop() ||
+                                "logo.png"}
+                            </p>
+                          )}
+                        {imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            New file: {imageFile.name}
+                          </p>
+                        )}
+                        {!selectedOrg?.imageStoragePath && !imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Max 5MB. Image will be converted to base64.
+                          </p>
+                        )}
                       </div>
                       {imagePreview && (
                         <Button
@@ -522,6 +600,14 @@ export function OrganizationsTable() {
                           onClick={() => {
                             setImagePreview(null);
                             setImageFile(null);
+                            setRemoveImage(true);
+                            // Reset file input
+                            const fileInput = document.getElementById(
+                              "edit-image"
+                            ) as HTMLInputElement;
+                            if (fileInput) {
+                              fileInput.value = "";
+                            }
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -589,8 +675,21 @@ export function OrganizationsTable() {
                   </div>
                 </form>
                 <DrawerFooter>
-                  <Button type="submit" form="edit-form">
-                    Save Changes
+                  <Button
+                    type="submit"
+                    form="edit-form"
+                    disabled={
+                      !hasChanges || isSubmitting || updateMutation.isPending
+                    }
+                  >
+                    {isSubmitting || updateMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
                   </Button>
                   <DrawerClose asChild>
                     <Button variant="outline">Cancel</Button>
@@ -649,9 +748,25 @@ export function OrganizationsTable() {
                           onChange={handleImageChange}
                           className="cursor-pointer"
                         />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Max 5MB. Image will be converted to base64.
-                        </p>
+                        {selectedOrg?.imageStoragePath &&
+                          !imageFile &&
+                          !removeImage && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Current file:{" "}
+                              {selectedOrg.imageStoragePath.split("/").pop() ||
+                                "logo.png"}
+                            </p>
+                          )}
+                        {imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            New file: {imageFile.name}
+                          </p>
+                        )}
+                        {!selectedOrg?.imageStoragePath && !imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Max 5MB. Image will be converted to base64.
+                          </p>
+                        )}
                       </div>
                       {imagePreview && (
                         <Button
@@ -661,6 +776,14 @@ export function OrganizationsTable() {
                           onClick={() => {
                             setImagePreview(null);
                             setImageFile(null);
+                            setRemoveImage(true);
+                            // Reset file input
+                            const fileInput = document.getElementById(
+                              "edit-image"
+                            ) as HTMLInputElement;
+                            if (fileInput) {
+                              fileInput.value = "";
+                            }
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -737,6 +860,7 @@ export function OrganizationsTable() {
                         setIsEditOpen(false);
                         setImagePreview(null);
                         setImageFile(null);
+                        setRemoveImage(false);
                         setAddress("");
                         setKvkNumber("");
                         setBtwNumber("");
@@ -746,7 +870,19 @@ export function OrganizationsTable() {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">Save Changes</Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || updateMutation.isPending}
+                    >
+                      {isSubmitting || updateMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
                   </div>
                 </form>
               </>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Loader2 } from "lucide-react";
 
 interface Organization {
   id: string;
@@ -66,12 +66,14 @@ export function CreateOrganizationForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Set submitting state immediately for instant UI feedback
+    setIsSubmitting(true);
+
     if (!name.trim()) {
       toast.error("Organization name is required");
+      setIsSubmitting(false);
       return;
     }
-
-    setIsSubmitting(true);
     try {
       let imageStoragePath: string | null = null;
       let imageSizeBytes: number | null = null;
@@ -291,14 +293,17 @@ export function CreateOrganizationForm({
       </div>
 
       <Button type="submit" disabled={isSubmitting} className="w-full">
-        <Plus className="h-4 w-4 mr-2" />
-        {isSubmitting
-          ? organization
-            ? "Updating..."
-            : "Creating..."
-          : organization
-            ? "Update Organization"
-            : "Create Organization"}
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            {organization ? "Updating..." : "Creating..."}
+          </>
+        ) : (
+          <>
+            <Plus className="h-4 w-4 mr-2" />
+            {organization ? "Update Organization" : "Create Organization"}
+          </>
+        )}
       </Button>
     </form>
   );

@@ -29,6 +29,7 @@ import {
   Plus,
   Trash2,
   Download,
+  Loader2,
 } from "lucide-react";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
@@ -864,14 +865,17 @@ export function CreateInvoiceForm({
           disabled={isSubmitting}
           className={invoice && onCancel ? "flex-1" : "w-full"}
         >
-          <FileText className="h-4 w-4 mr-2" />
-          {isSubmitting
-            ? invoice
-              ? "Updating..."
-              : "Creating..."
-            : invoice
-              ? "Update Invoice"
-              : "Create Invoice"}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {invoice ? "Updating..." : "Creating..."}
+            </>
+          ) : (
+            <>
+              <FileText className="h-4 w-4 mr-2" />
+              {invoice ? "Update Invoice" : "Create Invoice"}
+            </>
+          )}
         </Button>
       </div>
     </form>

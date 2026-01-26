@@ -57,6 +57,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Loader2,
 } from "lucide-react";
 import { CreateUserForm } from "./CreateUserForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
@@ -156,8 +157,10 @@ export function UsersTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState<boolean>(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const prevSelectedUserIdRef = useRef<string | null>(null);
@@ -447,32 +450,35 @@ export function UsersTable() {
       prevSelectedUserIdRef.current !== selectedUser.user.id
     ) {
       prevSelectedUserIdRef.current = selectedUser.user.id;
-      // Only update image preview if no user-uploaded image exists
-      if (!imageFile) {
-        setTimeout(() => {
-          // For Storage images, we'll fetch them via the API endpoint
-          if (selectedUser.user.imageStoragePath) {
-            setImagePreview(`/api/users/${selectedUser.user.id}/image`);
-          } else {
-            setImagePreview(null);
-          }
-        }, 0);
-      }
+    }
+    // Reset and set image preview when modal opens or user changes
+    if (selectedUser && isEditOpen) {
+      // Reset image-related state when opening modal
+      setImageFile(null);
+      setRemoveImage(false);
+      // Set image preview from existing image
+      setTimeout(() => {
+        // For Storage images, we'll fetch them via the API endpoint
+        if (selectedUser.user.imageStoragePath) {
+          setImagePreview(`/api/users/${selectedUser.user.id}/image`);
+        } else {
+          setImagePreview(null);
+        }
+      }, 0);
     }
 
     // Set selected organization IDs when editing
-    setTimeout(() => {
-      if (selectedUser) {
+    if (selectedUser && isEditOpen) {
+      setTimeout(() => {
         const orgs =
           selectedUser.organizations ||
           (selectedUser.organization ? [selectedUser.organization] : []);
         setSelectedOrganizationIds(orgs.map((org) => org.id));
-      } else {
-        setSelectedOrganizationIds([]);
-      }
-    }, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUser]);
+      }, 0);
+    } else {
+      setSelectedOrganizationIds([]);
+    }
+  }, [selectedUser, isEditOpen]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -496,12 +502,16 @@ export function UsersTable() {
       };
       reader.readAsDataURL(file);
       setImageFile(file);
+      setRemoveImage(false); // Reset remove flag when new file is selected
     }
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    // Set submitting state immediately for instant UI feedback
+    setIsSubmitting(true);
 
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const name = formData.get("name") as string;
@@ -534,6 +544,7 @@ export function UsersTable() {
       } catch (error) {
         console.error("Error uploading image:", error);
         toast.error("Failed to upload image. Please try again.");
+        setIsSubmitting(false);
         return;
       }
     }
@@ -548,13 +559,17 @@ export function UsersTable() {
           selectedOrganizationIds.length > 0
             ? selectedOrganizationIds
             : undefined,
-        // Only include image fields if a new file was uploaded
-        ...(imageFile
-          ? {
-              imageStoragePath: imageStoragePath ?? null,
-              imageSizeBytes: imageSizeBytes ?? null,
-            }
-          : {}),
+        // Preserve existing image if no new file and not removing, otherwise use new/removed values
+        imageStoragePath: removeImage
+          ? null
+          : imageFile
+            ? (imageStoragePath ?? null)
+            : (selectedUser.user.imageStoragePath ?? null),
+        imageSizeBytes: removeImage
+          ? null
+          : imageFile
+            ? (imageSizeBytes ?? null)
+            : (selectedUser.user.imageSizeBytes ?? null),
       },
       {
         onSuccess: () => {
@@ -562,11 +577,14 @@ export function UsersTable() {
           setIsEditOpen(false);
           setImagePreview(null);
           setImageFile(null);
+          setRemoveImage(false);
+          setIsSubmitting(false);
           // Refresh sidebar user data
           window.dispatchEvent(new Event("user-updated"));
         },
         onError: (error: Error) => {
           toast.error(error.message || "Failed to update user");
+          setIsSubmitting(false);
         },
       }
     );
@@ -921,9 +939,26 @@ export function UsersTable() {
                           onChange={handleImageChange}
                           className="cursor-pointer"
                         />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Max 5MB. Image will be converted to base64.
-                        </p>
+                        {selectedUser?.user.imageStoragePath &&
+                          !imageFile &&
+                          !removeImage && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Current file:{" "}
+                              {selectedUser.user.imageStoragePath
+                                .split("/")
+                                .pop() || "profile.png"}
+                            </p>
+                          )}
+                        {imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            New file: {imageFile.name}
+                          </p>
+                        )}
+                        {!selectedUser?.user.imageStoragePath && !imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Max 5MB. Image will be converted to base64.
+                          </p>
+                        )}
                       </div>
                       {imagePreview && (
                         <Button
@@ -933,6 +968,14 @@ export function UsersTable() {
                           onClick={() => {
                             setImagePreview(null);
                             setImageFile(null);
+                            setRemoveImage(true);
+                            // Reset file input
+                            const fileInput = document.getElementById(
+                              "edit-image"
+                            ) as HTMLInputElement;
+                            if (fileInput) {
+                              fileInput.value = "";
+                            }
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -942,8 +985,19 @@ export function UsersTable() {
                   </div>
                 </form>
                 <DrawerFooter>
-                  <Button type="submit" form="edit-form">
-                    Save Changes
+                  <Button
+                    type="submit"
+                    form="edit-form"
+                    disabled={isSubmitting || updateMutation.isPending}
+                  >
+                    {isSubmitting || updateMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
                   </Button>
                   <DrawerClose asChild>
                     <Button variant="outline">Cancel</Button>
@@ -1051,9 +1105,26 @@ export function UsersTable() {
                           onChange={handleImageChange}
                           className="cursor-pointer"
                         />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Max 5MB. Image will be converted to base64.
-                        </p>
+                        {selectedUser?.user.imageStoragePath &&
+                          !imageFile &&
+                          !removeImage && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Current file:{" "}
+                              {selectedUser.user.imageStoragePath
+                                .split("/")
+                                .pop() || "profile.png"}
+                            </p>
+                          )}
+                        {imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            New file: {imageFile.name}
+                          </p>
+                        )}
+                        {!selectedUser?.user.imageStoragePath && !imageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Max 5MB. Image will be converted to base64.
+                          </p>
+                        )}
                       </div>
                       {imagePreview && (
                         <Button
@@ -1063,6 +1134,14 @@ export function UsersTable() {
                           onClick={() => {
                             setImagePreview(null);
                             setImageFile(null);
+                            setRemoveImage(true);
+                            // Reset file input
+                            const fileInput = document.getElementById(
+                              "edit-image"
+                            ) as HTMLInputElement;
+                            if (fileInput) {
+                              fileInput.value = "";
+                            }
                           }}
                         >
                           <X className="h-4 w-4" />
@@ -1078,11 +1157,24 @@ export function UsersTable() {
                         setIsEditOpen(false);
                         setImagePreview(null);
                         setImageFile(null);
+                        setRemoveImage(false);
                       }}
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">Save Changes</Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || updateMutation.isPending}
+                    >
+                      {isSubmitting || updateMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
                   </div>
                 </form>
               </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useCreateExpense,
   useUpdateExpense,
@@ -78,11 +78,86 @@ export function CreateExpenseForm({
   // For existing files in Storage, we just show the filename
   const [invoicePreview, setInvoicePreview] = useState<string | null>(null);
   const [removeInvoice, setRemoveInvoice] = useState(false);
+  const [originalDescription, setOriginalDescription] = useState<string>("");
+  const [originalAmount, setOriginalAmount] = useState<string>("");
+  const [originalCurrency, setOriginalCurrency] = useState<"USD" | "EUR">(
+    "EUR"
+  );
+  const [originalDate, setOriginalDate] = useState<string>("");
+  const [originalCategory, setOriginalCategory] = useState<string>("");
+  const [originalVendor, setOriginalVendor] = useState<string>("");
+  const [originalInvoiceStoragePath, setOriginalInvoiceStoragePath] = useState<
+    string | null
+  >(null);
   const { data: currentUser } = useCurrentUser();
   const createExpenseMutation = useCreateExpense();
   const updateExpenseMutation = useUpdateExpense();
   const isSubmitting =
     createExpenseMutation.isPending || updateExpenseMutation.isPending;
+
+  // Store original values when editing
+  useEffect(() => {
+    if (expense) {
+      const desc = expense.description || "";
+      const amt = expense.amount || "";
+      const curr = (expense.currency as "USD" | "EUR") || "EUR";
+      const dt = expense.date
+        ? new Date(expense.date).toISOString().split("T")[0]
+        : "";
+      const cat = expense.category || "";
+      const vend = expense.vendor || "";
+      const invPath = expense.invoiceStoragePath;
+
+      setOriginalDescription(desc);
+      setOriginalAmount(amt);
+      setOriginalCurrency(curr);
+      setOriginalDate(dt);
+      setOriginalCategory(cat);
+      setOriginalVendor(vend);
+      setOriginalInvoiceStoragePath(invPath);
+    } else {
+      // Reset original values when not editing
+      setOriginalDescription("");
+      setOriginalAmount("");
+      setOriginalCurrency("EUR");
+      setOriginalDate("");
+      setOriginalCategory("");
+      setOriginalVendor("");
+      setOriginalInvoiceStoragePath(null);
+    }
+  }, [expense]);
+
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    if (!expense) return true; // Always allow creating
+
+    return (
+      description.trim() !== originalDescription ||
+      amount.trim() !== originalAmount ||
+      currency !== originalCurrency ||
+      date !== originalDate ||
+      category !== originalCategory ||
+      vendor.trim() !== originalVendor ||
+      invoiceFile !== null ||
+      removeInvoice
+    );
+  }, [
+    expense,
+    description,
+    originalDescription,
+    amount,
+    originalAmount,
+    currency,
+    originalCurrency,
+    date,
+    originalDate,
+    category,
+    originalCategory,
+    vendor,
+    originalVendor,
+    invoiceFile,
+    removeInvoice,
+  ]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -425,7 +500,7 @@ export function CreateExpenseForm({
         )}
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={!hasChanges || isSubmitting}
           className={expense && onCancel ? "flex-1" : "w-full"}
         >
           {isSubmitting ? (

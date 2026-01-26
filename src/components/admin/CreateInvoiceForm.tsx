@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useNextInvoiceNumber,
   useCreateInvoice,
@@ -94,40 +94,73 @@ export function CreateInvoiceForm({
   invoice?: Invoice;
   onCancel?: () => void;
 }) {
-  const [organizationId, setOrganizationId] = useState<string>(
-    invoice?.organizationId || ""
-  );
-  const [projectId, setProjectId] = useState<string>(invoice?.projectId || "");
-  const [currency, setCurrency] = useState<"USD" | "EUR">(
-    (invoice?.currency as "USD" | "EUR") || "EUR"
-  );
-  const [status, setStatus] = useState(invoice?.status || "draft");
-  const [transactionType, setTransactionType] = useState<"debit" | "credit">(
-    (invoice?.transactionType as "debit" | "credit") || "debit"
-  );
-  const [expenseId, setExpenseId] = useState<string>(invoice?.expenseId || "");
-  const isReimbursement = expenseId.trim().length > 0;
-  const [isKOR, setIsKOR] = useState<boolean>(
-    invoice?.isKOR !== undefined ? invoice.isKOR : false
-  );
-
-  // Calculate default due date (current date + 7 days) for new invoices
-  const getDefaultDueDate = () => {
-    const date = new Date();
-    date.setDate(date.getDate() + 7);
-    return date.toISOString().split("T")[0];
+  // Initialize form values from invoice prop if editing
+  const getInitialFormValues = () => {
+    if (!invoice) {
+      // Calculate default due date (current date + 7 days) for new invoices
+      const getDefaultDueDate = () => {
+        const date = new Date();
+        date.setDate(date.getDate() + 7);
+        return date.toISOString().split("T")[0];
+      };
+      return {
+        organizationId: "",
+        projectId: "",
+        currency: "EUR" as "USD" | "EUR",
+        status: "draft",
+        transactionType: "debit" as "debit" | "credit",
+        expenseId: "",
+        isKOR: false,
+        dueDate: getDefaultDueDate(),
+        invoiceDate: new Date().toISOString().split("T")[0],
+      };
+    }
+    return {
+      organizationId: invoice.organizationId || "",
+      projectId: invoice.projectId || "",
+      currency: (invoice.currency as "USD" | "EUR") || "EUR",
+      status: invoice.status || "draft",
+      transactionType:
+        (invoice.transactionType as "debit" | "credit") || "debit",
+      expenseId: invoice.expenseId || "",
+      isKOR: invoice.isKOR !== undefined ? invoice.isKOR : false,
+      dueDate: invoice.dueDate
+        ? new Date(invoice.dueDate).toISOString().split("T")[0]
+        : "",
+      invoiceDate: invoice.invoiceDate
+        ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
+    };
   };
 
+  const initialFormValues = getInitialFormValues();
+  const [organizationId, setOrganizationId] = useState<string>(
+    initialFormValues.organizationId
+  );
+  const [projectId, setProjectId] = useState<string>(
+    initialFormValues.projectId
+  );
+  const [currency, setCurrency] = useState<"USD" | "EUR">(
+    initialFormValues.currency
+  );
+  const [status, setStatus] = useState(initialFormValues.status);
+  const [transactionType, setTransactionType] = useState<"debit" | "credit">(
+    initialFormValues.transactionType
+  );
+  const [expenseId, setExpenseId] = useState<string>(
+    initialFormValues.expenseId
+  );
+  const isReimbursement = expenseId.trim().length > 0;
+  const [isKOR, setIsKOR] = useState<boolean>(initialFormValues.isKOR);
   const [dueDate, setDueDate] = useState(
-    invoice?.dueDate
-      ? new Date(invoice.dueDate).toISOString().split("T")[0]
-      : getDefaultDueDate()
+    initialFormValues.dueDate ||
+      (() => {
+        const date = new Date();
+        date.setDate(date.getDate() + 7);
+        return date.toISOString().split("T")[0];
+      })()
   );
-  const [invoiceDate, setInvoiceDate] = useState(
-    invoice?.invoiceDate
-      ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0]
-  );
+  const [invoiceDate, setInvoiceDate] = useState(initialFormValues.invoiceDate);
   // TanStack Query hooks
   const { data: organizationsData, isLoading: isLoadingOrgs } =
     useOrganizations();
@@ -150,18 +183,109 @@ export function CreateInvoiceForm({
   const [invoiceNumberOverride, setInvoiceNumberOverride] = useState<string>(
     invoice?.invoiceNumber || ""
   );
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
-    invoice?.lineItems && invoice.lineItems.length > 0
-      ? invoice.lineItems
-      : [
-          {
-            description: "",
-            quantity: "1",
-            unitPrice: "",
-            taxPercentage: isKOR ? "0" : "21",
-          },
-        ]
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(() => {
+    if (invoice?.lineItems && invoice.lineItems.length > 0) {
+      // Normalize lineItems - remove id and order fields
+      return invoice.lineItems.map((item) => ({
+        description: item.description || "",
+        quantity: item.quantity || "1",
+        unitPrice: item.unitPrice || "",
+        taxPercentage: item.taxPercentage || "21",
+      }));
+    }
+    if (invoice) {
+      // When editing, use empty array if no line items
+      return [];
+    }
+    // Only use default item when creating new invoice
+    return [
+      {
+        description: "",
+        quantity: "1",
+        unitPrice: "",
+        taxPercentage: isKOR ? "0" : "21",
+      },
+    ];
+  });
+  // Initialize original values from invoice prop if editing
+  const getInitialOriginalValues = () => {
+    if (!invoice) {
+      return {
+        organizationId: "",
+        projectId: "",
+        currency: "EUR" as "USD" | "EUR",
+        status: "draft",
+        transactionType: "debit" as "debit" | "credit",
+        expenseId: "",
+        isKOR: false,
+        dueDate: "",
+        invoiceDate: "",
+        lineItems: [] as InvoiceLineItem[],
+        pdfStoragePath: null as string | null,
+      };
+    }
+    return {
+      organizationId: invoice.organizationId || "",
+      projectId: invoice.projectId || "",
+      currency: (invoice.currency as "USD" | "EUR") || "EUR",
+      status: invoice.status || "draft",
+      transactionType:
+        (invoice.transactionType as "debit" | "credit") || "debit",
+      expenseId: invoice.expenseId || "",
+      isKOR: invoice.isKOR !== undefined ? invoice.isKOR : false,
+      dueDate: invoice.dueDate
+        ? new Date(invoice.dueDate).toISOString().split("T")[0]
+        : "",
+      invoiceDate: invoice.invoiceDate
+        ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
+      lineItems:
+        invoice.lineItems && invoice.lineItems.length > 0
+          ? invoice.lineItems.map((item) => ({
+              description: item.description || "",
+              quantity: item.quantity || "1",
+              unitPrice: item.unitPrice || "",
+              taxPercentage: item.taxPercentage || "21",
+            }))
+          : ([] as InvoiceLineItem[]),
+      pdfStoragePath: invoice.pdfStoragePath,
+    };
+  };
+
+  const initialOriginalValues = getInitialOriginalValues();
+  const [originalOrganizationId, setOriginalOrganizationId] = useState<string>(
+    initialOriginalValues.organizationId
   );
+  const [originalProjectId, setOriginalProjectId] = useState<string>(
+    initialOriginalValues.projectId
+  );
+  const [originalCurrency, setOriginalCurrency] = useState<"USD" | "EUR">(
+    initialOriginalValues.currency
+  );
+  const [originalStatus, setOriginalStatus] = useState<string>(
+    initialOriginalValues.status
+  );
+  const [originalTransactionType, setOriginalTransactionType] = useState<
+    "debit" | "credit"
+  >(initialOriginalValues.transactionType);
+  const [originalExpenseId, setOriginalExpenseId] = useState<string>(
+    initialOriginalValues.expenseId
+  );
+  const [originalIsKOR, setOriginalIsKOR] = useState<boolean>(
+    initialOriginalValues.isKOR
+  );
+  const [originalDueDate, setOriginalDueDate] = useState<string>(
+    initialOriginalValues.dueDate
+  );
+  const [originalInvoiceDate, setOriginalInvoiceDate] = useState<string>(
+    initialOriginalValues.invoiceDate
+  );
+  const [originalLineItems, setOriginalLineItems] = useState<InvoiceLineItem[]>(
+    initialOriginalValues.lineItems
+  );
+  const [originalPdfStoragePath, setOriginalPdfStoragePath] = useState<
+    string | null
+  >(initialOriginalValues.pdfStoragePath);
 
   // Calculate total from line items
   const calculateTotal = (): number => {
@@ -181,6 +305,148 @@ export function CreateInvoiceForm({
       setInvoiceNumberOverride(nextInvoiceNumber);
     }
   }, [invoice, nextInvoiceNumber]);
+
+  // Update original values when invoice prop changes (for key-based remounting, this ensures sync)
+  useEffect(() => {
+    if (invoice) {
+      const orgId = invoice.organizationId || "";
+      const projId = invoice.projectId || "";
+      const curr = (invoice.currency as "USD" | "EUR") || "EUR";
+      const stat = invoice.status || "draft";
+      const transType =
+        (invoice.transactionType as "debit" | "credit") || "debit";
+      const expId = invoice.expenseId || "";
+      const kor = invoice.isKOR !== undefined ? invoice.isKOR : false;
+      const due = invoice.dueDate
+        ? new Date(invoice.dueDate).toISOString().split("T")[0]
+        : "";
+      const invDate = invoice.invoiceDate
+        ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+      // Normalize lineItems - remove id and order fields for comparison
+      const items =
+        invoice.lineItems && invoice.lineItems.length > 0
+          ? invoice.lineItems.map((item) => ({
+              description: item.description || "",
+              quantity: item.quantity || "1",
+              unitPrice: item.unitPrice || "",
+              taxPercentage: item.taxPercentage || "21",
+            }))
+          : [];
+      const pdfPath = invoice.pdfStoragePath;
+
+      // Update original values (with key prop, component remounts so these should match initial values)
+      setOriginalOrganizationId(orgId);
+      setOriginalProjectId(projId);
+      setOriginalCurrency(curr);
+      setOriginalStatus(stat);
+      setOriginalTransactionType(transType);
+      setOriginalExpenseId(expId);
+      setOriginalIsKOR(kor);
+      setOriginalDueDate(due);
+      setOriginalInvoiceDate(invDate);
+      setOriginalLineItems(items);
+      setOriginalPdfStoragePath(pdfPath);
+    } else {
+      // Reset original values when not editing
+      setOriginalOrganizationId("");
+      setOriginalProjectId("");
+      setOriginalCurrency("EUR");
+      setOriginalStatus("draft");
+      setOriginalTransactionType("debit");
+      setOriginalExpenseId("");
+      setOriginalIsKOR(false);
+      setOriginalDueDate("");
+      setOriginalInvoiceDate("");
+      setOriginalLineItems([]);
+      setOriginalPdfStoragePath(null);
+    }
+  }, [invoice]);
+
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    if (!invoice) return true; // Always allow creating
+
+    // Normalize projectId for comparison (null vs empty string)
+    const currentProjectId = (projectId || "").trim();
+    const origProjectId = (originalProjectId || "").trim();
+
+    // Normalize expenseId for comparison
+    const currentExpenseId = (expenseId || "").trim();
+    const origExpenseId = (originalExpenseId || "").trim();
+
+    // Normalize organizationId
+    const currentOrgId = (organizationId || "").trim();
+    const origOrgId = (originalOrganizationId || "").trim();
+
+    // Compare line items (deep comparison)
+    // Normalize for comparison - only compare relevant fields, ignore id and order
+    const normalizeLineItems = (items: InvoiceLineItem[]) => {
+      if (!items || items.length === 0) return [];
+      // Filter out items that are completely empty (default state)
+      const filtered = items.filter(
+        (item) =>
+          (item.description?.trim() || "") !== "" ||
+          (item.quantity?.trim() || "1") !== "1" ||
+          (item.unitPrice?.trim() || "") !== "" ||
+          ((item.taxPercentage?.trim() || "21") !== "21" &&
+            (item.taxPercentage?.trim() || "21") !== "0")
+      );
+      if (filtered.length === 0) return [];
+      // Normalize to only compare relevant fields (ignore id, order, etc.)
+      return filtered.map((item) => ({
+        description: (item.description || "").trim(),
+        quantity: (item.quantity || "1").trim(),
+        unitPrice: (item.unitPrice || "").trim(),
+        taxPercentage: (item.taxPercentage || "21").trim(),
+      }));
+    };
+
+    const normalizedLineItems = normalizeLineItems(lineItems);
+    const normalizedOriginalLineItems = normalizeLineItems(originalLineItems);
+    const lineItemsChanged =
+      JSON.stringify(normalizedLineItems) !==
+      JSON.stringify(normalizedOriginalLineItems);
+
+    return (
+      currentOrgId !== origOrgId ||
+      currentProjectId !== origProjectId ||
+      currency !== originalCurrency ||
+      status !== originalStatus ||
+      transactionType !== originalTransactionType ||
+      currentExpenseId !== origExpenseId ||
+      isKOR !== originalIsKOR ||
+      dueDate !== originalDueDate ||
+      invoiceDate !== originalInvoiceDate ||
+      lineItemsChanged ||
+      pdfFile !== null ||
+      removePdf
+    );
+  }, [
+    invoice,
+    organizationId,
+    originalOrganizationId,
+    projectId,
+    originalProjectId,
+    currency,
+    originalCurrency,
+    status,
+    originalStatus,
+    transactionType,
+    originalTransactionType,
+    expenseId,
+    originalExpenseId,
+    isKOR,
+    originalIsKOR,
+    dueDate,
+    originalDueDate,
+    invoiceDate,
+    originalInvoiceDate,
+    lineItems,
+    originalLineItems,
+    pdfFile,
+    removePdf,
+  ]);
 
   // Filter projects by organization
   useEffect(() => {
@@ -862,7 +1128,7 @@ export function CreateInvoiceForm({
         )}
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={!hasChanges || isSubmitting}
           className={invoice && onCancel ? "flex-1" : "w-full"}
         >
           {isSubmitting ? (

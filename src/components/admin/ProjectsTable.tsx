@@ -68,6 +68,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
+  Loader2,
   ChevronsRight,
 } from "lucide-react";
 import { CreateProjectForm } from "./CreateProjectForm";
@@ -236,6 +237,21 @@ export function ProjectsTable() {
   const [editStatus, setEditStatus] = useState<string>("");
   const [editStage, setEditStage] = useState<string>("");
   const [editCurrency, setEditCurrency] = useState<"USD" | "EUR">("EUR");
+  const [editTitle, setEditTitle] = useState<string>("");
+  const [editDescription, setEditDescription] = useState<string>("");
+  const [editSubtotal, setEditSubtotal] = useState<string>("");
+  const [editStartDate, setEditStartDate] = useState<string>("");
+  const [editDeadline, setEditDeadline] = useState<string>("");
+  const [originalTitle, setOriginalTitle] = useState<string>("");
+  const [originalDescription, setOriginalDescription] = useState<string>("");
+  const [originalStatus, setOriginalStatus] = useState<string>("");
+  const [originalStage, setOriginalStage] = useState<string>("");
+  const [originalCurrency, setOriginalCurrency] = useState<"USD" | "EUR">(
+    "EUR"
+  );
+  const [originalSubtotal, setOriginalSubtotal] = useState<string>("");
+  const [originalStartDate, setOriginalStartDate] = useState<string>("");
+  const [originalDeadline, setOriginalDeadline] = useState<string>("");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteProject, setDeleteProject] = useState<ProjectData | null>(null);
@@ -548,49 +564,106 @@ export function ProjectsTable() {
 
   // Sync edit form values when selected project changes
   useEffect(() => {
-    if (selectedProject) {
-      setEditStatus(selectedProject.project.status);
-      setEditStage(selectedProject.project.stage);
-      // Handle currency - default to EUR if not set (for older projects)
-      const projectCurrency = selectedProject.project.currency;
-      setEditCurrency(
+    if (selectedProject && isEditOpen) {
+      const project = selectedProject.project;
+      const title = project.title || "";
+      const description = project.description || "";
+      const status = project.status || "";
+      const stage = project.stage || "";
+      const projectCurrency = project.currency;
+      const currency =
         projectCurrency === "USD" || projectCurrency === "EUR"
           ? (projectCurrency as "USD" | "EUR")
-          : "EUR"
-      );
+          : "EUR";
+      const subtotal = project.subtotal || "";
+      const startDate = project.startDate
+        ? new Date(project.startDate).toISOString().split("T")[0]
+        : "";
+      const deadline = project.deadline
+        ? new Date(project.deadline).toISOString().split("T")[0]
+        : "";
+
+      // Set form values
+      setEditTitle(title);
+      setEditDescription(description);
+      setEditStatus(status);
+      setEditStage(stage);
+      setEditCurrency(currency);
+      setEditSubtotal(subtotal);
+      setEditStartDate(startDate);
+      setEditDeadline(deadline);
+
+      // Store original values
+      setOriginalTitle(title);
+      setOriginalDescription(description);
+      setOriginalStatus(status);
+      setOriginalStage(stage);
+      setOriginalCurrency(currency);
+      setOriginalSubtotal(subtotal);
+      setOriginalStartDate(startDate);
+      setOriginalDeadline(deadline);
     }
-  }, [selectedProject]);
+  }, [selectedProject, isEditOpen]);
+
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    if (!selectedProject || !isEditOpen) return false;
+
+    return (
+      editTitle.trim() !== originalTitle ||
+      editDescription.trim() !== originalDescription ||
+      editStatus !== originalStatus ||
+      editStage !== originalStage ||
+      editCurrency !== originalCurrency ||
+      editSubtotal.trim() !== originalSubtotal ||
+      editStartDate !== originalStartDate ||
+      editDeadline !== originalDeadline
+    );
+  }, [
+    selectedProject,
+    isEditOpen,
+    editTitle,
+    originalTitle,
+    editDescription,
+    originalDescription,
+    editStatus,
+    originalStatus,
+    editStage,
+    originalStage,
+    editCurrency,
+    originalCurrency,
+    editSubtotal,
+    originalSubtotal,
+    editStartDate,
+    originalStartDate,
+    editDeadline,
+    originalDeadline,
+  ]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProject) return;
 
-    const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
     const status = editStatus;
     const stage = editStage;
-    const subtotalValue = formData.get("subtotal") as string;
-    const startDate = formData.get("startDate") as string;
-    const deadline = formData.get("deadline") as string;
     const projectType = selectedProject.project.type as "client" | "labs";
 
     // Convert empty string to null for subtotal
     const subtotal =
-      subtotalValue && subtotalValue.trim() ? subtotalValue.trim() : null;
+      editSubtotal && editSubtotal.trim() ? editSubtotal.trim() : null;
 
     updateMutation.mutate(
       {
         id: selectedProject.project.id,
-        title,
-        description: description || null,
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
         status,
         stage,
         type: projectType,
         subtotal: projectType === "labs" ? null : subtotal,
         currency: editCurrency,
-        startDate: startDate || null,
-        deadline: projectType === "labs" ? null : deadline || null,
+        startDate: editStartDate || null,
+        deadline: projectType === "labs" ? null : editDeadline || null,
       },
       {
         onSuccess: () => {
@@ -664,7 +737,8 @@ export function ProjectsTable() {
           <Input
             id="edit-title"
             name="title"
-            defaultValue={selectedProject?.project.title}
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
             required
           />
         </div>
@@ -673,7 +747,8 @@ export function ProjectsTable() {
           <Textarea
             id="edit-description"
             name="description"
-            defaultValue={selectedProject?.project.description || ""}
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
             rows={3}
           />
         </div>
@@ -712,7 +787,8 @@ export function ProjectsTable() {
                 id="edit-subtotal"
                 name="subtotal"
                 type="text"
-                defaultValue={selectedProject?.project.subtotal || ""}
+                value={editSubtotal}
+                onChange={(e) => setEditSubtotal(e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-3">
@@ -741,13 +817,8 @@ export function ProjectsTable() {
               id="edit-start-date"
               name="startDate"
               type="date"
-              defaultValue={
-                selectedProject?.project.startDate
-                  ? new Date(selectedProject.project.startDate)
-                      .toISOString()
-                      .split("T")[0]
-                  : ""
-              }
+              value={editStartDate}
+              onChange={(e) => setEditStartDate(e.target.value)}
             />
           </div>
           {(selectedProject?.project.type === "client" ||
@@ -758,21 +829,27 @@ export function ProjectsTable() {
                 id="edit-deadline"
                 name="deadline"
                 type="date"
-                defaultValue={
-                  selectedProject?.project.deadline
-                    ? new Date(selectedProject.project.deadline)
-                        .toISOString()
-                        .split("T")[0]
-                    : ""
-                }
+                value={editDeadline}
+                onChange={(e) => setEditDeadline(e.target.value)}
               />
             </div>
           )}
         </div>
       </form>
       <DrawerFooter>
-        <Button type="submit" form="edit-form">
-          Save Changes
+        <Button
+          type="submit"
+          form="edit-form"
+          disabled={!hasChanges || updateMutation.isPending}
+        >
+          {updateMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Changes"
+          )}
         </Button>
         <DrawerClose asChild>
           <Button variant="outline">Cancel</Button>
@@ -1249,7 +1326,8 @@ export function ProjectsTable() {
                     <Input
                       id="edit-title"
                       name="title"
-                      defaultValue={selectedProject.project.title}
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
                       required
                     />
                   </div>
@@ -1258,7 +1336,8 @@ export function ProjectsTable() {
                     <Textarea
                       id="edit-description"
                       name="description"
-                      defaultValue={selectedProject.project.description || ""}
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
                       rows={3}
                     />
                   </div>
@@ -1295,7 +1374,8 @@ export function ProjectsTable() {
                           id="edit-subtotal"
                           name="subtotal"
                           type="text"
-                          defaultValue={selectedProject.project.subtotal || ""}
+                          value={editSubtotal}
+                          onChange={(e) => setEditSubtotal(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1324,13 +1404,8 @@ export function ProjectsTable() {
                         id="edit-start-date"
                         name="startDate"
                         type="date"
-                        defaultValue={
-                          selectedProject.project.startDate
-                            ? new Date(selectedProject.project.startDate)
-                                .toISOString()
-                                .split("T")[0]
-                            : ""
-                        }
+                        value={editStartDate}
+                        onChange={(e) => setEditStartDate(e.target.value)}
                       />
                     </div>
                     {(selectedProject.project.type === "client" ||
@@ -1341,13 +1416,8 @@ export function ProjectsTable() {
                           id="edit-deadline"
                           name="deadline"
                           type="date"
-                          defaultValue={
-                            selectedProject.project.deadline
-                              ? new Date(selectedProject.project.deadline)
-                                  .toISOString()
-                                  .split("T")[0]
-                              : ""
-                          }
+                          value={editDeadline}
+                          onChange={(e) => setEditDeadline(e.target.value)}
                         />
                       </div>
                     )}
@@ -1360,7 +1430,19 @@ export function ProjectsTable() {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">Save Changes</Button>
+                    <Button
+                      type="submit"
+                      disabled={!hasChanges || updateMutation.isPending}
+                    >
+                      {updateMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
                   </div>
                 </form>
               </>

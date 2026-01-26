@@ -83,11 +83,21 @@ export function OrganizationsTable() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState<boolean>(false);
+  const [name, setName] = useState<string>("");
   const [address, setAddress] = useState<string>("");
   const [kvkNumber, setKvkNumber] = useState<string>("");
   const [btwNumber, setBtwNumber] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [telephone, setTelephone] = useState<string>("");
+  const [originalName, setOriginalName] = useState<string>("");
+  const [originalAddress, setOriginalAddress] = useState<string>("");
+  const [originalKvkNumber, setOriginalKvkNumber] = useState<string>("");
+  const [originalBtwNumber, setOriginalBtwNumber] = useState<string>("");
+  const [originalEmail, setOriginalEmail] = useState<string>("");
+  const [originalTelephone, setOriginalTelephone] = useState<string>("");
+  const [originalImageStoragePath, setOriginalImageStoragePath] = useState<
+    string | null
+  >(null);
   const prevSelectedOrgIdRef = useRef<string | null>(null);
   const isMobile = useIsMobile();
 
@@ -95,40 +105,31 @@ export function OrganizationsTable() {
   const hasChanges = useMemo(() => {
     if (!selectedOrg || !isEditOpen) return false;
 
-    // Get current name from form input
-    const nameInput = document.getElementById("edit-name") as HTMLInputElement;
-    const currentName = nameInput?.value.trim() || "";
-
     return (
-      currentName !== originalName ||
+      name.trim() !== originalName ||
       address.trim() !== originalAddress ||
       kvkNumber.trim() !== originalKvkNumber ||
       btwNumber.trim() !== originalBtwNumber ||
       email.trim() !== originalEmail ||
       telephone.trim() !== originalTelephone ||
       imageFile !== null ||
-      removeImage ||
-      (removeImage && originalImageStoragePath !== null) ||
-      (imageFile === null &&
-        !removeImage &&
-        originalImageStoragePath === null &&
-        selectedOrg.imageStoragePath !== null)
+      removeImage
     );
   }, [
     selectedOrg,
     isEditOpen,
+    name,
     originalName,
-    originalAddress,
-    originalKvkNumber,
-    originalBtwNumber,
-    originalEmail,
-    originalTelephone,
-    originalImageStoragePath,
     address,
+    originalAddress,
     kvkNumber,
+    originalKvkNumber,
     btwNumber,
+    originalBtwNumber,
     email,
+    originalEmail,
     telephone,
+    originalTelephone,
     imageFile,
     removeImage,
   ]);
@@ -305,6 +306,31 @@ export function OrganizationsTable() {
       // Reset image-related state when opening modal
       setImageFile(null);
       setRemoveImage(false);
+
+      // Store original values for change detection
+      const orgName = selectedOrg.name;
+      const orgAddress = selectedOrg.address || "";
+      const orgKvkNumber = selectedOrg.kvkNumber || "";
+      const orgBtwNumber = selectedOrg.btwNumber || "";
+      const orgEmail = selectedOrg.email || "";
+      const orgTelephone = selectedOrg.telephone || "";
+
+      setOriginalName(orgName);
+      setOriginalAddress(orgAddress);
+      setOriginalKvkNumber(orgKvkNumber);
+      setOriginalBtwNumber(orgBtwNumber);
+      setOriginalEmail(orgEmail);
+      setOriginalTelephone(orgTelephone);
+      setOriginalImageStoragePath(selectedOrg.imageStoragePath);
+
+      // Set form values
+      setName(orgName);
+      setAddress(orgAddress);
+      setKvkNumber(orgKvkNumber);
+      setBtwNumber(orgBtwNumber);
+      setEmail(orgEmail);
+      setTelephone(orgTelephone);
+
       // Set image preview from existing image
       setTimeout(() => {
         if (selectedOrg.imageStoragePath) {
@@ -312,13 +338,6 @@ export function OrganizationsTable() {
         } else {
           setImagePreview(null);
         }
-      }, 0);
-      setTimeout(() => {
-        setAddress(selectedOrg.address || "");
-        setKvkNumber(selectedOrg.kvkNumber || "");
-        setBtwNumber(selectedOrg.btwNumber || "");
-        setEmail(selectedOrg.email || "");
-        setTelephone(selectedOrg.telephone || "");
       }, 0);
     }
   }, [selectedOrg, isEditOpen]);
@@ -355,9 +374,6 @@ export function OrganizationsTable() {
 
     // Set submitting state immediately for instant UI feedback
     setIsSubmitting(true);
-
-    const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const name = formData.get("name") as string;
 
     if (!name.trim()) {
       toast.error("Organization name is required");
@@ -424,6 +440,7 @@ export function OrganizationsTable() {
           setImagePreview(null);
           setImageFile(null);
           setRemoveImage(false);
+          setName("");
           setAddress("");
           setKvkNumber("");
           setBtwNumber("");
@@ -544,7 +561,8 @@ export function OrganizationsTable() {
                     <Input
                       id="edit-name"
                       name="name"
-                      defaultValue={selectedOrg?.name}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       required
                     />
                   </div>
@@ -720,7 +738,8 @@ export function OrganizationsTable() {
                     <Input
                       id="edit-name"
                       name="name"
-                      defaultValue={selectedOrg.name}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       required
                     />
                   </div>
@@ -861,6 +880,7 @@ export function OrganizationsTable() {
                         setImagePreview(null);
                         setImageFile(null);
                         setRemoveImage(false);
+                        setName("");
                         setAddress("");
                         setKvkNumber("");
                         setBtwNumber("");
@@ -872,7 +892,9 @@ export function OrganizationsTable() {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={isSubmitting || updateMutation.isPending}
+                      disabled={
+                        !hasChanges || isSubmitting || updateMutation.isPending
+                      }
                     >
                       {isSubmitting || updateMutation.isPending ? (
                         <>

@@ -161,6 +161,18 @@ export function UsersTable() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState<boolean>(false);
+  const [name, setName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [note, setNote] = useState<string>("");
+  const [originalName, setOriginalName] = useState<string>("");
+  const [originalPhone, setOriginalPhone] = useState<string>("");
+  const [originalNote, setOriginalNote] = useState<string>("");
+  const [originalOrganizationIds, setOriginalOrganizationIds] = useState<
+    string[]
+  >([]);
+  const [originalImageStoragePath, setOriginalImageStoragePath] = useState<
+    string | null
+  >(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const prevSelectedUserIdRef = useRef<string | null>(null);
@@ -405,6 +417,37 @@ export function UsersTable() {
     { id: "email", desc: false },
   ]);
 
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    if (!selectedUser || !isEditOpen) return false;
+
+    // Compare organization IDs (order doesn't matter)
+    const currentOrgIds = [...selectedOrganizationIds].sort().join(",");
+    const originalOrgIds = [...originalOrganizationIds].sort().join(",");
+
+    return (
+      name.trim() !== originalName ||
+      phone.trim() !== originalPhone ||
+      note.trim() !== originalNote ||
+      currentOrgIds !== originalOrgIds ||
+      imageFile !== null ||
+      removeImage
+    );
+  }, [
+    selectedUser,
+    isEditOpen,
+    name,
+    originalName,
+    phone,
+    originalPhone,
+    note,
+    originalNote,
+    selectedOrganizationIds,
+    originalOrganizationIds,
+    imageFile,
+    removeImage,
+  ]);
+
   const table = useReactTable({
     data: users,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -456,6 +499,28 @@ export function UsersTable() {
       // Reset image-related state when opening modal
       setImageFile(null);
       setRemoveImage(false);
+
+      // Store original values for change detection
+      const userName = selectedUser.user.name || "";
+      const userPhone = selectedUser.user.phone || "";
+      const userNote = selectedUser.user.note || "";
+      const orgs =
+        selectedUser.organizations ||
+        (selectedUser.organization ? [selectedUser.organization] : []);
+      const orgIds = orgs.map((org) => org.id);
+
+      setOriginalName(userName);
+      setOriginalPhone(userPhone);
+      setOriginalNote(userNote);
+      setOriginalOrganizationIds(orgIds);
+      setOriginalImageStoragePath(selectedUser.user.imageStoragePath);
+
+      // Set form values
+      setName(userName);
+      setPhone(userPhone);
+      setNote(userNote);
+      setSelectedOrganizationIds(orgIds);
+
       // Set image preview from existing image
       setTimeout(() => {
         // For Storage images, we'll fetch them via the API endpoint
@@ -464,16 +529,6 @@ export function UsersTable() {
         } else {
           setImagePreview(null);
         }
-      }, 0);
-    }
-
-    // Set selected organization IDs when editing
-    if (selectedUser && isEditOpen) {
-      setTimeout(() => {
-        const orgs =
-          selectedUser.organizations ||
-          (selectedUser.organization ? [selectedUser.organization] : []);
-        setSelectedOrganizationIds(orgs.map((org) => org.id));
       }, 0);
     } else {
       setSelectedOrganizationIds([]);
@@ -512,11 +567,6 @@ export function UsersTable() {
 
     // Set submitting state immediately for instant UI feedback
     setIsSubmitting(true);
-
-    const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const name = formData.get("name") as string;
-    const phone = formData.get("phone") as string;
-    const note = formData.get("note") as string;
 
     // Upload image to Storage if a new file is provided
     let imageStoragePath: string | null = null;
@@ -870,7 +920,8 @@ export function UsersTable() {
                     <Input
                       id="edit-name"
                       name="name"
-                      defaultValue={selectedUser.user.name || ""}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                     />
                   </div>
                   <div className="flex flex-col gap-3">
@@ -885,7 +936,8 @@ export function UsersTable() {
                       id="edit-phone"
                       name="phone"
                       type="tel"
-                      defaultValue={selectedUser.user.phone || ""}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       placeholder="+1 234 567 8900"
                     />
                   </div>
@@ -900,7 +952,8 @@ export function UsersTable() {
                     <Textarea
                       id="edit-note"
                       name="note"
-                      defaultValue={selectedUser.user.note || ""}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
                       placeholder="Add any notes about this user..."
                       rows={3}
                       className="resize-none"
@@ -988,7 +1041,9 @@ export function UsersTable() {
                   <Button
                     type="submit"
                     form="edit-form"
-                    disabled={isSubmitting || updateMutation.isPending}
+                    disabled={
+                      !hasChanges || isSubmitting || updateMutation.isPending
+                    }
                   >
                     {isSubmitting || updateMutation.isPending ? (
                       <>
@@ -1036,7 +1091,8 @@ export function UsersTable() {
                     <Input
                       id="edit-name"
                       name="name"
-                      defaultValue={selectedUser.user.name || ""}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1051,7 +1107,8 @@ export function UsersTable() {
                       id="edit-phone"
                       name="phone"
                       type="tel"
-                      defaultValue={selectedUser.user.phone || ""}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       placeholder="+1 234 567 8900"
                     />
                   </div>
@@ -1066,7 +1123,8 @@ export function UsersTable() {
                     <Textarea
                       id="edit-note"
                       name="note"
-                      defaultValue={selectedUser.user.note || ""}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
                       placeholder="Add any notes about this user..."
                       rows={3}
                       className="resize-none"
@@ -1164,7 +1222,9 @@ export function UsersTable() {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={isSubmitting || updateMutation.isPending}
+                      disabled={
+                        !hasChanges || isSubmitting || updateMutation.isPending
+                      }
                     >
                       {isSubmitting || updateMutation.isPending ? (
                         <>

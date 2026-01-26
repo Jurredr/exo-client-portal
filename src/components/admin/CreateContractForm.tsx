@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useAllProjects } from "@/hooks/use-projects";
 import {
@@ -81,6 +81,70 @@ export function CreateContractForm({
   const updateContractMutation = useUpdateContract();
   const isSubmitting =
     createContractMutation.isPending || updateContractMutation.isPending;
+  const [originalOrganizationId, setOriginalOrganizationId] =
+    useState<string>("");
+  const [originalProjectIds, setOriginalProjectIds] = useState<string[]>([]);
+  const [originalName, setOriginalName] = useState<string>("");
+  const [originalRequiresPortalSignature, setOriginalRequiresPortalSignature] =
+    useState<boolean>(true);
+  const [originalFileStoragePath, setOriginalFileStoragePath] = useState<
+    string | null
+  >(null);
+
+  // Store original values when editing
+  useEffect(() => {
+    if (contract) {
+      const orgId = contract.organizationId || "";
+      const projIds = contract.projects?.map((p) => p.id) || [];
+      const contractName = contract.name || "";
+      const reqSig =
+        contract.requiresPortalSignature !== undefined
+          ? contract.requiresPortalSignature
+          : true;
+      const filePath = contract.fileStoragePath;
+
+      setOriginalOrganizationId(orgId);
+      setOriginalProjectIds(projIds);
+      setOriginalName(contractName);
+      setOriginalRequiresPortalSignature(reqSig);
+      setOriginalFileStoragePath(filePath);
+    } else {
+      // Reset original values when not editing
+      setOriginalOrganizationId("");
+      setOriginalProjectIds([]);
+      setOriginalName("");
+      setOriginalRequiresPortalSignature(true);
+      setOriginalFileStoragePath(null);
+    }
+  }, [contract]);
+
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    if (!contract) return true; // Always allow creating
+
+    // Compare project IDs (order doesn't matter)
+    const currentProjectIds = [...projectIds].sort().join(",");
+    const originalProjectIdsStr = [...originalProjectIds].sort().join(",");
+
+    return (
+      organizationId !== originalOrganizationId ||
+      currentProjectIds !== originalProjectIdsStr ||
+      name.trim() !== originalName ||
+      requiresPortalSignature !== originalRequiresPortalSignature ||
+      contractFile !== null
+    );
+  }, [
+    contract,
+    organizationId,
+    originalOrganizationId,
+    projectIds,
+    originalProjectIds,
+    name,
+    originalName,
+    requiresPortalSignature,
+    originalRequiresPortalSignature,
+    contractFile,
+  ]);
 
   // Filter projects by organization
   useEffect(() => {
@@ -344,7 +408,11 @@ export function CreateContractForm({
             : "This contract is already signed or doesn't require portal signing. It will be marked as signed automatically."}
         </p>
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
+      <Button
+        type="submit"
+        disabled={!hasChanges || isSubmitting}
+        className="w-full"
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />

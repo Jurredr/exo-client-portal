@@ -841,6 +841,7 @@ export function InvoicesTable() {
             <div className="px-4">
               {editingInvoice && (
                 <CreateInvoiceForm
+                  key={editingInvoice.invoice.id}
                   invoice={{
                     id: editingInvoice.invoice.id,
                     invoiceNumber: editingInvoice.invoice.invoiceNumber,

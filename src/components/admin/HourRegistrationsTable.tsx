@@ -419,6 +419,36 @@ export function HourRegistrationsTable() {
       | "traveling",
     projectId: undefined as string | undefined,
   });
+  const [originalManualEntry, setOriginalManualEntry] = useState({
+    date: "",
+    hours: "",
+    minutes: "",
+    description: "",
+    category: "client" as
+      | "client"
+      | "administration"
+      | "brainstorming"
+      | "research"
+      | "labs"
+      | "client_acquisition"
+      | "content_creation"
+      | "traveling",
+    projectId: undefined as string | undefined,
+  });
+
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    if (!editingRegistration) return false;
+
+    return (
+      manualEntry.date !== originalManualEntry.date ||
+      manualEntry.hours !== originalManualEntry.hours ||
+      manualEntry.minutes !== originalManualEntry.minutes ||
+      manualEntry.description.trim() !== originalManualEntry.description ||
+      manualEntry.category !== originalManualEntry.category ||
+      manualEntry.projectId !== originalManualEntry.projectId
+    );
+  }, [editingRegistration, manualEntry, originalManualEntry]);
 
   // Process projects data
   const allProjects = useMemo(() => {
@@ -683,7 +713,7 @@ export function HourRegistrationsTable() {
     const hours = Math.floor(totalHours);
     const minutes = Math.round((totalHours - hours) * 60);
 
-    setManualEntry({
+    const entry = {
       date: new Date(registration.date).toISOString().split("T")[0],
       hours: hours.toString(),
       minutes: minutes.toString(),
@@ -695,9 +725,13 @@ export function HourRegistrationsTable() {
         | "research"
         | "labs"
         | "client_acquisition"
-        | "content_creation",
+        | "content_creation"
+        | "traveling",
       projectId: registration.projectId || undefined,
-    });
+    };
+
+    setManualEntry(entry);
+    setOriginalManualEntry(entry);
     setIsEditOpen(true);
   }, []);
 
@@ -1307,7 +1341,7 @@ export function HourRegistrationsTable() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={!hasChanges || isSubmitting}>
                 {isSubmitting ? "Updating..." : "Update Entry"}
               </Button>
             </DialogFooter>

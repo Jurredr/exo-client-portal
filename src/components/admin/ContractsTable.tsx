@@ -728,6 +728,7 @@ export function ContractsTable() {
             <div className="px-4">
               {editContract && (
                 <CreateContractForm
+                  key={editContract.contract.id}
                   contract={{
                     id: editContract.contract.id,
                     name: editContract.contract.name,

@@ -664,6 +664,7 @@ export function ExpensesTable() {
             <div className="px-4">
               {selectedExpense && (
                 <CreateExpenseForm
+                  key={selectedExpense.expense.id}
                   expense={selectedExpense.expense}
                   onSuccess={() => {
                     setIsEditOpen(false);

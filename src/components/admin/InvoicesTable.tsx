@@ -503,8 +503,9 @@ export function InvoicesTable() {
 
   const handleDownload = async (invoice: InvoiceData) => {
     try {
+      // Add cache-busting parameter to force fresh download
       const response = await fetch(
-        `/api/invoices/${invoice.invoice.id}/download`
+        `/api/invoices/${invoice.invoice.id}/download?v=${Date.now()}`
       );
       if (!response.ok) {
         const errorData = await response

@@ -2139,6 +2139,11 @@ export async function getInvoiceById(invoiceId: string) {
       organization: {
         id: organizations.id,
         name: organizations.name,
+        address: organizations.address,
+        kvkNumber: organizations.kvkNumber,
+        btwNumber: organizations.btwNumber,
+        email: organizations.email,
+        telephone: organizations.telephone,
       },
     })
     .from(invoices)

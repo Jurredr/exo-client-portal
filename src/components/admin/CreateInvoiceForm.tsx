@@ -960,13 +960,19 @@ export function CreateInvoiceForm({
                 <div className="col-span-4 lg:col-span-2 space-y-1">
                   <Label className="text-xs">Unit Price *</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     value={item.unitPrice}
-                    onChange={(e) =>
-                      updateLineItem(index, "unitPrice", e.target.value)
-                    }
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      // Replace comma with dot for decimal separator
+                      value = value.replace(/,/g, ".");
+                      // Only allow numbers and one decimal point
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        updateLineItem(index, "unitPrice", value);
+                      }
+                    }}
+                    placeholder="0.00"
                     required
                     className="w-full"
                   />
@@ -1049,8 +1055,11 @@ export function CreateInvoiceForm({
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  // Download the PDF via the API endpoint
-                  window.open(`/api/invoices/${invoice.id}/download`, "_blank");
+                  // Download the PDF via the API endpoint with cache-busting
+                  window.open(
+                    `/api/invoices/${invoice.id}/download?v=${Date.now()}`,
+                    "_blank"
+                  );
                 }}
               >
                 <Download className="h-4 w-4 mr-1" />

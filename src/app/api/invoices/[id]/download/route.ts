@@ -38,26 +38,36 @@ export async function GET(
       );
     }
 
+    // Check for cache-busting query parameter
+    const { searchParams } = new URL(request.url);
+    const noCache =
+      searchParams.get("nocache") === "true" || searchParams.get("v");
+
     const invoiceData = await getInvoiceById(id);
     if (!invoiceData) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
     // Create ETag based on invoice ID and updatedAt for cache validation
-    const etag = createHash("md5")
-      .update(`${id}-${invoiceData.invoice.updatedAt}`)
-      .digest("hex");
+    // Include cache-busting parameter in ETag if present
+    const etagInput = noCache
+      ? `${id}-${invoiceData.invoice.updatedAt}-${Date.now()}`
+      : `${id}-${invoiceData.invoice.updatedAt}`;
+    const etag = createHash("md5").update(etagInput).digest("hex");
 
-    // Check If-None-Match header for 304 Not Modified
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (ifNoneMatch === `"${etag}"`) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          ETag: `"${etag}"`,
-          "Cache-Control": "public, max-age=3600, must-revalidate",
-        },
-      });
+    // If cache-busting is requested, skip 304 check and use no-cache headers
+    if (!noCache) {
+      // Check If-None-Match header for 304 Not Modified
+      const ifNoneMatch = request.headers.get("if-none-match");
+      if (ifNoneMatch === `"${etag}"`) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: {
+            ETag: `"${etag}"`,
+            "Cache-Control": "public, max-age=3600, must-revalidate",
+          },
+        });
+      }
     }
 
     // Check if there's a PDF in Storage
@@ -76,10 +86,19 @@ export async function GET(
               "Content-Type": "application/pdf",
               "Content-Disposition": `attachment; filename="${filename}"`,
               ETag: `"${etag}"`,
-              "Cache-Control": "public, max-age=3600, must-revalidate",
-              "Last-Modified": new Date(
-                invoiceData.invoice.updatedAt
-              ).toUTCString(),
+              ...(noCache
+                ? {
+                    "Cache-Control":
+                      "no-cache, no-store, must-revalidate, private",
+                    Pragma: "no-cache",
+                    Expires: "0",
+                  }
+                : {
+                    "Cache-Control": "public, max-age=0, must-revalidate",
+                    "Last-Modified": new Date(
+                      invoiceData.invoice.updatedAt
+                    ).toUTCString(),
+                  }),
             },
           });
         }
@@ -99,8 +118,18 @@ export async function GET(
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${invoiceData.invoice.invoiceNumber}.pdf"`,
         ETag: `"${etag}"`,
-        "Cache-Control": "public, max-age=3600, must-revalidate",
-        "Last-Modified": new Date(invoiceData.invoice.updatedAt).toUTCString(),
+        ...(noCache
+          ? {
+              "Cache-Control": "no-cache, no-store, must-revalidate, private",
+              Pragma: "no-cache",
+              Expires: "0",
+            }
+          : {
+              "Cache-Control": "public, max-age=0, must-revalidate",
+              "Last-Modified": new Date(
+                invoiceData.invoice.updatedAt
+              ).toUTCString(),
+            }),
       },
     });
   } catch (error) {

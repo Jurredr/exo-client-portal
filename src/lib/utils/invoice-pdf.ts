@@ -264,6 +264,7 @@ export async function generateInvoicePDF(
     billedToY += 20;
 
     // Add organization contact information under "Billed To"
+    // Format similar to Pay To section
     if (organization.address) {
       const addressLines = organization.address
         .split(/\n|, /)
@@ -272,10 +273,16 @@ export async function generateInvoicePDF(
         doc.text(line.trim(), billedToX, billedToY, { width: sectionWidth });
         billedToY += 15;
       });
+      // Add spacing after address (matching Pay To section format)
+      billedToY += 5; // Total +20 spacing after last address line (15 + 5)
+    } else {
+      // If no address, add spacing to match Pay To section
+      billedToY += 20;
     }
 
+    // Render organization details in same format as Pay To section
+    doc.fontSize(9);
     if (organization.kvkNumber) {
-      doc.fontSize(9);
       doc.text(`KVK-number: ${organization.kvkNumber}`, billedToX, billedToY, {
         width: sectionWidth,
       });
@@ -283,7 +290,6 @@ export async function generateInvoicePDF(
     }
 
     if (organization.btwNumber) {
-      doc.fontSize(9);
       doc.text(`BTW-number: ${organization.btwNumber}`, billedToX, billedToY, {
         width: sectionWidth,
       });
@@ -291,7 +297,6 @@ export async function generateInvoicePDF(
     }
 
     if (organization.email) {
-      doc.fontSize(9);
       doc.text(`Email: ${organization.email}`, billedToX, billedToY, {
         width: sectionWidth,
       });
@@ -299,7 +304,6 @@ export async function generateInvoicePDF(
     }
 
     if (organization.telephone) {
-      doc.fontSize(9);
       doc.text(`Phone: ${organization.telephone}`, billedToX, billedToY, {
         width: sectionWidth,
       });
@@ -537,16 +541,38 @@ export async function generateInvoicePDF(
       currentY += 15;
     }
 
-    doc.fontSize(10).font("Helvetica-Bold");
+    doc.fontSize(10).font("Helvetica-Bold").fillColor("black");
     doc.text("Total Due", totalsStartX, currentY, {
       width: priceWidth,
       align: "right",
     });
+
+    // Render currency symbol in regular font, number in bold
+    const formattedAmount = formatCurrency(grandTotal, currency);
+    const symbol = currency === "USD" ? "$" : "€";
+    const space = currency === "EUR" ? " " : "";
+    const numberPart = formattedAmount.replace(`${symbol}${space}`, "");
+
+    // Calculate positions for right alignment
+    const amountX = totalsStartX + priceWidth;
+    doc.font("Helvetica").fillColor("black");
+    const symbolText = `${symbol}${space}`;
+    const symbolWidth = doc.widthOfString(symbolText, { fontSize: 10 });
+
+    doc.font("Helvetica-Bold").fillColor("black");
+    const numberWidth = doc.widthOfString(numberPart, { fontSize: 10 });
+    const totalWidth = symbolWidth + numberWidth;
+
+    // Render symbol in regular font (positioned first from the right)
+    doc.font("Helvetica").fillColor("black");
+    doc.text(symbolText, amountX + amountWidth - totalWidth, currentY);
+
+    // Render number in bold (positioned right after symbol)
+    doc.font("Helvetica-Bold").fillColor("black");
     doc.text(
-      formatCurrency(grandTotal, currency),
-      totalsStartX + priceWidth,
-      currentY,
-      { width: amountWidth, align: "right" }
+      numberPart,
+      amountX + amountWidth - totalWidth + symbolWidth,
+      currentY
     );
 
     // Add KOR text at the bottom if enabled

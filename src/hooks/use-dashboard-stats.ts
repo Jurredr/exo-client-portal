@@ -10,7 +10,9 @@ interface DashboardStats {
   };
   hours: {
     total: number;
+    thisWeek: number;
     thisMonth: number;
+    thisYear: number;
     lastMonth: number;
     change: number;
     chartData: Array<{ date: string; hours: number }>;

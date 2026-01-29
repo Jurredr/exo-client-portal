@@ -1396,6 +1396,13 @@ export async function getDashboardStats(
     59,
     999
   );
+  // Last 7 days (including today): from (today - 6) 00:00 to today 23:59
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - 6);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
 
   // Fetch exchange rate once at the beginning to avoid multiple API calls
   const usdToEurRate = await getEurToUsdRate();
@@ -1493,6 +1500,37 @@ export async function getDashboardStats(
     );
 
   const hoursLastMonth = parseFloat(hoursLastMonthResult[0]?.total || "0");
+
+  // Get hours this week (last 7 days inclusive)
+  const hoursThisWeekResult = await db
+    .select({
+      total:
+        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
+          "total"
+        ),
+    })
+    .from(hourRegistrations)
+    .where(
+      and(
+        gte(hourRegistrations.date, startOfWeek),
+        lte(hourRegistrations.date, endOfToday)
+      )
+    );
+
+  const hoursThisWeek = parseFloat(hoursThisWeekResult[0]?.total || "0");
+
+  // Get hours this year
+  const hoursThisYearResult = await db
+    .select({
+      total:
+        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
+          "total"
+        ),
+    })
+    .from(hourRegistrations)
+    .where(gte(hourRegistrations.date, startOfYear));
+
+  const hoursThisYear = parseFloat(hoursThisYearResult[0]?.total || "0");
 
   // Get project counts
   const totalProjects = await db.select().from(projects);
@@ -1632,6 +1670,9 @@ export async function getDashboardStats(
       hoursTimeRange === "90d" ? 90 : hoursTimeRange === "30d" ? 30 : 7;
     hoursStartDate = new Date(now);
     hoursStartDate.setDate(hoursStartDate.getDate() - hoursDays);
+    hoursStartDate.setHours(0, 0, 0, 0); // Include full first day
+    hoursEndDate = new Date(now);
+    hoursEndDate.setHours(23, 59, 59, 999); // Include full last day
   }
 
   const hoursOverTime = await db
@@ -1640,7 +1681,12 @@ export async function getDashboardStats(
       hours: hourRegistrations.hours,
     })
     .from(hourRegistrations)
-    .where(gte(hourRegistrations.date, hoursStartDate))
+    .where(
+      and(
+        gte(hourRegistrations.date, hoursStartDate),
+        lte(hourRegistrations.date, hoursEndDate)
+      )
+    )
     .orderBy(hourRegistrations.date);
 
   // Group hours by date/month
@@ -1651,10 +1697,10 @@ export async function getDashboardStats(
     if (rowDate >= hoursStartDate && rowDate <= hoursEndDate) {
       let dateKey: string;
       if (hoursGroupByMonth) {
-        // Format as YYYY-MM for monthly grouping
-        dateKey = `${rowDate.getFullYear()}-${String(rowDate.getMonth() + 1).padStart(2, "0")}`;
+        // Format as YYYY-MM for monthly grouping (UTC for consistency)
+        dateKey = `${rowDate.getUTCFullYear()}-${String(rowDate.getUTCMonth() + 1).padStart(2, "0")}`;
       } else {
-        // Format as YYYY-MM-DD for daily grouping
+        // Format as YYYY-MM-DD for daily grouping (UTC for consistency)
         dateKey = rowDate.toISOString().split("T")[0];
       }
       hoursByDate[dateKey] =
@@ -1738,7 +1784,9 @@ export async function getDashboardStats(
     },
     hours: {
       total: totalHours,
+      thisWeek: hoursThisWeek,
       thisMonth: hoursThisMonth,
+      thisYear: hoursThisYear,
       lastMonth: hoursLastMonth,
       change: hoursChange,
       chartData: hoursChartData,

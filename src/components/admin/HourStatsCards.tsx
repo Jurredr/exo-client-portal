@@ -1,85 +1,33 @@
 "use client";
 
-import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, TrendingUp, Calendar, Target } from "lucide-react";
-import { useAllHourRegistrations } from "@/hooks/use-hour-registrations";
+import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 
-// interface HourRegistration {
-//   id: string;
-//   userId: string;
-//   projectId: string | null;
-//   description: string;
-//   hours: string;
-//   date: string;
-//   createdAt: string;
-//   updatedAt: string;
-// }
+// Format hours (as decimal) to "xhrs ymin" format
+function formatHours(decimalHours: number) {
+  const totalMinutes = Math.round(decimalHours * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0 && minutes === 0) {
+    return "0min";
+  }
+
+  const parts: string[] = [];
+  if (hours > 0) {
+    parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}min`);
+  }
+
+  return parts.join(" ");
+}
 
 export function HourStatsCards() {
-  // Only fetch last year of data for stats - this is much more efficient
-  const dateRange = useMemo(() => {
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setFullYear(startDate.getFullYear() - 1); // Last year only
-    return { startDate, endDate: now };
-  }, []);
-
-  const { data: registrationsData, isLoading: loading } =
-    useAllHourRegistrations(true, dateRange.startDate, dateRange.endDate);
-  const registrations = useMemo(
-    () => (Array.isArray(registrationsData) ? registrationsData : []),
-    [registrationsData]
-  );
-
-  // Format hours (as decimal) to "xhrs ymin" format
-  const formatHours = (decimalHours: number) => {
-    const totalMinutes = Math.round(decimalHours * 60);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    if (hours === 0 && minutes === 0) {
-      return "0min";
-    }
-
-    const parts: string[] = [];
-    if (hours > 0) {
-      parts.push(`${hours}hr${hours !== 1 ? "s" : ""}`);
-    }
-    if (minutes > 0) {
-      parts.push(`${minutes}min`);
-    }
-
-    return parts.join(" ");
-  };
-
-  const stats = useMemo(() => {
-    const now = new Date();
-    // Calculate last 7 days (not start of week)
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - 6); // Last 7 days (including today)
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-
-    let total = 0;
-    let thisWeek = 0;
-    let thisMonth = 0;
-    let thisYear = 0;
-
-    registrations.forEach((reg) => {
-      const hours = parseFloat(reg.hours);
-      const date = new Date(reg.date);
-
-      total += hours;
-      if (date >= startOfYear) thisYear += hours;
-      if (date >= startOfMonth) thisMonth += hours;
-      if (date >= startOfWeek) thisWeek += hours;
-    });
-
-    return { total, thisWeek, thisMonth, thisYear };
-  }, [registrations]);
+  // Use same dashboard stats API as home dashboard for consistent numbers
+  const { data: stats, isLoading: loading } = useDashboardStats("year", "30d");
 
   if (loading) {
     return (
@@ -98,6 +46,11 @@ export function HourStatsCards() {
     );
   }
 
+  const hours = stats?.hours;
+  if (!hours) {
+    return null;
+  }
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
@@ -106,7 +59,7 @@ export function HourStatsCards() {
           <Clock className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatHours(stats.total)}</div>
+          <div className="text-2xl font-bold">{formatHours(hours.total)}</div>
           <p className="text-xs text-muted-foreground">All time</p>
         </CardContent>
       </Card>
@@ -117,7 +70,7 @@ export function HourStatsCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatHours(stats.thisYear)}
+            {formatHours(hours.thisYear)}
           </div>
           <p className="text-xs text-muted-foreground">
             Since {new Date().getFullYear()}
@@ -131,7 +84,7 @@ export function HourStatsCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatHours(stats.thisMonth)}
+            {formatHours(hours.thisMonth)}
           </div>
           <p className="text-xs text-muted-foreground">
             {new Date().toLocaleString("default", { month: "long" })}
@@ -145,7 +98,7 @@ export function HourStatsCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatHours(stats.thisWeek)}
+            {formatHours(hours.thisWeek)}
           </div>
           <p className="text-xs text-muted-foreground">Last 7 days</p>
         </CardContent>

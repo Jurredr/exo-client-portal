@@ -34,12 +34,16 @@ export async function GET(request: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "10");
     const search = searchParams.get("search") || undefined;
     const all = searchParams.get("all") === "true"; // For admin to get all registrations
+    // Parse date range; set endDate to end of day so the range is inclusive
     const startDate = searchParams.get("startDate")
       ? new Date(searchParams.get("startDate")!)
       : undefined;
     const endDate = searchParams.get("endDate")
       ? new Date(searchParams.get("endDate")!)
       : undefined;
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     // Validate pagination
     const limit = Math.min(Math.max(pageSize, 1), 100); // Max 100 per page

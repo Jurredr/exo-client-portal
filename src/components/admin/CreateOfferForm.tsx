@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useCreateOffer, OFFER_STATUS_OPTIONS } from "@/hooks/use-offers";
+import { useState, useEffect } from "react";
+import {
+  useCreateOffer,
+  useUpdateOffer,
+  OFFER_STATUS_OPTIONS,
+} from "@/hooks/use-offers";
 import { useAllProjects } from "@/hooks/use-projects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,21 +27,49 @@ interface Project {
   title: string;
 }
 
+interface OfferForEdit {
+  id: string;
+  projectId: string | null;
+  note: string | null;
+  status: string;
+  fileName: string | null;
+}
+
 export function CreateOfferForm({
+  offer,
   onSuccess,
   onError,
 }: {
+  offer?: OfferForEdit;
   onSuccess?: () => void;
   onError?: () => void;
 }) {
-  const [projectId, setProjectId] = useState<string>("");
-  const [note, setNote] = useState("");
-  const [status, setStatus] = useState<string>("draft");
+  const isEdit = !!offer;
+  const [projectId, setProjectId] = useState<string>(offer?.projectId || "");
+  const [note, setNote] = useState(offer?.note || "");
+  const [status, setStatus] = useState<string>(offer?.status || "draft");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { data: projectsData } = useAllProjects();
   const createOfferMutation = useCreateOffer();
-  const isSubmitting = createOfferMutation.isPending || isUploading;
+  const updateOfferMutation = useUpdateOffer();
+  const isSubmitting =
+    createOfferMutation.isPending ||
+    updateOfferMutation.isPending ||
+    isUploading;
+
+  useEffect(() => {
+    if (offer) {
+      setProjectId(offer.projectId || "");
+      setNote(offer.note || "");
+      setStatus(offer.status || "draft");
+    } else {
+      setProjectId("");
+      setNote("");
+      setStatus("draft");
+      setFile(null);
+    }
+  }, [offer?.id]);
 
   const projects: Project[] =
     projectsData?.map((item: { project: Project }) => item.project) || [];
@@ -55,6 +87,68 @@ export function CreateOfferForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isEdit) {
+      setIsUploading(true);
+      try {
+        let fileStoragePath: string | null | undefined;
+        let fileName: string | null | undefined;
+        let fileSizeBytes: number | null | undefined;
+
+        // If a new file is selected in edit mode, upload it first
+        if (file) {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const uploadResponse = await fetch("/api/offers/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json().catch(() => null);
+            throw new Error(error?.error || "Failed to upload file");
+          }
+
+          const uploadResult = await uploadResponse.json();
+          fileStoragePath = uploadResult.storagePath;
+          fileName = uploadResult.fileName;
+          fileSizeBytes = uploadResult.sizeBytes;
+        }
+
+        updateOfferMutation.mutate(
+          {
+            id: offer.id,
+            projectId: projectId || null,
+            note: note.trim() || null,
+            status,
+            ...(file && {
+              fileStoragePath,
+              fileName,
+              fileSizeBytes,
+            }),
+          },
+          {
+            onSuccess: () => {
+              toast.success("Offer updated successfully");
+              onSuccess?.();
+            },
+            onError: (error: Error) => {
+              toast.error(error.message || "Failed to update offer");
+              onError?.();
+            },
+          }
+        );
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to update offer"
+        );
+        onError?.();
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
 
     if (!file) {
       toast.error("Please upload a file");
@@ -85,7 +179,6 @@ export function CreateOfferForm({
       fileName = uploadResult.fileName;
       fileSizeBytes = uploadResult.sizeBytes;
 
-      // Optimistic close: close modal immediately for faster workflow
       onSuccess?.();
 
       createOfferMutation.mutate(
@@ -126,7 +219,7 @@ export function CreateOfferForm({
       <div className="space-y-2">
         <Label htmlFor="offer-file" className="flex items-center gap-2">
           <Upload className="h-4 w-4" />
-          File *
+          {isEdit ? "File (optional)" : "File *"}
         </Label>
         <Input
           id="offer-file"
@@ -150,8 +243,14 @@ export function CreateOfferForm({
             </Button>
           </div>
         )}
+        {isEdit && offer?.fileName && !file && (
+          <div className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
+            Current file: {offer.fileName}
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">
           PDF, Word, or images. Max 10MB.
+          {isEdit ? " Leave empty to keep the current file." : ""}
         </p>
       </div>
 
@@ -201,16 +300,26 @@ export function CreateOfferForm({
         />
       </div>
 
-      <Button type="submit" disabled={!file || isSubmitting} className="w-full">
+      <Button
+        type="submit"
+        disabled={(isEdit ? false : !file) || isSubmitting}
+        className="w-full"
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Uploading...
+            {isEdit ? "Saving..." : "Uploading..."}
           </>
         ) : (
           <>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Offer
+            {isEdit ? (
+              "Save changes"
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Offer
+              </>
+            )}
           </>
         )}
       </Button>

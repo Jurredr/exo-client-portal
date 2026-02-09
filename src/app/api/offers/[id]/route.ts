@@ -27,17 +27,63 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
+    const {
+      status,
+      projectId,
+      note,
+      fileStoragePath,
+      fileName,
+      fileSizeBytes,
+    } = body;
+
+    const updateData: {
+      status?: string;
+      projectId?: string | null;
+      note?: string | null;
+      fileStoragePath?: string | null;
+      fileName?: string | null;
+      fileSizeBytes?: number | null;
+    } = {};
 
     const validStatuses = ["draft", "sent", "signed", "discarded"];
-    if (typeof status !== "string" || !validStatuses.includes(status)) {
+    if (typeof status === "string" && validStatuses.includes(status)) {
+      updateData.status = status;
+    }
+    if (projectId !== undefined) {
+      updateData.projectId =
+        projectId === null || projectId === "" ? null : projectId;
+    }
+    if (note !== undefined) {
+      updateData.note = note === null || note === "" ? null : note;
+    }
+    if (fileStoragePath !== undefined) {
+      updateData.fileStoragePath =
+        fileStoragePath === null || fileStoragePath === ""
+          ? null
+          : fileStoragePath;
+    }
+    if (fileName !== undefined) {
+      updateData.fileName =
+        fileName === null || fileName === "" ? null : fileName;
+    }
+    if (fileSizeBytes !== undefined) {
+      updateData.fileSizeBytes =
+        fileSizeBytes === null || Number.isNaN(fileSizeBytes)
+          ? null
+          : Number(fileSizeBytes);
+    }
+
+    if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
-        { error: "status must be one of: draft, sent, signed, discarded" },
+        {
+          error:
+            "At least one of status, projectId, note, or file fields must be provided",
+        },
         { status: 400 }
       );
     }
 
-    const offer = await updateOffer(id, { status });
+    const offer = await updateOffer(id, updateData);
     return NextResponse.json(offer);
   } catch (error) {
     console.error("Error updating offer:", error);

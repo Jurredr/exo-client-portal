@@ -39,6 +39,7 @@ import {
   Download,
   Trash2,
   Plus,
+  Pencil,
   ArrowUpDown,
   MoreVertical,
   Search,
@@ -146,8 +147,10 @@ export function OffersTable() {
   );
 
   const [deleteOffer, setDeleteOffer] = useState<OfferData | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<OfferData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<OfferData>[] = useMemo(
@@ -184,6 +187,19 @@ export function OffersTable() {
         },
       },
       {
+        accessorKey: "offer.note",
+        id: "note",
+        header: "Note",
+        cell: ({ row }) => (
+          <div className="truncate">
+            {row.original.offer.note ?? (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </div>
+        ),
+        enableSorting: false,
+      },
+      {
         accessorKey: "offer.status",
         id: "status",
         header: ({ column }) => {
@@ -214,7 +230,7 @@ export function OffersTable() {
                 updateMutation.mutate({ id: offer.id, status: value });
               }}
               disabled={updateMutation.isPending}
-              className="min-w-[110px]"
+              className="min-w-0"
             />
           );
         },
@@ -225,19 +241,6 @@ export function OffersTable() {
           const b = order.indexOf(rowB.original.offer.status || "draft");
           return a - b;
         },
-      },
-      {
-        accessorKey: "offer.note",
-        id: "note",
-        header: "Note",
-        cell: ({ row }) => (
-          <div className="max-w-md truncate">
-            {row.original.offer.note ?? (
-              <span className="text-muted-foreground">—</span>
-            )}
-          </div>
-        ),
-        enableSorting: false,
       },
       {
         accessorKey: "offer.createdAt",
@@ -314,6 +317,17 @@ export function OffersTable() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedOffer(row.original);
+                  setIsEditOpen(true);
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
                 onClick={(e) => {
@@ -481,7 +495,15 @@ export function OffersTable() {
       </div>
 
       <div className="rounded-md border">
-        <Table>
+        <Table className="table-fixed">
+          <colgroup>
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "38%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "8%" }} />
+          </colgroup>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -604,6 +626,62 @@ export function OffersTable() {
             </div>
           </div>
         </div>
+      )}
+
+      {isMobile ? (
+        <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Edit Offer</DrawerTitle>
+              <DrawerDescription>Update offer details</DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4">
+              {selectedOffer && (
+                <CreateOfferForm
+                  key={selectedOffer.offer.id}
+                  offer={{
+                    id: selectedOffer.offer.id,
+                    projectId: selectedOffer.offer.projectId,
+                    note: selectedOffer.offer.note,
+                    status: selectedOffer.offer.status,
+                    fileName: selectedOffer.offer.fileName,
+                  }}
+                  onSuccess={() => {
+                    setIsEditOpen(false);
+                    setSelectedOffer(null);
+                  }}
+                  onError={() => setIsEditOpen(true)}
+                />
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Offer</DialogTitle>
+              <DialogDescription>Update offer details</DialogDescription>
+            </DialogHeader>
+            {selectedOffer && (
+              <CreateOfferForm
+                key={selectedOffer.offer.id}
+                offer={{
+                  id: selectedOffer.offer.id,
+                  projectId: selectedOffer.offer.projectId,
+                  note: selectedOffer.offer.note,
+                  status: selectedOffer.offer.status,
+                  fileName: selectedOffer.offer.fileName,
+                }}
+                onSuccess={() => {
+                  setIsEditOpen(false);
+                  setSelectedOffer(null);
+                }}
+                onError={() => setIsEditOpen(true)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       )}
 
       <DeleteConfirmationDialog

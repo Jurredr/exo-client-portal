@@ -124,11 +124,20 @@ export function useUpdateOffer() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async (data: {
+      id: string;
+      status?: string;
+      projectId?: string | null;
+      note?: string | null;
+      fileStoragePath?: string | null;
+      fileName?: string | null;
+      fileSizeBytes?: number | null;
+    }) => {
+      const { id, ...body } = data;
       const response = await fetch(`/api/offers/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
         throw new Error("Failed to update offer");

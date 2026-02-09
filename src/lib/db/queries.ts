@@ -3272,7 +3272,14 @@ export async function createOffer(data: {
 
 export async function updateOffer(
   offerId: string,
-  data: Partial<{ status: string }>
+  data: Partial<{
+    status: string;
+    projectId: string | null;
+    note: string | null;
+    fileStoragePath: string | null;
+    fileName: string | null;
+    fileSizeBytes: number | null;
+  }>
 ) {
   const [offer] = await db
     .update(offers)

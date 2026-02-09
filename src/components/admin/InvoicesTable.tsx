@@ -9,7 +9,11 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { useInvoices, useDeleteInvoice } from "@/hooks/use-invoices";
+import {
+  useInvoices,
+  useDeleteInvoice,
+  useUpdateInvoice,
+} from "@/hooks/use-invoices";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +74,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusCombobox } from "@/components/status-combobox";
 import { CreateInvoiceForm } from "./CreateInvoiceForm";
 
 interface InvoiceData {
@@ -112,24 +117,36 @@ interface InvoiceData {
   }>;
 }
 
-const INVOICE_STATUSES = [
-  { value: "draft", label: "Draft", color: "bg-gray-500" },
-  { value: "sent", label: "Sent", color: "bg-blue-500" },
-  { value: "paid", label: "Paid", color: "bg-green-500" },
-  { value: "overdue", label: "Overdue", color: "bg-red-500" },
-  { value: "cancelled", label: "Cancelled", color: "bg-gray-400" },
+const INVOICE_STATUS_OPTIONS = [
+  { value: "draft", label: "Draft", state: "bg-gray-500" },
+  { value: "sent", label: "Sent", state: "bg-blue-500" },
+  { value: "paid", label: "Paid", state: "bg-green-500" },
+  { value: "overdue", label: "Overdue", state: "bg-red-500" },
+  { value: "cancelled", label: "Cancelled", state: "bg-gray-400" },
 ];
 
 const formatStatus = (status: string) => {
-  const statusConfig = INVOICE_STATUSES.find((s) => s.value === status);
+  const statusConfig = INVOICE_STATUS_OPTIONS.find((s) => s.value === status);
   return statusConfig
     ? statusConfig.label
     : status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-const getStatusColor = (status: string) => {
-  const statusConfig = INVOICE_STATUSES.find((s) => s.value === status);
-  return statusConfig ? statusConfig.color : "bg-gray-500";
+const calculateTotalFromLineItems = (
+  lineItems: Array<{
+    quantity: string;
+    unitPrice: string;
+    taxPercentage: string;
+  }>
+): number => {
+  return lineItems.reduce((sum, item) => {
+    const quantity = parseFloat(item.quantity) || 0;
+    const unitPrice = parseFloat(item.unitPrice) || 0;
+    const taxPercentage = parseFloat(item.taxPercentage) || 0;
+    const subtotal = quantity * unitPrice;
+    const tax = subtotal * (taxPercentage / 100);
+    return sum + subtotal + tax;
+  }, 0);
 };
 
 const formatDate = (dateString: string | null) => {
@@ -171,6 +188,7 @@ export function InvoicesTable() {
     }
   );
   const deleteMutation = useDeleteInvoice();
+  const updateMutation = useUpdateInvoice();
 
   const invoices = invoicesData?.data || [];
   const pagination = invoicesData?.pagination;
@@ -258,7 +276,70 @@ export function InvoicesTable() {
       },
       {
         accessorKey: "invoice.amount",
-        id: "amount",
+        id: "revenue",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="-ml-3 h-8"
+            >
+              Revenue
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const { amount, currency, transactionType, expenseId } =
+            row.original.invoice;
+          const symbol = currency === "USD" ? "$" : "€";
+          const isReimbursement = expenseId !== null;
+
+          // Revenue: €0 for reimbursements (no revenue generated)
+          let numericAmount: number;
+          if (isReimbursement) {
+            numericAmount = 0;
+          } else {
+            numericAmount = parseFloat(amount.replace(/[€$,]/g, "")) || 0;
+            if (transactionType === "credit") {
+              numericAmount = -Math.abs(numericAmount);
+            }
+          }
+
+          const displayAmount = `${symbol}${numericAmount.toLocaleString(
+            "en-US",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}`;
+
+          return <div className="font-medium">{displayAmount}</div>;
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const aReimb = rowA.original.invoice.expenseId !== null;
+          const bReimb = rowB.original.invoice.expenseId !== null;
+          let a = aReimb
+            ? 0
+            : parseFloat(rowA.original.invoice.amount.replace(/[€$,]/g, "")) ||
+              0;
+          let b = bReimb
+            ? 0
+            : parseFloat(rowB.original.invoice.amount.replace(/[€$,]/g, "")) ||
+              0;
+          if (!aReimb && rowA.original.invoice.transactionType === "credit")
+            a = -Math.abs(a);
+          if (!bReimb && rowB.original.invoice.transactionType === "credit")
+            b = -Math.abs(b);
+          return a - b;
+        },
+      },
+      {
+        accessorKey: "invoice.amount",
+        id: "total",
         header: ({ column }) => {
           return (
             <Button
@@ -275,17 +356,20 @@ export function InvoicesTable() {
         },
         cell: ({ row }) => {
           const { amount, currency, transactionType } = row.original.invoice;
+          const lineItems = row.original.lineItems;
           const symbol = currency === "USD" ? "$" : "€";
 
-          // Parse the amount, removing any existing currency symbols
-          let numericAmount = parseFloat(amount.replace(/[€$,]/g, "")) || 0;
-
-          // Make credit invoices negative
+          // Total: use line items sum when available (correct for reimbursements with amount=0)
+          let numericAmount: number;
+          if (lineItems && lineItems.length > 0) {
+            numericAmount = calculateTotalFromLineItems(lineItems);
+          } else {
+            numericAmount = parseFloat(amount.replace(/[€$,]/g, "")) || 0;
+          }
           if (transactionType === "credit") {
             numericAmount = -Math.abs(numericAmount);
           }
 
-          // Format with currency symbol
           const displayAmount = `${symbol}${numericAmount.toLocaleString(
             "en-US",
             {
@@ -294,23 +378,26 @@ export function InvoicesTable() {
             }
           )}`;
 
-          return <div className="font-medium">{displayAmount}</div>;
+          return (
+            <div className="font-medium text-muted-foreground">
+              {displayAmount}
+            </div>
+          );
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          let a =
-            parseFloat(rowA.original.invoice.amount.replace(/[€$,]/g, "")) || 0;
-          let b =
-            parseFloat(rowB.original.invoice.amount.replace(/[€$,]/g, "")) || 0;
-
-          // Make credit invoices negative for sorting
-          if (rowA.original.invoice.transactionType === "credit") {
+          const getTotal = (r: InvoiceData) => {
+            if (r.lineItems && r.lineItems.length > 0) {
+              return calculateTotalFromLineItems(r.lineItems);
+            }
+            return parseFloat(r.invoice.amount.replace(/[€$,]/g, "")) || 0;
+          };
+          let a = getTotal(rowA.original);
+          let b = getTotal(rowB.original);
+          if (rowA.original.invoice.transactionType === "credit")
             a = -Math.abs(a);
-          }
-          if (rowB.original.invoice.transactionType === "credit") {
+          if (rowB.original.invoice.transactionType === "credit")
             b = -Math.abs(b);
-          }
-
           return a - b;
         },
       },
@@ -332,17 +419,24 @@ export function InvoicesTable() {
           );
         },
         cell: ({ row }) => {
-          const status = row.original.invoice.status;
+          const invoice = row.original.invoice;
           return (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1.5 w-fit"
-            >
-              <span
-                className={cn("size-1.5 rounded-full", getStatusColor(status))}
-              />
-              {formatStatus(status)}
-            </Badge>
+            <StatusCombobox
+              options={INVOICE_STATUS_OPTIONS.map((o) => ({
+                value: o.value,
+                label: o.label,
+                state: o.state,
+              }))}
+              value={invoice.status || "draft"}
+              onValueChange={(value) => {
+                updateMutation.mutate({
+                  id: invoice.id,
+                  status: value,
+                });
+              }}
+              disabled={updateMutation.isPending}
+              className="min-w-[110px]"
+            />
           );
         },
         enableSorting: true,
@@ -564,6 +658,10 @@ export function InvoicesTable() {
     // React Query will automatically refetch invoices
   };
 
+  const handleCreateError = () => {
+    setIsCreateOpen(true); // Reopen modal on failure so user can retry
+  };
+
   const handleEditSuccess = () => {
     setIsEditOpen(false);
     setEditingInvoice(null);
@@ -625,7 +723,7 @@ export function InvoicesTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              {INVOICE_STATUSES.map((s) => (
+              {INVOICE_STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s.value} value={s.value}>
                   {s.label}
                 </SelectItem>
@@ -684,7 +782,10 @@ export function InvoicesTable() {
                   Create a new manual invoice for any purpose
                 </DialogDescription>
               </DialogHeader>
-              <CreateInvoiceForm onSuccess={handleCreateSuccess} />
+              <CreateInvoiceForm
+                onSuccess={handleCreateSuccess}
+                onError={handleCreateError}
+              />
             </DialogContent>
           </Dialog>
         )}

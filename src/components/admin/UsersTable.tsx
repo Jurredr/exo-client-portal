@@ -645,6 +645,10 @@ export function UsersTable() {
     // React Query will automatically refetch users
   };
 
+  const handleCreateError = () => {
+    setIsCreateOpen(true); // Reopen modal on failure so user can retry
+  };
+
   const handleDelete = async () => {
     if (!deleteUser) return;
 
@@ -734,7 +738,10 @@ export function UsersTable() {
                 </DrawerDescription>
               </DrawerHeader>
               <div className="px-4">
-                <CreateUserForm onSuccess={handleCreateSuccess} />
+                <CreateUserForm
+                  onSuccess={handleCreateSuccess}
+                  onError={handleCreateError}
+                />
               </div>
             </DrawerContent>
           </Drawer>
@@ -753,7 +760,10 @@ export function UsersTable() {
                   Create a new user account for a client
                 </DialogDescription>
               </DialogHeader>
-              <CreateUserForm onSuccess={handleCreateSuccess} />
+              <CreateUserForm
+                onSuccess={handleCreateSuccess}
+                onError={handleCreateError}
+              />
             </DialogContent>
           </Dialog>
         )}

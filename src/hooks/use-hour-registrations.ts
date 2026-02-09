@@ -51,12 +51,13 @@ export const hourRegistrationKeys = {
 // Fetch hour registrations (paginated)
 async function fetchHourRegistrations(
   page: number = 1,
+  pageSize: number = 10,
   search?: string,
   all: boolean = false
 ): Promise<PaginatedResponse<HourRegistration>> {
   const params = new URLSearchParams({
     page: page.toString(),
-    pageSize: "10",
+    pageSize: Math.min(Math.max(pageSize, 1), 100).toString(),
     ...(search && { search }),
     ...(all && { all: "true" }),
   });
@@ -103,19 +104,20 @@ async function fetchHourRegistrationsForStats(
 // Hook to fetch hour registrations (paginated)
 export function useHourRegistrations(
   page: number = 1,
+  pageSize: number = 10,
   search?: string,
   all: boolean = false
 ) {
   const queryKey = hourRegistrationKeys.list({
     page,
-    pageSize: 10,
+    pageSize,
     search,
     all,
   });
 
   return useQuery({
     queryKey,
-    queryFn: () => fetchHourRegistrations(page, search, all),
+    queryFn: () => fetchHourRegistrations(page, pageSize, search, all),
     staleTime: 0, // No stale time - always refetch when invalidated
   });
 }

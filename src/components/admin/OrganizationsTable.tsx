@@ -462,6 +462,10 @@ export function OrganizationsTable() {
     // React Query will automatically refetch organizations
   };
 
+  const handleCreateError = () => {
+    setIsCreateOpen(true); // Reopen modal on failure so user can retry
+  };
+
   const handleDelete = async () => {
     if (!deleteOrg) return;
 
@@ -483,7 +487,7 @@ export function OrganizationsTable() {
         <div className="flex items-center gap-2">
           <h2 className="text-3xl font-bold">Organizations</h2>
           <span className="text-sm text-muted-foreground">
-            ({organizations.length})
+            ({organizations.length} total)
           </span>
         </div>
         <p className="text-muted-foreground">Manage client organizations</p>
@@ -515,7 +519,10 @@ export function OrganizationsTable() {
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4">
-                  <CreateOrganizationForm onSuccess={handleCreateSuccess} />
+                  <CreateOrganizationForm
+                    onSuccess={handleCreateSuccess}
+                    onError={handleCreateError}
+                  />
                 </div>
               </DrawerContent>
             </Drawer>
@@ -534,7 +541,10 @@ export function OrganizationsTable() {
                     Create a new organization for client accounts
                   </DialogDescription>
                 </DialogHeader>
-                <CreateOrganizationForm onSuccess={handleCreateSuccess} />
+                <CreateOrganizationForm
+                  onSuccess={handleCreateSuccess}
+                  onError={handleCreateError}
+                />
               </DialogContent>
             </Dialog>
           )

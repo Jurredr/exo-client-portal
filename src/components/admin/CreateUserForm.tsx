@@ -28,7 +28,13 @@ import { OrganizationCombobox } from "@/components/organization-combobox";
 //   updatedAt: Date;
 // }
 
-export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
+export function CreateUserForm({
+  onSuccess,
+  onError,
+}: {
+  onSuccess?: () => void;
+  onError?: () => void;
+}) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -114,6 +120,9 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
         }
       }
 
+      // Optimistic close: close modal immediately for faster workflow
+      onSuccess?.();
+
       // Create the user with image storage path using the hook
       createUserMutation.mutate(
         {
@@ -138,10 +147,10 @@ export function CreateUserForm({ onSuccess }: { onSuccess?: () => void }) {
             setSelectedOrganizationIds([]);
             setImagePreview(null);
             setImageFile(null);
-            onSuccess?.();
           },
           onError: (error: Error) => {
             toast.error(error.message || "Failed to create user");
+            onError?.(); // Reopen modal on failure so user can retry
           },
         }
       );

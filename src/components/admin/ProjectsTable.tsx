@@ -53,7 +53,7 @@ import {
   CLIENT_PROJECT_STAGES,
   LABS_PROJECT_STAGES,
   formatStage as formatStageHelper,
-  getStageColor as getStageColorHelper,
+  getProjectStages,
 } from "@/lib/constants/stages";
 import {
   FolderPlus,
@@ -136,17 +136,6 @@ const formatStatus = (status: string) => {
   return statusConfig
     ? statusConfig.label
     : status.charAt(0).toUpperCase() + status.slice(1);
-};
-
-// Get status indicator color from PROJECT_STATUSES
-const getStatusColor = (status: string) => {
-  const statusConfig = PROJECT_STATUSES.find((s) => s.value === status);
-  return statusConfig ? statusConfig.state : "bg-gray-500";
-};
-
-// Get stage indicator color
-const getStageColor = (stage: string, projectType?: "client" | "labs") => {
-  return getStageColorHelper(stage, projectType);
 };
 
 // Format hours (as decimal) to "xhrs ymin" format
@@ -334,17 +323,21 @@ export function ProjectsTable() {
           );
         },
         cell: ({ row }) => {
-          const status = row.original.project.status;
+          const project = row.original.project;
           return (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1.5 w-fit"
-            >
-              <span
-                className={cn("size-1.5 rounded-full", getStatusColor(status))}
-              />
-              {formatStatus(status)}
-            </Badge>
+            <StatusCombobox
+              options={PROJECT_STATUSES.map((o) => ({
+                value: o.value,
+                label: o.label,
+                state: o.state,
+              }))}
+              value={project.status || "active"}
+              onValueChange={(value) => {
+                updateMutation.mutate({ id: project.id, status: value });
+              }}
+              disabled={updateMutation.isPending}
+              className="min-w-[110px]"
+            />
           );
         },
         enableSorting: true,
@@ -372,22 +365,26 @@ export function ProjectsTable() {
           );
         },
         cell: ({ row }) => {
-          const stage = row.original.project.stage;
-          const projectType =
-            row.original.project.type === "labs" ? "labs" : "client";
+          const project = row.original.project;
+          const projectType = project.type === "labs" ? "labs" : "client";
+          const stageOptions = getProjectStages(projectType);
           return (
-            <Badge
-              variant="outline"
-              className="flex items-center gap-1.5 w-fit"
-            >
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  getStageColor(stage, projectType)
-                )}
-              />
-              {formatStage(stage, projectType)}
-            </Badge>
+            <StatusCombobox
+              options={stageOptions.map((o) => ({
+                value: o.value,
+                label: o.label,
+                state: o.state,
+              }))}
+              value={
+                project.stage ||
+                (projectType === "labs" ? "concept" : "kick_off")
+              }
+              onValueChange={(value) => {
+                updateMutation.mutate({ id: project.id, stage: value });
+              }}
+              disabled={updateMutation.isPending}
+              className="min-w-[110px]"
+            />
           );
         },
         enableSorting: true,
@@ -682,6 +679,10 @@ export function ProjectsTable() {
     // React Query will automatically refetch projects
   };
 
+  const handleCreateError = () => {
+    setIsCreateOpen(true); // Reopen modal on failure so user can retry
+  };
+
   const handleDelete = async () => {
     if (!deleteProject) return;
 
@@ -936,7 +937,10 @@ export function ProjectsTable() {
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4">
-                  <CreateProjectForm onSuccess={handleCreateSuccess} />
+                  <CreateProjectForm
+                    onSuccess={handleCreateSuccess}
+                    onError={handleCreateError}
+                  />
                 </div>
               </DrawerContent>
             </Drawer>
@@ -955,7 +959,10 @@ export function ProjectsTable() {
                     Create and configure a new project for a client organization
                   </DialogDescription>
                 </DialogHeader>
-                <CreateProjectForm onSuccess={handleCreateSuccess} />
+                <CreateProjectForm
+                  onSuccess={handleCreateSuccess}
+                  onError={handleCreateError}
+                />
               </DialogContent>
             </Dialog>
           )}

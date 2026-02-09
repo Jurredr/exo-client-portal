@@ -9,7 +9,13 @@ import {
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { useExpenses, useDeleteExpense } from "@/hooks/use-expenses";
+import {
+  useOffers,
+  useDeleteOffer,
+  useUpdateOffer,
+  OFFER_STATUS_OPTIONS,
+} from "@/hooks/use-offers";
+import { useAllProjects } from "@/hooks/use-projects";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +34,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Download,
@@ -36,7 +41,6 @@ import {
   Plus,
   ArrowUpDown,
   MoreVertical,
-  Pencil,
   Search,
   X,
   ChevronLeft,
@@ -69,28 +73,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CreateExpenseForm } from "./CreateExpenseForm";
+import { StatusCombobox } from "@/components/status-combobox";
+import { CreateOfferForm } from "./CreateOfferForm";
 
-interface ExpenseData {
-  expense: {
+interface OfferData {
+  offer: {
     id: string;
-    description: string;
-    amount: string;
-    currency: string;
-    date: string;
-    category: string | null;
-    vendor: string | null;
-    invoiceStoragePath: string | null; // Path in Supabase Storage
-    invoiceFileName: string | null;
-    invoiceSizeBytes: number | null;
+    projectId: string | null;
+    note: string | null;
+    fileStoragePath: string | null;
+    fileName: string | null;
+    fileSizeBytes: number | null;
+    status: string;
     createdAt: string;
     updatedAt: string;
   };
-  user: {
+  project: {
     id: string;
-    name: string | null;
-    email: string;
-  };
+    title: string;
+  } | null;
 }
 
 const formatDate = (dateString: string | null) => {
@@ -102,73 +103,58 @@ const formatDate = (dateString: string | null) => {
   return `${day}/${month}/${year}`;
 };
 
-const formatAmount = (amount: string, currency: string = "EUR") => {
-  const num = parseFloat(amount);
-  if (isNaN(num)) return amount;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency || "EUR",
-  }).format(num);
-};
-
-const EXPENSE_CATEGORIES = [
-  "Office",
-  "Software",
-  "Travel",
-  "Equipment",
-  "Marketing",
-  "Utilities",
-  "Professional Services",
-  "Other",
-];
-
-export function ExpensesTable() {
+export function OffersTable() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(
+  const [projectFilter, setProjectFilter] = useState<string | undefined>(
     undefined
   );
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Debounce search query
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setPage(1); // Reset to first page when search changes
+      setPage(1);
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // TanStack Query hooks - server-side pagination and filtering
-  const { data: expensesData, isLoading: isLoadingExpenses } = useExpenses(
+  const { data: offersData, isLoading: isLoadingOffers } = useOffers(
     page,
     pageSize,
     {
-      ...(categoryFilter && { category: categoryFilter }),
+      ...(projectFilter && { projectId: projectFilter }),
       ...(debouncedSearch && { search: debouncedSearch }),
     }
   );
-  const deleteMutation = useDeleteExpense();
+  const { data: projectsData } = useAllProjects();
+  const deleteMutation = useDeleteOffer();
+  const updateMutation = useUpdateOffer();
 
-  const expenses = expensesData?.data || [];
-  const pagination = expensesData?.pagination;
-  const loading = isLoadingExpenses;
+  const offers = offersData?.data || [];
+  const pagination = offersData?.pagination;
+  const loading = isLoadingOffers;
 
-  const [deleteExpense, setDeleteExpense] = useState<ExpenseData | null>(null);
+  const projects = useMemo(
+    () =>
+      projectsData?.map((item: { project: { id: string; title: string } }) => ({
+        id: item.project.id,
+        title: item.project.title,
+      })) || [],
+    [projectsData]
+  );
+
+  const [deleteOffer, setDeleteOffer] = useState<OfferData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedExpense, setSelectedExpense] = useState<ExpenseData | null>(
-    null
-  );
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  const columns: ColumnDef<ExpenseData>[] = useMemo(
+  const columns: ColumnDef<OfferData>[] = useMemo(
     () => [
       {
-        accessorKey: "expense.description",
-        id: "description",
+        accessorKey: "project.title",
+        id: "project",
         header: ({ column }) => {
           return (
             <Button
@@ -178,159 +164,128 @@ export function ExpensesTable() {
               }
               className="-ml-3 h-8"
             >
-              Description
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <div className="font-medium">{row.original.expense.description}</div>
-        ),
-        enableSorting: true,
-        sortingFn: (rowA, rowB) => {
-          return rowA.original.expense.description.localeCompare(
-            rowB.original.expense.description
-          );
-        },
-      },
-      {
-        accessorKey: "expense.amount",
-        id: "amount",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="-ml-3 h-8"
-            >
-              Amount
+              Project
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           );
         },
         cell: ({ row }) => (
           <div className="font-medium">
-            {formatAmount(
-              row.original.expense.amount,
-              row.original.expense.currency
+            {row.original.project?.title ?? (
+              <span className="text-muted-foreground">—</span>
             )}
           </div>
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          const a = parseFloat(rowA.original.expense.amount) || 0;
-          const b = parseFloat(rowB.original.expense.amount) || 0;
-          return a - b;
-        },
-      },
-      {
-        accessorKey: "expense.date",
-        id: "date",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="-ml-3 h-8"
-            >
-              Date
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {formatDate(row.original.expense.date)}
-          </div>
-        ),
-        enableSorting: true,
-        sortingFn: (rowA, rowB) => {
-          const a = new Date(rowA.original.expense.date).getTime();
-          const b = new Date(rowB.original.expense.date).getTime();
-          return a - b;
-        },
-      },
-      {
-        accessorKey: "expense.category",
-        id: "category",
-        header: "Category",
-        cell: ({ row }) => {
-          const category = row.original.expense.category;
-          return category ? (
-            <Badge variant="secondary">{category}</Badge>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          );
-        },
-        enableSorting: false,
-      },
-      {
-        accessorKey: "expense.vendor",
-        id: "vendor",
-        header: ({ column }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="-ml-3 h-8"
-            >
-              Vendor
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }) => {
-          const vendor = row.original.expense.vendor;
-          return vendor ? (
-            <div className="text-muted-foreground">{vendor}</div>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          );
-        },
-        enableSorting: true,
-        sortingFn: (rowA, rowB) => {
-          const a = rowA.original.expense.vendor || "";
-          const b = rowB.original.expense.vendor || "";
+          const a = rowA.original.project?.title || "";
+          const b = rowB.original.project?.title || "";
           return a.localeCompare(b);
         },
       },
       {
-        accessorKey: "user.name",
-        id: "user",
-        header: "User",
+        accessorKey: "offer.status",
+        id: "status",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="-ml-3 h-8"
+            >
+              Status
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const offer = row.original.offer;
+          return (
+            <StatusCombobox
+              options={OFFER_STATUS_OPTIONS.map((o) => ({
+                value: o.value,
+                label: o.label,
+                state: o.state,
+              }))}
+              value={offer.status || "draft"}
+              onValueChange={(value) => {
+                updateMutation.mutate({ id: offer.id, status: value });
+              }}
+              disabled={updateMutation.isPending}
+              className="min-w-[110px]"
+            />
+          );
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const order = ["draft", "sent", "signed", "discarded"];
+          const a = order.indexOf(rowA.original.offer.status || "draft");
+          const b = order.indexOf(rowB.original.offer.status || "draft");
+          return a - b;
+        },
+      },
+      {
+        accessorKey: "offer.note",
+        id: "note",
+        header: "Note",
         cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {row.original.user.name || row.original.user.email}
+          <div className="max-w-md truncate">
+            {row.original.offer.note ?? (
+              <span className="text-muted-foreground">—</span>
+            )}
           </div>
         ),
         enableSorting: false,
       },
       {
-        id: "invoice",
-        header: "Invoice",
+        accessorKey: "offer.createdAt",
+        id: "createdAt",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="-ml-3 h-8"
+            >
+              Uploaded
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => (
+          <div className="text-muted-foreground">
+            {formatDate(row.original.offer.createdAt)}
+          </div>
+        ),
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const a = new Date(rowA.original.offer.createdAt).getTime();
+          const b = new Date(rowB.original.offer.createdAt).getTime();
+          return a - b;
+        },
+      },
+      {
+        id: "file",
+        header: "Offer",
         cell: ({ row }) => {
-          const hasInvoice =
-            !!row.original.expense.invoiceStoragePath ||
-            !!row.original.expense.invoiceFileName;
-          return hasInvoice ? (
+          const hasFile =
+            !!row.original.offer.fileStoragePath ||
+            !!row.original.offer.fileName;
+          return hasFile ? (
             <Button
               variant="ghost"
               size="icon"
               onClick={() => {
-                // Download from Storage via API
-                if (row.original.expense.invoiceStoragePath) {
+                if (row.original.offer.fileStoragePath) {
                   window.open(
-                    `/api/expenses/${row.original.expense.id}/download`,
+                    `/api/offers/${row.original.offer.id}/download`,
                     "_blank"
                   );
                 } else {
-                  // Legacy: shouldn't happen after migration
                   toast.error("File not available");
                 }
               }}
@@ -360,21 +315,10 @@ export function ExpensesTable() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedExpense(row.original);
-                  setIsEditOpen(true);
-                }}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
                 variant="destructive"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setDeleteExpense(row.original);
+                  setDeleteOffer(row.original);
                   setIsDeleteOpen(true);
                 }}
               >
@@ -391,11 +335,11 @@ export function ExpensesTable() {
   );
 
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "date", desc: true },
+    { id: "createdAt", desc: true },
   ]);
 
   const table = useReactTable({
-    data: expenses,
+    data: offers,
     columns,
     pageCount: pagination?.totalPages ?? 1,
     state: {
@@ -404,29 +348,28 @@ export function ExpensesTable() {
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    manualPagination: true, // Server-side pagination
+    manualPagination: true,
   });
 
   const handleCreateSuccess = () => {
     setIsCreateOpen(false);
-    // React Query will automatically refetch expenses
   };
 
   const handleCreateError = () => {
-    setIsCreateOpen(true); // Reopen modal on failure so user can retry
+    setIsCreateOpen(true);
   };
 
   const handleDelete = async () => {
-    if (!deleteExpense) return;
+    if (!deleteOffer) return;
 
-    deleteMutation.mutate(deleteExpense.expense.id, {
+    deleteMutation.mutate(deleteOffer.offer.id, {
       onSuccess: () => {
-        toast.success("Expense deleted successfully");
-        setDeleteExpense(null);
+        toast.success("Offer deleted successfully");
+        setDeleteOffer(null);
       },
       onError: (error: Error) => {
-        console.error("Error deleting expense:", error);
-        toast.error("Failed to delete expense");
+        console.error("Error deleting offer:", error);
+        toast.error("Failed to delete offer");
       },
     });
   };
@@ -435,7 +378,7 @@ export function ExpensesTable() {
     <div className="space-y-4">
       <div>
         <div className="flex items-center gap-2">
-          <h2 className="text-3xl font-bold">Expenses</h2>
+          <h2 className="text-3xl font-bold">Offers</h2>
           {pagination && (
             <span className="text-sm text-muted-foreground">
               ({pagination.totalCount} total)
@@ -443,17 +386,16 @@ export function ExpensesTable() {
           )}
         </div>
         <p className="text-muted-foreground">
-          View and manage all business expenses
+          Upload and manage project offers
         </p>
       </div>
 
-      {/* Server-side filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:flex-initial sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search expenses by description, category, or vendor..."
+              placeholder="Search by note or project..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-9"
@@ -469,43 +411,45 @@ export function ExpensesTable() {
               </Button>
             )}
           </div>
-          <Select
-            value={categoryFilter || "all"}
-            onValueChange={(value) => {
-              setCategoryFilter(value === "all" ? undefined : value);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {EXPENSE_CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {projects.length > 0 && (
+            <Select
+              value={projectFilter || "all"}
+              onValueChange={(value) => {
+                setProjectFilter(value === "all" ? undefined : value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
         {isMobile ? (
           <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DrawerTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Expense
+                Add Offer
               </Button>
             </DrawerTrigger>
             <DrawerContent>
               <DrawerHeader>
-                <DrawerTitle>Create Expense</DrawerTitle>
+                <DrawerTitle>Upload Offer</DrawerTitle>
                 <DrawerDescription>
-                  Add a new business expense
+                  Upload an offer and link it to a project
                 </DrawerDescription>
               </DrawerHeader>
               <div className="px-4">
-                <CreateExpenseForm
+                <CreateOfferForm
                   onSuccess={handleCreateSuccess}
                   onError={handleCreateError}
                 />
@@ -517,23 +461,25 @@ export function ExpensesTable() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Expense
+                Add Offer
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create Expense</DialogTitle>
+                <DialogTitle>Upload Offer</DialogTitle>
                 <DialogDescription>
-                  Add a new business expense
+                  Upload an offer and link it to a project
                 </DialogDescription>
               </DialogHeader>
-              <CreateExpenseForm onSuccess={handleCreateSuccess} />
+              <CreateOfferForm
+                onSuccess={handleCreateSuccess}
+                onError={handleCreateError}
+              />
             </DialogContent>
           </Dialog>
         )}
       </div>
 
-      {/* Table */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -582,7 +528,7 @@ export function ExpensesTable() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No expenses found.
+                  No offers found.
                 </TableCell>
               </TableRow>
             )}
@@ -590,7 +536,6 @@ export function ExpensesTable() {
         </Table>
       </div>
 
-      {/* Server-side Pagination */}
       {pagination && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -661,66 +606,15 @@ export function ExpensesTable() {
         </div>
       )}
 
-      {isMobile ? (
-        <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>Edit Expense</DrawerTitle>
-              <DrawerDescription>Update expense details</DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4">
-              {selectedExpense && (
-                <CreateExpenseForm
-                  key={selectedExpense.expense.id}
-                  expense={selectedExpense.expense}
-                  onSuccess={() => {
-                    setIsEditOpen(false);
-                    setSelectedExpense(null);
-                    // React Query will automatically refetch
-                  }}
-                  onCancel={() => {
-                    setIsEditOpen(false);
-                    setSelectedExpense(null);
-                  }}
-                />
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Expense</DialogTitle>
-              <DialogDescription>Update expense details</DialogDescription>
-            </DialogHeader>
-            {selectedExpense && (
-              <CreateExpenseForm
-                expense={selectedExpense.expense}
-                onSuccess={() => {
-                  setIsEditOpen(false);
-                  setSelectedExpense(null);
-                  // React Query will automatically refetch
-                }}
-                onCancel={() => {
-                  setIsEditOpen(false);
-                  setSelectedExpense(null);
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
-
       <DeleteConfirmationDialog
         open={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         onConfirm={handleDelete}
-        title="Delete Expense"
-        description={`Are you sure you want to delete "${deleteExpense?.expense.description}"? This action cannot be undone.`}
-        itemName="Expense"
-        confirmationText={deleteExpense?.expense.description || ""}
-        warningMessage="This will permanently delete the expense and any associated invoice. This action cannot be undone."
+        title="Delete Offer"
+        description={`Are you sure you want to delete this offer? This action cannot be undone.`}
+        itemName="Offer"
+        confirmationText={deleteOffer?.offer.fileName || "this offer"}
+        warningMessage="This will permanently delete the offer and its file. This action cannot be undone."
       />
     </div>
   );

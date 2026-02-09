@@ -1,0 +1,1 @@
+ALTER TABLE "offers" ADD COLUMN "signed_by_client" boolean DEFAULT false NOT NULL;

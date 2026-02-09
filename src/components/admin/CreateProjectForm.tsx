@@ -27,7 +27,13 @@ const PROJECT_STATUSES: StatusOption[] = [
   { value: "cancelled", label: "Cancelled", state: "bg-red-500" },
 ];
 
-export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
+export function CreateProjectForm({
+  onSuccess,
+  onError,
+}: {
+  onSuccess?: () => void;
+  onError?: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [projectType, setProjectType] = useState<"client" | "labs">("client");
@@ -85,6 +91,9 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
+    // Optimistic close: close modal immediately for faster workflow
+    onSuccess?.();
+
     createProjectMutation.mutate(
       {
         title: title.trim(),
@@ -115,6 +124,7 @@ export function CreateProjectForm({ onSuccess }: { onSuccess?: () => void }) {
         },
         onError: (error: Error) => {
           toast.error(error.message || "Failed to create project");
+          onError?.(); // Reopen modal on failure so user can retry
         },
       }
     );

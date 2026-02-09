@@ -87,10 +87,12 @@ const INVOICE_STATUSES: StatusOption[] = [
 
 export function CreateInvoiceForm({
   onSuccess,
+  onError,
   invoice,
   onCancel,
 }: {
   onSuccess?: () => void;
+  onError?: () => void;
   invoice?: Invoice;
   onCancel?: () => void;
 }) {
@@ -683,6 +685,9 @@ export function CreateInvoiceForm({
                 })),
               }),
         };
+        // Optimistic close: close modal immediately for faster workflow
+        onSuccess?.();
+
         createInvoiceMutation.mutate(createData, {
           onSuccess: () => {
             toast.success("Invoice created successfully");
@@ -704,10 +709,10 @@ export function CreateInvoiceForm({
                 taxPercentage: "21",
               },
             ]);
-            onSuccess?.();
           },
           onError: (error: Error) => {
             toast.error(error.message || "Failed to create invoice");
+            onError?.(); // Reopen modal on failure so user can retry
           },
         });
       }

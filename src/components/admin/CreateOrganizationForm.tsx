@@ -23,9 +23,11 @@ interface Organization {
 
 export function CreateOrganizationForm({
   onSuccess,
+  onError,
   organization,
 }: {
   onSuccess?: () => void;
+  onError?: () => void;
   organization?: Organization;
 }) {
   const [name, setName] = useState(organization?.name || "");
@@ -113,6 +115,11 @@ export function CreateOrganizationForm({
 
       const url = "/api/organizations";
       const method = organization ? "PATCH" : "POST";
+      // Optimistic close: close modal immediately for faster workflow (create only)
+      if (!organization) {
+        onSuccess?.();
+      }
+
       const body = organization
         ? {
             id: organization.id,
@@ -172,6 +179,9 @@ export function CreateOrganizationForm({
       toast.error(
         error instanceof Error ? error.message : "Failed to create organization"
       );
+      if (!organization) {
+        onError?.(); // Reopen modal on failure so user can retry
+      }
     } finally {
       setIsSubmitting(false);
     }

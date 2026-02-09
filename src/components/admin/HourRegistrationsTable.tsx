@@ -369,8 +369,9 @@ interface Project {
 }
 
 export function HourRegistrationsTable() {
-  // TanStack Query hooks - server-side pagination with default page size 10
+  // TanStack Query hooks - server-side pagination
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Debounce search query
@@ -387,7 +388,7 @@ export function HourRegistrationsTable() {
     data: registrationsData,
     isLoading: isLoadingRegistrations,
     refetch,
-  } = useHourRegistrations(page, debouncedSearch || undefined, true);
+  } = useHourRegistrations(page, pageSize, debouncedSearch || undefined, true);
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
   const createMutation = useCreateHourRegistration();
   const updateMutation = useUpdateHourRegistration();
@@ -673,6 +674,18 @@ export function HourRegistrationsTable() {
     // Convert hours and minutes to decimal hours
     const totalHours = hoursNum + minutesNum / 60;
 
+    // Optimistic close: close modal immediately for faster workflow
+    setIsManualEntryOpen(false);
+    const entryToRestore = { ...manualEntry };
+    setManualEntry({
+      date: new Date().toISOString().split("T")[0],
+      hours: "",
+      minutes: "",
+      description: "",
+      category: "client",
+      projectId: undefined,
+    });
+
     createMutation.mutate(
       {
         description: manualEntry.description.trim(),
@@ -687,20 +700,14 @@ export function HourRegistrationsTable() {
       {
         onSuccess: () => {
           toast.success("Hour registration added successfully");
-          setIsManualEntryOpen(false);
-          setManualEntry({
-            date: new Date().toISOString().split("T")[0],
-            hours: "",
-            minutes: "",
-            description: "",
-            category: "client",
-            projectId: undefined,
-          });
           window.dispatchEvent(new Event("hour-registration-saved"));
         },
         onError: (error: Error) => {
           console.error("Error saving hour registration:", error);
           toast.error("Failed to save hour registration");
+          // Reopen modal on failure so user can retry
+          setIsManualEntryOpen(true);
+          setManualEntry(entryToRestore);
         },
       }
     );
@@ -774,6 +781,11 @@ export function HourRegistrationsTable() {
     // Convert hours and minutes to decimal hours
     const totalHours = hoursNum + minutesNum / 60;
 
+    // Optimistic close: close modal immediately for faster workflow
+    setIsEditOpen(false);
+    const entryToRestore = { ...manualEntry };
+    const registrationToRestore = editingRegistration;
+
     updateMutation.mutate(
       {
         id: editingRegistration.id,
@@ -789,7 +801,6 @@ export function HourRegistrationsTable() {
       {
         onSuccess: () => {
           toast.success("Hour registration updated successfully");
-          setIsEditOpen(false);
           setEditingRegistration(null);
           setManualEntry({
             date: new Date().toISOString().split("T")[0],
@@ -804,6 +815,11 @@ export function HourRegistrationsTable() {
         onError: (error: Error) => {
           console.error("Error updating hour registration:", error);
           toast.error("Failed to update hour registration");
+          // Reopen modal on failure so user can retry
+          setIsEditOpen(true);
+          setEditingRegistration(registrationToRestore);
+          setManualEntry(entryToRestore);
+          setOriginalManualEntry(entryToRestore);
         },
       }
     );
@@ -1117,12 +1133,23 @@ export function HourRegistrationsTable() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">Rows per page</p>
-            <Select value="10" disabled onValueChange={() => {}}>
+            <Select
+              value={`${pageSize}`}
+              onValueChange={(value) => {
+                const newPageSize = Number(value);
+                setPageSize(newPageSize);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue placeholder="10" />
+                <SelectValue placeholder={pageSize} />
               </SelectTrigger>
               <SelectContent side="top">
-                <SelectItem value="10">10</SelectItem>
+                {[10, 20, 30, 50, 100].map((size) => (
+                  <SelectItem key={size} value={`${size}`}>
+                    {size}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

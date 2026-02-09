@@ -189,6 +189,23 @@ export const invoices = pgTable("invoices", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const OFFER_STATUSES = ["draft", "sent", "signed", "discarded"] as const;
+export type OfferStatus = (typeof OFFER_STATUSES)[number];
+
+export const offers = pgTable("offers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
+  note: text("note"),
+  fileStoragePath: text("file_storage_path"), // Path in Supabase Storage
+  fileName: text("file_name"), // Original filename
+  fileSizeBytes: integer("file_size_bytes"), // File size in bytes
+  status: text("status").notNull().default("draft"), // draft, sent, signed, discarded
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const invoiceLineItems = pgTable("invoice_line_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   invoiceId: uuid("invoice_id")

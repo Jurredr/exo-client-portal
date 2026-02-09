@@ -56,10 +56,12 @@ interface Expense {
 
 export function CreateExpenseForm({
   onSuccess,
+  onError,
   expense,
   onCancel,
 }: {
   onSuccess?: () => void;
+  onError?: () => void;
   expense?: Expense;
   onCancel?: () => void;
 }) {
@@ -281,6 +283,9 @@ export function CreateExpenseForm({
           invoiceFileName,
           invoiceSizeBytes,
         };
+        // Optimistic close: close modal immediately for faster workflow
+        onSuccess?.();
+
         createExpenseMutation.mutate(createData, {
           onSuccess: () => {
             toast.success("Expense created successfully");
@@ -292,10 +297,10 @@ export function CreateExpenseForm({
             setVendor("");
             setInvoiceFile(null);
             setInvoicePreview(null);
-            onSuccess?.();
           },
           onError: (error: Error) => {
             toast.error(error.message || "Failed to create expense");
+            onError?.(); // Reopen modal on failure so user can retry
           },
         });
       }

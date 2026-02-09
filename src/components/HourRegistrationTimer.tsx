@@ -420,6 +420,8 @@ export function HourRegistrationTimer() {
     setSplits(splits.filter((split) => split.id !== splitId));
   };
 
+  const isSubmitting = createMutation.isPending;
+
   // Submit all splits
   const handleSubmit = async () => {
     // Filter out breaks and get only work splits
@@ -685,12 +687,25 @@ export function HourRegistrationTimer() {
           )}
         </div>
 
+        {/* Loading bar when submitting */}
+        {isSubmitting && (
+          <div className="mb-4">
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary animate-pulse w-full" />
+            </div>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              Saving hour registrations...
+            </p>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2 justify-center mb-4">
           {!isRunning && elapsedSeconds === 0 ? (
             <Button
               onClick={handleStart}
               size="lg"
               className="flex-1 min-w-[120px]"
+              disabled={isSubmitting}
             >
               <Play className="h-4 w-4 mr-2" />
               Start
@@ -704,6 +719,7 @@ export function HourRegistrationTimer() {
                     size="lg"
                     variant="secondary"
                     className="flex-1 min-w-[100px]"
+                    disabled={isSubmitting}
                   >
                     <Pause className="h-4 w-4 mr-2" />
                     Pause
@@ -713,7 +729,7 @@ export function HourRegistrationTimer() {
                     size="lg"
                     variant="outline"
                     className="flex-1 min-w-[100px]"
-                    disabled={isBreakMode}
+                    disabled={isBreakMode || isSubmitting}
                   >
                     <Split className="h-4 w-4 mr-2" />
                     Split
@@ -723,6 +739,7 @@ export function HourRegistrationTimer() {
                     size="lg"
                     variant={isBreakMode ? "default" : "outline"}
                     className="flex-1 min-w-[100px]"
+                    disabled={isSubmitting}
                   >
                     <Coffee className="h-4 w-4 mr-2" />
                     {isBreakMode ? "End Break" : "Break"}
@@ -735,6 +752,7 @@ export function HourRegistrationTimer() {
                     size="lg"
                     variant="secondary"
                     className="flex-1 min-w-[100px]"
+                    disabled={isSubmitting}
                   >
                     <Play className="h-4 w-4 mr-2" />
                     Continue
@@ -744,7 +762,7 @@ export function HourRegistrationTimer() {
                     size="lg"
                     variant="outline"
                     className="flex-1 min-w-[100px]"
-                    disabled={isBreakMode}
+                    disabled={isBreakMode || isSubmitting}
                   >
                     <Split className="h-4 w-4 mr-2" />
                     Split
@@ -754,6 +772,7 @@ export function HourRegistrationTimer() {
                     size="lg"
                     variant={isBreakMode ? "default" : "outline"}
                     className="flex-1 min-w-[100px]"
+                    disabled={isSubmitting}
                   >
                     <Coffee className="h-4 w-4 mr-2" />
                     {isBreakMode ? "End Break" : "Break"}
@@ -765,7 +784,9 @@ export function HourRegistrationTimer() {
                 size="lg"
                 variant="default"
                 className="flex-1 min-w-[100px]"
-                disabled={splits.filter((s) => !s.isBreak).length === 0}
+                disabled={
+                  splits.filter((s) => !s.isBreak).length === 0 || isSubmitting
+                }
               >
                 <Check className="h-4 w-4 mr-2" />
                 Submit
@@ -775,6 +796,7 @@ export function HourRegistrationTimer() {
                 size="lg"
                 variant="destructive"
                 className="flex-1 min-w-[100px]"
+                disabled={isSubmitting}
               >
                 <X className="h-4 w-4 mr-2" />
                 Cancel

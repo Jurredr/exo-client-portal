@@ -195,3 +195,24 @@ export async function downloadExpenseFile(
 ): Promise<Buffer | null> {
   return downloadFileFromStorage(storagePath, EXPENSES_BUCKET);
 }
+
+// Offer-specific helpers
+export const OFFERS_BUCKET = "offers";
+export const OFFERS_FOLDER = "offers";
+
+export async function uploadOfferFile(
+  file: File,
+  offerId: string
+): Promise<{ path: string; sizeBytes: number } | null> {
+  return uploadFileToStorage(file, offerId, OFFERS_BUCKET, OFFERS_FOLDER);
+}
+
+export async function deleteOfferFile(storagePath: string): Promise<boolean> {
+  return deleteFileFromStorage(storagePath, OFFERS_BUCKET);
+}
+
+export async function downloadOfferFile(
+  storagePath: string
+): Promise<Buffer | null> {
+  return downloadFileFromStorage(storagePath, OFFERS_BUCKET);
+}

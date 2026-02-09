@@ -10,6 +10,7 @@ import {
   contracts,
   contractProjects,
   expenses,
+  offers,
 } from "@/db/schema";
 import {
   eq,
@@ -3241,6 +3242,155 @@ export async function deleteExpense(expenseId: string) {
     } catch (error) {
       // Log error but don't fail the deletion if Storage deletion fails
       console.error("Error deleting expense file from Storage:", error);
+    }
+  }
+}
+
+// Offer queries
+export async function createOffer(data: {
+  projectId?: string | null;
+  note?: string | null;
+  fileStoragePath?: string | null;
+  fileName?: string | null;
+  fileSizeBytes?: number | null;
+  status?: string;
+}) {
+  const [offer] = await db
+    .insert(offers)
+    .values({
+      projectId: data.projectId || null,
+      note: data.note || null,
+      fileStoragePath: data.fileStoragePath || null,
+      fileName: data.fileName || null,
+      fileSizeBytes: data.fileSizeBytes || null,
+      status: data.status ?? "draft",
+    })
+    .returning();
+
+  return offer;
+}
+
+export async function updateOffer(
+  offerId: string,
+  data: Partial<{ status: string }>
+) {
+  const [offer] = await db
+    .update(offers)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(offers.id, offerId))
+    .returning();
+
+  return offer;
+}
+
+export async function getAllOffersPaginated(options?: {
+  limit?: number;
+  offset?: number;
+  projectId?: string;
+  search?: string;
+}) {
+  let query = db
+    .select({
+      offer: {
+        id: offers.id,
+        projectId: offers.projectId,
+        note: offers.note,
+        fileStoragePath: offers.fileStoragePath,
+        fileName: offers.fileName,
+        fileSizeBytes: offers.fileSizeBytes,
+        status: offers.status,
+        createdAt: offers.createdAt,
+        updatedAt: offers.updatedAt,
+      },
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+    })
+    .from(offers)
+    .leftJoin(projects, eq(offers.projectId, projects.id));
+
+  const conditions = [];
+  if (options?.projectId) {
+    conditions.push(eq(offers.projectId, options.projectId));
+  }
+  if (options?.search) {
+    const searchTerm = `%${options.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${offers.note})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm)
+      )!
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  query = query.orderBy(desc(offers.createdAt)) as typeof query;
+
+  if (options?.limit) {
+    query = query.limit(options.limit) as typeof query;
+  }
+  if (options?.offset) {
+    query = query.offset(options.offset) as typeof query;
+  }
+
+  return await query;
+}
+
+export async function getAllOffersCount(filters?: {
+  projectId?: string;
+  search?: string;
+}) {
+  let query =
+    filters?.search || filters?.projectId
+      ? db
+          .select({ count: sql<number>`count(*)` })
+          .from(offers)
+          .leftJoin(projects, eq(offers.projectId, projects.id))
+      : db.select({ count: sql<number>`count(*)` }).from(offers);
+
+  const conditions = [];
+  if (filters?.projectId) {
+    conditions.push(eq(offers.projectId, filters.projectId));
+  }
+  if (filters?.search) {
+    const searchTerm = `%${filters.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`LOWER(${offers.note})`, searchTerm),
+        like(sql`LOWER(${projects.title})`, searchTerm)
+      )!
+    );
+  }
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as typeof query;
+  }
+
+  const result = await query;
+  return Number(result[0]?.count || 0);
+}
+
+export async function deleteOffer(offerId: string) {
+  const offer = await db
+    .select({ fileStoragePath: offers.fileStoragePath })
+    .from(offers)
+    .where(eq(offers.id, offerId))
+    .limit(1);
+
+  await db.delete(offers).where(eq(offers.id, offerId));
+
+  if (offer[0]?.fileStoragePath) {
+    try {
+      const { deleteOfferFile } = await import("@/lib/utils/file-storage");
+      await deleteOfferFile(offer[0].fileStoragePath);
+    } catch (error) {
+      console.error("Error deleting offer file from Storage:", error);
     }
   }
 }

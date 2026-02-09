@@ -260,6 +260,27 @@
       "when": 1769272407247,
       "tag": "0036_warm_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1770622413819,
+      "tag": "0037_hesitant_demogoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1770624102236,
+      "tag": "0038_classy_toad",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1770624200000,
+      "tag": "0039_offer_status",
+      "breakpoints": true
     }
   ]
 }

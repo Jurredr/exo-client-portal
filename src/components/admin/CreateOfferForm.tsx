@@ -215,7 +215,7 @@ export function CreateOfferForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
       <div className="space-y-2">
         <Label htmlFor="offer-file" className="flex items-center gap-2">
           <Upload className="h-4 w-4" />
@@ -229,9 +229,9 @@ export function CreateOfferForm({
           className="cursor-pointer"
         />
         {file && (
-          <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-            <FileText className="h-4 w-4" />
-            <span className="text-sm flex-1">{file.name}</span>
+          <div className="flex items-center gap-2 p-2 bg-muted rounded-md min-w-0">
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="text-sm flex-1 min-w-0 truncate">{file.name}</span>
             <Button
               type="button"
               variant="ghost"
@@ -244,8 +244,10 @@ export function CreateOfferForm({
           </div>
         )}
         {isEdit && offer?.fileName && !file && (
-          <div className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
-            Current file: {offer.fileName}
+          <div className="rounded-md bg-muted p-2 text-sm text-muted-foreground min-w-0">
+            <span className="truncate block">
+              Current file: {offer.fileName}
+            </span>
           </div>
         )}
         <p className="text-xs text-muted-foreground">

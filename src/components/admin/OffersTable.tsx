@@ -173,7 +173,7 @@ export function OffersTable() {
           );
         },
         cell: ({ row }) => (
-          <div className="font-medium">
+          <div className="font-medium truncate">
             {row.original.project?.title ?? (
               <span className="text-muted-foreground">—</span>
             )}
@@ -478,7 +478,7 @@ export function OffersTable() {
                 Add Offer
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
               <DialogHeader>
                 <DialogTitle>Upload Offer</DialogTitle>
                 <DialogDescription>
@@ -497,8 +497,8 @@ export function OffersTable() {
       <div className="rounded-md border">
         <Table className="table-fixed">
           <colgroup>
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "38%" }} />
+            <col style={{ width: "24%" }} />
+            <col style={{ width: "30%" }} />
             <col style={{ width: "11%" }} />
             <col style={{ width: "10%" }} />
             <col style={{ width: "8%" }} />
@@ -658,7 +658,7 @@ export function OffersTable() {
         </Drawer>
       ) : (
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <DialogHeader>
               <DialogTitle>Edit Offer</DialogTitle>
               <DialogDescription>Update offer details</DialogDescription>

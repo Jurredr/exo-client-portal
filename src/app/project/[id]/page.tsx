@@ -6,6 +6,7 @@ import {
   ensureUserExists,
   isUserInEXOOrganization,
   getUserByEmail,
+  getOrganizationById,
 } from "@/lib/db/queries";
 import { ProjectUserMenu } from "@/components/ProjectUserMenu";
 import ProjectDetails from "@/components/ProjectDetails";
@@ -52,6 +53,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const dbUser = await getUserByEmail(user.email);
   const isInEXO = await isUserInEXOOrganization(user.email);
 
+  // Get user's organization (not the project's)
+  const userOrganization = dbUser?.organizationId
+    ? await getOrganizationById(dbUser.organizationId)
+    : null;
+
   // Prepare user data for the menu
   const userData = {
     name:
@@ -77,12 +83,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           backgroundAttachment: "fixed",
           backgroundRepeat: "no-repeat",
         }}
-      >
-        <div className="absolute inset-0 bg-black/20" />
-      </div>
+      ></div>
 
       {/* Fixed User Menu - always in top right */}
-      <ProjectUserMenu user={userData} showAdminLink={isInEXO} />
+      <ProjectUserMenu
+        user={userData}
+        organization={userOrganization?.name}
+        showAdminLink={isInEXO}
+      />
 
       {/* Main Content - scrolls over background */}
       <div className="relative z-10 pt-24 pb-12">

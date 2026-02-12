@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  IconDotsVertical,
-  IconLogout,
-  IconUserCircle,
-  IconDashboard,
-} from "@tabler/icons-react";
+import { IconLogout, IconUserCircle, IconDashboard } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -24,6 +19,7 @@ import { Button } from "@/components/ui/button";
 
 export function ProjectUserMenu({
   user,
+  organization,
   showAdminLink = false,
   onAccountClick,
 }: {
@@ -32,6 +28,7 @@ export function ProjectUserMenu({
     email: string;
     avatar?: string;
   };
+  organization?: string;
   showAdminLink?: boolean;
   onAccountClick?: () => void;
 }) {
@@ -58,33 +55,32 @@ export function ProjectUserMenu({
   };
 
   return (
-    <div className="fixed top-6 right-6 z-50">
+    <div className="fixed top-10 right-6 z-50">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="flex items-center gap-3 h-auto p-3 bg-white/60 backdrop-blur-md rounded-[73px] hover:bg-white/80 transition-opacity"
+            className="flex items-center justify-between gap-4 h-auto p-2 rounded-xl hover:bg-white/5 transition-all outline-none focus-visible:outline-none focus-visible:ring-0"
           >
-            <Avatar className="h-14 w-14 rounded-full">
+            <div className="flex flex-col items-end justify-center">
+              <p className="font-semibold text-lg leading-tight text-white">
+                {user.name}
+              </p>
+              <p className="font-normal text-sm leading-tight text-white/90">
+                {organization || user.email?.split("@")[0] || "User"}
+              </p>
+            </div>
+            <Avatar className="h-11 w-11 shrink-0 rounded-full ring-1 ring-white/20">
               <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback className="rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white font-semibold text-xl">
+              <AvatarFallback className="rounded-full bg-gray-100 text-white font-semibold text-xl">
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
-            <div className="text-left">
-              <p className="font-semibold text-2xl leading-tight tracking-[-0.72px] text-white">
-                {user.name}
-              </p>
-              <p className="font-normal text-xl leading-tight tracking-[-0.6px] text-white/80">
-                {user.email?.split("@")[0] || "User"}
-              </p>
-            </div>
-            <IconDotsVertical className="ml-2 size-5 text-white" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-56 bg-white/95 backdrop-blur-md border border-gray-200 rounded-lg shadow-lg z-[60]"
+          className="z-60 w-56 rounded-lg border border-gray-200 bg-white/95 shadow-lg backdrop-blur-md"
           sideOffset={8}
         >
           <DropdownMenuLabel className="p-0 font-normal">

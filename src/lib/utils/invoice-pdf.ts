@@ -410,6 +410,9 @@ export async function generateInvoicePDF(
 
       // For fallback, assume 0% tax if not specified
       const fallbackTaxPct = 0;
+      const descHeight = doc.heightOfString(description, { width: descWidth });
+      const rowHeight = Math.max(descHeight + 4, 20);
+
       doc.text(itemQty.toString(), rightColumnStart + rightMargin, currentY);
       doc.text(
         description,
@@ -440,13 +443,19 @@ export async function generateInvoicePDF(
         currentY,
         { width: amountWidth, align: "right" }
       );
-      currentY += 30;
+      currentY += rowHeight;
     } else {
-      // Display line items
+      // Display line items - row height scales with description wrap
+      const minRowHeight = 20;
       processedItems.forEach((item) => {
-        // const itemSubtotal = isCredit ? -item.subtotal : item.subtotal; // Unused but kept for potential future use
         const itemTotal = isCredit ? -item.total : item.total;
         const itemUnitPrice = isCredit ? -item.unitPrice : item.unitPrice;
+
+        // Calculate actual height of wrapped description so row can expand
+        const descHeight = doc.heightOfString(item.description, {
+          width: descWidth,
+        });
+        const rowHeight = Math.max(descHeight + 4, minRowHeight);
 
         doc.text(
           item.quantity.toString(),
@@ -482,7 +491,7 @@ export async function generateInvoicePDF(
           currentY,
           { width: amountWidth, align: "right" }
         );
-        currentY += 25;
+        currentY += rowHeight;
       });
     }
 

@@ -13,6 +13,7 @@ import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -932,16 +933,17 @@ export function CreateInvoiceForm({
                 key={index}
                 className="grid grid-cols-12 gap-3 p-3 border rounded-md bg-muted/50 items-end"
               >
-                <div className="col-span-12 lg:col-span-5 space-y-1">
+                <div className="col-span-12 lg:col-span-5 space-y-1 min-w-0">
                   <Label className="text-xs">Description *</Label>
-                  <Input
+                  <Textarea
                     value={item.description}
                     onChange={(e) =>
                       updateLineItem(index, "description", e.target.value)
                     }
                     placeholder="Item description"
                     required
-                    className="w-full"
+                    rows={2}
+                    className="w-full min-h-[60px] resize-y"
                   />
                 </div>
                 <div className="col-span-3 lg:col-span-1 space-y-1">

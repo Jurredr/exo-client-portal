@@ -33,7 +33,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatCurrency } from "@/lib/utils/currency";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils/currency";
 import {
   Area,
   AreaChart,
@@ -447,7 +447,7 @@ export default function DashboardStats() {
                   axisLine={false}
                   tickMargin={8}
                   tickFormatter={(value) =>
-                    formatCurrency(convertAmount(value), currency)
+                    formatCurrencyCompact(convertAmount(value), currency)
                   }
                 />
                 <ChartTooltip

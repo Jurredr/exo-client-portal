@@ -18,6 +18,20 @@ export function formatCurrency(
   })}`;
 }
 
+/** Compact format for chart axes: no decimals when value >= 1000 to prevent label wrapping */
+export function formatCurrencyCompact(
+  amount: number,
+  currency: string = "EUR"
+): string {
+  const symbol = currency === "USD" ? "$" : "€";
+  const space = currency === "EUR" ? " " : "";
+  const fractionDigits = Math.abs(amount) >= 1000 ? 0 : 2;
+  return `${symbol}${space}${amount.toLocaleString("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}`;
+}
+
 export function calculateVAT(
   subtotal: string | null | undefined,
   currency: string = "EUR"

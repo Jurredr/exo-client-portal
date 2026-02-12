@@ -551,14 +551,6 @@ export function ProjectsTable() {
 
   // Projects and organizations are now fetched via TanStack Query
 
-  const handleRowClick = (project: ProjectData) => {
-    setSelectedProject(project);
-    setEditStatus(project.project.status);
-    setEditStage(project.project.stage);
-    setEditCurrency((project.project.currency as "USD" | "EUR") || "EUR");
-    setIsEditOpen(true);
-  };
-
   // Sync edit form values when selected project changes
   useEffect(() => {
     if (selectedProject && isEditOpen) {
@@ -998,11 +990,7 @@ export function ProjectsTable() {
                 ))
               ) : clientTable.getRowModel().rows?.length ? (
                 clientTable.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    onClick={() => handleRowClick(row.original)}
-                    className="cursor-pointer"
-                  >
+                  <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(
@@ -1185,11 +1173,7 @@ export function ProjectsTable() {
                 ))
               ) : labsTable.getRowModel().rows?.length ? (
                 labsTable.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    onClick={() => handleRowClick(row.original)}
-                    className="cursor-pointer"
-                  >
+                  <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(

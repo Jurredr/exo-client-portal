@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { Project } from "@/types/project";
 import Image from "next/image";
 import { ResourceCard } from "@/components/ResourceCard";
+import { ResourceCardSkeleton } from "@/components/ResourceCardSkeleton";
 import { AddCard } from "@/components/AddCard";
 import { VAT_PERCENTAGE } from "@/lib/constants";
 import { formatDate } from "@/lib/utils/date";
@@ -173,22 +174,40 @@ export default function ProjectDetails({
   const progress = getStageProgress(project.stage);
   const statusConfig = getStatusConfig(project.status ?? "active");
 
-  const [invoices, setInvoices] = useState<ProjectInvoice[]>([]);
-  const [contracts, setContracts] = useState<ProjectContract[]>([]);
+  const [invoices, setInvoices] = useState<ProjectInvoice[] | null>(null);
+  const [contracts, setContracts] = useState<ProjectContract[] | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     fetch(`/api/projects/${project.id}/invoices`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setInvoices(Array.isArray(data) ? data : []))
-      .catch(() => setInvoices([]));
+      .then((data) => {
+        if (!cancelled) setInvoices(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setInvoices([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [project.id]);
 
   useEffect(() => {
+    let cancelled = false;
     fetch(`/api/projects/${project.id}/contracts`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setContracts(Array.isArray(data) ? data : []))
-      .catch(() => setContracts([]));
+      .then((data) => {
+        if (!cancelled) setContracts(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setContracts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [project.id]);
+
+  const isLoadingLegal = invoices === null || contracts === null;
 
   return (
     <div className="max-w-2xl">
@@ -390,46 +409,57 @@ export default function ProjectDetails({
             project here.
           </p>
           <div className="flex flex-wrap gap-4">
-            {contracts.map((contract) => (
-              <ResourceCard
-                key={contract.id}
-                type="file"
-                title={contract.name}
-                badge={
-                  contract.signed
-                    ? { text: "Signed", variant: "success" }
-                    : { text: "Pending", variant: "warning" }
-                }
-                href={`/api/contracts/${contract.id}/download`}
-              />
-            ))}
-            {invoices.map((invoice) => (
-              <ResourceCard
-                key={invoice.id}
-                type="file"
-                title={invoice.invoiceNumber}
-                subtitle={formatCurrency(
-                  invoice.displayAmount ?? parseNumeric(invoice.amount),
-                  invoice.currency
+            {isLoadingLegal ? (
+              <>
+                <ResourceCardSkeleton />
+                <ResourceCardSkeleton />
+                <ResourceCardSkeleton />
+              </>
+            ) : (
+              <>
+                {contracts!.map((contract) => (
+                  <ResourceCard
+                    key={contract.id}
+                    type="file"
+                    title={contract.name}
+                    badge={
+                      contract.signed
+                        ? { text: "Signed", variant: "success" }
+                        : { text: "Pending", variant: "warning" }
+                    }
+                    href={`/api/contracts/${contract.id}/download`}
+                  />
+                ))}
+                {invoices!.map((invoice) => (
+                  <ResourceCard
+                    key={invoice.id}
+                    type="file"
+                    title={invoice.invoiceNumber}
+                    subtitle={formatCurrency(
+                      invoice.displayAmount ?? parseNumeric(invoice.amount),
+                      invoice.currency
+                    )}
+                    badge={{
+                      text:
+                        invoice.status === "paid"
+                          ? "Paid"
+                          : invoice.status === "overdue"
+                            ? "Overdue"
+                            : "Sent",
+                      variant:
+                        invoice.status === "overdue" ? "warning" : "success",
+                    }}
+                    href={`/api/invoices/${invoice.id}/download`}
+                  />
+                ))}
+                {invoices!.length === 0 && contracts!.length === 0 && (
+                  <p className="font-sans text-sm text-gray-500">
+                    No invoices or contracts for this project yet.
+                  </p>
                 )}
-                badge={{
-                  text:
-                    invoice.status === "paid"
-                      ? "Paid"
-                      : invoice.status === "overdue"
-                        ? "Overdue"
-                        : "Sent",
-                  variant: invoice.status === "overdue" ? "warning" : "success",
-                }}
-                href={`/api/invoices/${invoice.id}/download`}
-              />
-            ))}
-            {invoices.length === 0 && contracts.length === 0 && (
-              <p className="font-sans text-sm text-gray-500">
-                No invoices or contracts for this project yet.
-              </p>
+                {isInEXO && <AddCard />}
+              </>
             )}
-            {isInEXO && <AddCard />}
           </div>
         </section>
       </div>

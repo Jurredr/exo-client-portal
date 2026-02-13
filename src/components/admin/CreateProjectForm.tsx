@@ -20,7 +20,7 @@ import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { getProjectStages, getDefaultStage } from "@/lib/constants/stages";
 
 const PROJECT_STATUSES: StatusOption[] = [
-  { value: "lead", label: "Lead", state: "bg-purple-500" },
+  { value: "lead", label: "Discussing", state: "bg-purple-500" },
   { value: "active", label: "Active", state: "bg-green-500" },
   { value: "completed", label: "Completed", state: "bg-blue-500" },
   { value: "on_hold", label: "On Hold", state: "bg-yellow-500" },

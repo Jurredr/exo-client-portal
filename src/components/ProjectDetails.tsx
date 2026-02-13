@@ -48,6 +48,11 @@ const STATUS_CONFIG: Record<
   string,
   { dotGradient: string; dotStroke: string; barGradient: string }
 > = {
+  lead: {
+    dotGradient: "radial-gradient(circle, #c084fc 0%, #9333ea 100%)",
+    dotStroke: "#a855f7",
+    barGradient: "radial-gradient(ellipse at center, #c084fc 0%, #9333ea 100%)",
+  },
   active: {
     dotGradient: "radial-gradient(circle, #4CF65A 0%, #2AC022 100%)",
     dotStroke: "#5FC867",
@@ -63,9 +68,15 @@ const STATUS_CONFIG: Record<
     dotStroke: "#9CA3AF",
     barGradient: "radial-gradient(ellipse at center, #D1D5DB 0%, #9CA3AF 100%)",
   },
+  cancelled: {
+    dotGradient: "radial-gradient(circle, #f87171 0%, #dc2626 100%)",
+    dotStroke: "#ef4444",
+    barGradient: "radial-gradient(ellipse at center, #f87171 0%, #dc2626 100%)",
+  },
 };
 
 function formatStatusLabel(status: string): string {
+  if (status === "lead") return "Discussing";
   return status
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -160,11 +171,13 @@ export default function ProjectDetails({
 
             {organizationImageUrl && (
               <span className="relative bottom-1 ml-2 inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full align-middle md:h-10 md:w-16">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={organizationImageUrl}
                   alt=""
-                  className="h-full w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 24px, 64px"
+                  unoptimized
                 />
               </span>
             )}

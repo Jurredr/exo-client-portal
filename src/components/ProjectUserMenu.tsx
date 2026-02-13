@@ -66,9 +66,11 @@ export function ProjectUserMenu({
               <p className="font-semibold text-lg leading-tight text-white">
                 {user.name}
               </p>
-              <p className="font-normal text-sm leading-tight text-white/90">
-                {organization || user.email?.split("@")[0] || "User"}
-              </p>
+              {organization && (
+                <p className="font-normal text-sm leading-tight text-white/90">
+                  {organization}
+                </p>
+              )}
             </div>
             <Avatar className="h-11 w-11 shrink-0 rounded-full ring-1 ring-white/20">
               <AvatarImage src={user.avatar} alt={user.name} />
@@ -99,24 +101,29 @@ export function ProjectUserMenu({
               </div>
             </div>
           </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            {showAdminLink && !pathname.startsWith("/dashboard") && (
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard">
-                  <IconDashboard />
-                  Admin Panel
-                </Link>
-              </DropdownMenuItem>
-            )}
-            {onAccountClick && (
-              <DropdownMenuItem onClick={onAccountClick}>
-                <IconUserCircle />
-                Account
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
+          {(showAdminLink && !pathname.startsWith("/dashboard")) ||
+          onAccountClick ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                {showAdminLink && !pathname.startsWith("/dashboard") && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard">
+                      <IconDashboard />
+                      Admin Panel
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {onAccountClick && (
+                  <DropdownMenuItem onClick={onAccountClick}>
+                    <IconUserCircle />
+                    Account
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuItem onClick={handleSignOut}>
             <IconLogout />
             Log out

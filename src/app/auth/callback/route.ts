@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { ensureUserExists } from "@/lib/db/queries";
+import { ensureUserExists, getUserByEmail } from "@/lib/db/queries";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -17,8 +17,11 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/login?error=auth_failed`);
       }
 
-      // Sync user to database
-      if (data.user && data.user.email) {
+      if (data.user?.email) {
+        const dbUser = await getUserByEmail(data.user.email);
+        if (!dbUser) {
+          return NextResponse.redirect(`${origin}/auth/unauthorized`);
+        }
         await ensureUserExists(
           data.user.email,
           data.user.user_metadata?.name || data.user.user_metadata?.full_name
@@ -30,6 +33,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // URL to redirect to after sign in process completes
-  return NextResponse.redirect(`${origin}/`);
+  return NextResponse.redirect(`${origin}/projects`);
 }

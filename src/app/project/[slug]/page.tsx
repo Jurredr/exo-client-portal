@@ -30,6 +30,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     redirect("/login");
   }
 
+  const dbUser = await getUserByEmail(user.email);
+  if (!dbUser) {
+    redirect("/auth/unauthorized");
+  }
+
   // Ensure user exists in database
   await ensureUserExists(
     user.email,
@@ -65,8 +70,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     redirect("/projects");
   }
 
-  // Get user data from database
-  const dbUser = await getUserByEmail(user.email);
   const isInEXO = await isUserInEXOOrganization(user.email);
 
   // Get user's organization (not the project's)

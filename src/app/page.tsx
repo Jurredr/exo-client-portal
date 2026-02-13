@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { ensureUserExists, isUserInEXOOrganization } from "@/lib/db/queries";
+import {
+  ensureUserExists,
+  getUserByEmail,
+  isUserInEXOOrganization,
+} from "@/lib/db/queries";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -10,6 +14,11 @@ export default async function Home() {
 
   if (!user || !user.email) {
     redirect("/login");
+  }
+
+  const dbUser = await getUserByEmail(user.email);
+  if (!dbUser) {
+    redirect("/auth/unauthorized");
   }
 
   await ensureUserExists(

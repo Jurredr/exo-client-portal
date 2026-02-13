@@ -4,9 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ensureUserExists,
+  getUserByEmail,
+  getOrganizationById,
   isUserInEXOOrganization,
   getProjectsForUser,
 } from "@/lib/db/queries";
+import { ProjectUserMenu } from "@/components/ProjectUserMenu";
 
 const LOGO_SIZE = 164;
 
@@ -18,6 +21,11 @@ export default async function ProjectsPage() {
 
   if (!user || !user.email) {
     redirect("/login");
+  }
+
+  const dbUser = await getUserByEmail(user.email);
+  if (!dbUser) {
+    redirect("/auth/unauthorized");
   }
 
   await ensureUserExists(
@@ -33,12 +41,33 @@ export default async function ProjectsPage() {
 
   const projects = await getProjectsForUser(user.email);
 
+  const userOrganization = dbUser.organizationId
+    ? await getOrganizationById(dbUser.organizationId)
+    : null;
+
+  const userData = {
+    name:
+      dbUser.name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "User",
+    email: user.email || "",
+    avatar: dbUser.imageStoragePath
+      ? `/api/users/${dbUser.id}/image`
+      : user.user_metadata?.avatar_url || undefined,
+  };
+
   return (
     <div
       className="fixed inset-0 flex flex-col bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url(/bg-clear.jpg)" }}
     >
-      <div className="flex flex-1 flex-col items-center px-6 py-10">
+      <ProjectUserMenu
+        user={userData}
+        organization={userOrganization?.name}
+        showAdminLink={false}
+      />
+      <div className="flex flex-1 flex-col items-center px-6 py-10 pt-20">
         <Image
           src="/exo-glass.png"
           alt="EXO"

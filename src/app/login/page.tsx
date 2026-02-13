@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const LOGO_SIZE = 164;
@@ -9,10 +10,24 @@ const FORM_WIDTH = 280;
 const INPUT_PLACEHOLDER = "name@example.com";
 const BUTTON_LABEL = "Sign in with Email";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  not_whitelisted: "Your email is not authorized to access this portal.",
+  auth_failed: "Authentication failed. Please try again.",
+  config: "Configuration error. Please contact support.",
+};
+
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [formMessage, setFormMessage] = useState("");
+
+  const errorParam = searchParams.get("error");
+  const urlErrorMessage =
+    errorParam && ERROR_MESSAGES[errorParam]
+      ? ERROR_MESSAGES[errorParam]
+      : null;
+  const message = formMessage || urlErrorMessage || "";
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -36,7 +51,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (!supabase) return;
     setLoading(true);
-    setMessage("");
+    setFormMessage("");
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -46,9 +61,9 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setMessage(error.message);
+      setFormMessage(error.message);
     } else {
-      setMessage("Check your email for the magic link!");
+      setFormMessage("Check your email for the magic link!");
     }
     setLoading(false);
   };

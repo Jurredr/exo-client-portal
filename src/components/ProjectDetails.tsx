@@ -1,6 +1,8 @@
 "use client";
 
 import type { Project } from "@/types/project";
+import Image from "next/image";
+import { ResourceCard } from "@/components/ResourceCard";
 import { VAT_PERCENTAGE } from "@/lib/constants";
 import { formatDate } from "@/lib/utils/date";
 import {
@@ -15,15 +17,110 @@ import {
   isStageCompleted,
   isStageActive,
 } from "@/lib/utils/project";
+import {
+  IconFileDescription,
+  IconCash,
+  IconPackage,
+  IconRefresh,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 
 interface ProjectDetailsProps {
   project: Project;
   organizationName: string;
+  organizationImageUrl?: string;
+}
+
+const STAGE_CONFIG = [
+  { key: "kick_off" as const, label: "Kick-off", Icon: IconFileDescription },
+  { key: "pay_first" as const, label: "Pay", Icon: IconCash },
+  { key: "deliver" as const, label: "Deliver", Icon: IconPackage },
+  { key: "revise" as const, label: "Revise", Icon: IconRefresh },
+  { key: "pay_final" as const, label: "Pay", Icon: IconCash },
+];
+
+const STATUS_CONFIG: Record<
+  string,
+  { dotGradient: string; dotStroke: string; barGradient: string }
+> = {
+  active: {
+    dotGradient: "radial-gradient(circle, #4CF65A 0%, #2AC022 100%)",
+    dotStroke: "#5FC867",
+    barGradient: "radial-gradient(ellipse at center, #77F64C 0%, #59C864 100%)",
+  },
+  on_hold: {
+    dotGradient: "radial-gradient(circle, #FACC15 0%, #EAB308 100%)",
+    dotStroke: "#FDE047",
+    barGradient: "radial-gradient(ellipse at center, #FDE047 0%, #EAB308 100%)",
+  },
+  completed: {
+    dotGradient: "radial-gradient(circle, #9CA3AF 0%, #6B7280 100%)",
+    dotStroke: "#9CA3AF",
+    barGradient: "radial-gradient(ellipse at center, #D1D5DB 0%, #9CA3AF 100%)",
+  },
+};
+
+function formatStatusLabel(status: string): string {
+  return status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+const DEFAULT_STATUS_CONFIG = STATUS_CONFIG.active;
+
+function getStatusConfig(status: string) {
+  return STATUS_CONFIG[status] ?? DEFAULT_STATUS_CONFIG;
+}
+
+function WorkflowStepper({ stage }: { stage: string | null | undefined }) {
+  return (
+    <div className="flex gap-px rounded-xl border overflow-hidden border-neutral-300 bg-neutral-300">
+      {STAGE_CONFIG.map(({ key, label, Icon }) => {
+        const active = isStageActive(stage, key);
+        const completed = isStageCompleted(stage, key);
+        const bg = active ? "#ffffff" : completed ? "#cccccc" : "#e6e6e6";
+
+        return (
+          <div
+            key={key}
+            className="flex flex-1 flex-col items-center justify-center py-2 px-2"
+            style={{ backgroundColor: bg }}
+          >
+            <div
+              className={`flex shrink-0 items-center justify-center ${
+                active
+                  ? "text-gray-800"
+                  : completed
+                    ? "text-gray-600"
+                    : "text-gray-400"
+              }`}
+            >
+              <Icon className="size-4" stroke={2} />
+            </div>
+            <span
+              className={`mt-0.5 truncate text-center font-sans text-[10px] font-medium ${
+                active
+                  ? "font-semibold text-gray-800"
+                  : completed
+                    ? "text-gray-600"
+                    : "text-gray-400"
+              } ${completed ? "line-through" : ""}`}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              {label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function ProjectDetails({
   project,
   organizationName,
+  organizationImageUrl,
 }: ProjectDetailsProps) {
   const currency = project.currency || "EUR";
   const vat = calculateVAT(project.subtotal, currency);
@@ -34,232 +131,136 @@ export default function ProjectDetails({
     currency
   );
   const progress = getStageProgress(project.stage);
+  const statusConfig = getStatusConfig(project.status ?? "active");
 
   return (
-    <div className="w-[1027px] ml-[119px]">
+    <div className="max-w-2xl">
       {/* Main Content Card */}
-      <div className="bg-white/80 backdrop-blur-sm border border-[#d1d1d1] rounded-[48px] p-[71px]">
-        {/* Project Title with Badges */}
-        <div className="mb-8">
-          <h1
-            className="text-[58px] font-normal leading-[1.1] mb-4 bg-gradient-to-r from-[#1f1f1f] to-[#404040] bg-clip-text"
-            style={{ WebkitTextFillColor: "transparent" }}
-          >
-            {project.title}
-          </h1>
-          <div className="flex items-center gap-4">
-            <div className="w-[105px] h-[58px] rounded-[41px] bg-black flex items-center justify-center overflow-hidden">
-              <span className="text-white text-[20px] font-bold">EXO</span>
-            </div>
-            <div className="w-[105px] h-[58px] rounded-[41px] bg-black flex items-center justify-center overflow-hidden">
-              <span className="text-white text-[20px] font-bold">
-                {organizationName}
+      <div className="rounded-3xl border flex flex-col gap-10 border-gray-200 bg-white/75 p-10 shadow-lg backdrop-blur-md">
+        {/* Project Title - "EXO {pill} — {project_name} for {org_name} {org_pill}" */}
+        <div>
+          {/* Standard block layout for natural text wrapping */}
+          <h1 className="font-serif text-3xl leading-tight text-gray-900 md:text-4xl">
+            <span className="mr-2">EXO</span>
+
+            <span className="relative bottom-1 mr-3 inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full align-middle md:h-10 md:w-16">
+              <Image src="/exo-pill.png" alt="" fill className="object-cover" />
+            </span>
+
+            <span className="mr-3">—</span>
+
+            <span>
+              {project.title} for {organizationName}
+            </span>
+
+            {organizationImageUrl && (
+              <span className="relative bottom-1 ml-2 inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full align-middle md:h-10 md:w-16">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={organizationImageUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
               </span>
-            </div>
-          </div>
+            )}
+          </h1>
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-2 gap-6 mb-12">
+        <div className="grid gap-4 md:grid-cols-2">
           {/* Left Column - About This Project */}
-          <div className="bg-white/80 backdrop-blur-sm border-2 border-[#d1d1d1] rounded-[48px] p-8">
-            <h2
-              className="text-[36px] font-normal leading-[1.1] mb-4 bg-gradient-to-r from-[#1f1f1f] to-[#404040] bg-clip-text"
-              style={{ WebkitTextFillColor: "transparent" }}
-            >
+          <div className="flex min-h-full flex-col rounded-3xl border border-gray-300 bg-white/90 p-6">
+            <h2 className="mb-4 text-2xl font-serif text-gray-900">
               About this Project
             </h2>
-            <p className="text-[#686868] text-[20px] leading-[26px] mb-8 font-medium tracking-[-0.5px]">
-              {project.description || "No description available."}
+            <p className="font-sans text-sm leading-snug text-gray-600">
+              {project.description || `${project.title}.`}
             </p>
-            <div className="space-y-6">
+            <div className="mt-auto space-y-4 pt-6">
               <div>
-                <p className="font-semibold text-[20px] text-[#1f1f1f] leading-[26px] tracking-[-0.5px]">
+                <p className="font-sans text-sm font-semibold text-gray-900">
                   exo@jurre.me
                 </p>
-                <p className="font-medium text-[16px] text-[#686868] leading-[30.424px] tracking-[-0.5px]">
+                <p className="font-sans text-xs text-gray-500">
                   EXO&apos;s email
                 </p>
               </div>
               <div>
-                <p className="font-semibold text-[20px] text-[#1f1f1f] leading-[26px] tracking-[-0.5px]">
+                <p className="font-sans text-sm font-semibold text-gray-900">
                   {formatDate(project.startDate)}
                 </p>
-                <p className="font-medium text-[16px] text-[#686868] leading-[30.424px] tracking-[-0.5px]">
-                  Project start
-                </p>
+                <p className="font-sans text-xs text-gray-500">Project start</p>
               </div>
               <div>
-                <p className="font-semibold text-[20px] text-[#1f1f1f] leading-[26px] tracking-[-0.5px]">
+                <p className="font-sans text-sm font-semibold text-gray-900">
                   {formatDate(project.deadline)}
                 </p>
-                <p className="font-medium text-[16px] text-[#686868] leading-[30.424px] tracking-[-0.5px]">
+                <p className="font-sans text-xs text-gray-500">
                   Project deadline
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Right Column - Status and Invoice */}
-          <div className="space-y-6">
-            {/* Project Status Card */}
-            <div className="bg-white/80 backdrop-blur-sm border-2 border-[#d1d1d1] rounded-[48px] overflow-hidden">
-              <div className="p-8 pb-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-6 h-6 rounded-full bg-[#42a44a]" />
-                  <h2
-                    className="text-[36px] font-semibold leading-[1.1] bg-gradient-to-r from-[#1f1f1f] to-[#404040] bg-clip-text"
-                    style={{ WebkitTextFillColor: "transparent" }}
-                  >
-                    {project.status}
-                  </h2>
-                </div>
-                <p className="font-medium text-[20px] text-[#686868] mb-6 tracking-[-1px]">
-                  Project Status
-                </p>
+          {/* Right Column - Status and Payment */}
+          <div>
+            <div className="rounded-3xl border border-gray-300 bg-white/90 p-6">
+              <div className="mb-1 flex items-center gap-2">
+                <div
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{
+                    background: statusConfig.dotGradient,
+                    border: `1px solid ${statusConfig.dotStroke}`,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span className="text-2xl font-serif text-gray-900">
+                  {formatStatusLabel(project.status ?? "active")}
+                </span>
+              </div>
+              <p className="mb-3 font-sans text-xs text-gray-500">
+                Project Status
+              </p>
 
-                {/* Progress Bar */}
-                <div className="bg-[#eaeaea] h-4 rounded-full mb-4">
-                  <div
-                    className="bg-[#42a44a] h-4 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
+              {/* Progress Bar */}
+              <div className="mb-4 h-2 overflow-hidden rounded-full bg-[#dddddd]">
+                <div
+                  className="h-full overflow-hidden rounded-full"
+                  style={{
+                    width: `${progress}%`,
+                    background: statusConfig.barGradient,
+                  }}
+                />
               </div>
 
-              {/* Status Steps */}
-              <div className="bg-[#ebebeb] border-t-2 border-[#d1d1d1] px-8 py-4">
-                <div className="flex items-center justify-between text-[16px]">
-                  {/* Kick-off */}
-                  <div
-                    className={`flex flex-col items-center gap-1 ${
-                      isStageCompleted(project.stage, "kick_off")
-                        ? "opacity-40"
-                        : isStageActive(project.stage, "kick_off")
-                          ? ""
-                          : "opacity-40"
-                    }`}
-                  >
-                    <span className="text-[20px]">☕</span>
-                    <span
-                      className={`font-semibold text-[#444444] tracking-[-0.5px] ${
-                        isStageCompleted(project.stage, "kick_off")
-                          ? "line-through"
-                          : ""
-                      }`}
-                    >
-                      Kick-off
-                    </span>
-                  </div>
-
-                  {/* Pay (First) */}
-                  <div
-                    className={`flex flex-col items-center gap-1 ${
-                      isStageCompleted(project.stage, "pay_first")
-                        ? "opacity-40"
-                        : isStageActive(project.stage, "pay_first")
-                          ? ""
-                          : "opacity-40"
-                    }`}
-                  >
-                    <span className="text-[20px]">💰</span>
-                    <span
-                      className={`font-semibold text-[#444444] tracking-[-0.5px] ${
-                        isStageCompleted(project.stage, "pay_first")
-                          ? "line-through"
-                          : ""
-                      }`}
-                    >
-                      Pay
-                    </span>
-                  </div>
-
-                  {/* Revise */}
-                  <div
-                    className={`flex flex-col items-center gap-1 ${
-                      isStageCompleted(project.stage, "revise")
-                        ? "opacity-40"
-                        : isStageActive(project.stage, "revise")
-                          ? ""
-                          : "opacity-40"
-                    }`}
-                  >
-                    <span className="text-[20px]">💬</span>
-                    <span
-                      className={`font-semibold text-[#444444] tracking-[-0.5px] ${
-                        isStageCompleted(project.stage, "revise")
-                          ? "line-through"
-                          : ""
-                      }`}
-                    >
-                      Revise
-                    </span>
-                  </div>
-
-                  {/* Deliver */}
-                  <div
-                    className={`flex flex-col items-center gap-1 ${
-                      isStageCompleted(project.stage, "deliver")
-                        ? "opacity-40"
-                        : isStageActive(project.stage, "deliver")
-                          ? ""
-                          : "opacity-40"
-                    }`}
-                  >
-                    <span className="text-[20px]">🚀</span>
-                    <span
-                      className={`font-semibold text-[#444444] tracking-[-0.5px] ${
-                        isStageCompleted(project.stage, "deliver")
-                          ? "line-through"
-                          : ""
-                      }`}
-                    >
-                      Deliver
-                    </span>
-                  </div>
-                </div>
-              </div>
+              {/* Workflow Steps */}
+              <WorkflowStepper stage={project.stage} />
             </div>
 
-            {/* Invoice Card */}
-            <div className="bg-white/80 backdrop-blur-sm border-2 border-[#d1d1d1] rounded-[48px] p-8">
-              <div className="flex items-center gap-2 mb-6">
-                <span className="text-[18px]">ℹ️</span>
-                <h3 className="font-medium text-[20px] text-[#686868]">
-                  Invoice
-                </h3>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center pb-2 border-b-2 border-[#d1d1d1]">
-                  <p className="font-medium text-[20px] text-[#686868] tracking-[-0.5px]">
-                    Subtotal
-                  </p>
-                  <p className="font-semibold text-[20px] text-[#1f1f1f] tracking-[-0.5px]">
+            {/* Financial Summary */}
+            <div className="mt-3 rounded-3xl border border-gray-300 bg-white/90 p-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between font-sans text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-semibold text-gray-900">
                     {formatCurrency(parseNumeric(project.subtotal), currency)}
-                  </p>
+                  </span>
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b-2 border-[#d1d1d1]">
-                  <p className="font-medium text-[20px] text-[#686868] tracking-[-0.5px]">
+                <div className="flex items-center justify-between font-sans text-sm">
+                  <span className="flex items-center gap-1 text-gray-600">
                     {VAT_PERCENTAGE}% VAT
-                  </p>
-                  <p className="font-semibold text-[20px] text-[#1f1f1f] tracking-[-0.5px]">
-                    {vat}
-                  </p>
+                    <IconInfoCircle className="size-3.5 text-gray-400" />
+                  </span>
+                  <span className="font-semibold text-gray-900">{vat}</span>
                 </div>
-                <div className="flex justify-between items-center pt-2">
-                  <p className="font-medium text-[20px] text-[#686868] tracking-[-0.5px]">
-                    Total Price
-                  </p>
-                  <p className="font-semibold text-[20px] text-[#1f1f1f] tracking-[-0.5px]">
-                    {total}
-                  </p>
+                <div className="flex items-center justify-between border-t border-dashed border-gray-200 pt-3 font-sans text-sm">
+                  <span className="font-medium text-gray-700">Total Price</span>
+                  <span className="font-bold text-gray-900">{total}</span>
                 </div>
               </div>
 
-              {/* Pay Button */}
               <button
-                className="w-full py-6 rounded-[76px] bg-white/80 backdrop-blur-[25px] border border-white text-black font-semibold text-[20px] hover:bg-white/90 transition-colors shadow-[inset_10px_10px_1.676px_-11.735px_rgba(255,255,255,0.5),inset_6.706px_6.706px_3.353px_-6.706px_#b3b3b3,inset_-6.706px_-6.706px_3.353px_-6.706px_#b3b3b3,inset_0px_0px_0px_3.353px_#999999,inset_0px_0px_73.762px_0px_rgba(242,242,242,0.5)] tracking-[-1px]"
+                className="mt-6 w-full rounded-2xl bg-linear-to-b from-gray-200 to-gray-300 py-4 font-sans text-sm font-semibold text-gray-800 shadow-sm transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={project.stage === "completed"}
               >
                 {paymentAmount === null
@@ -273,109 +274,55 @@ export default function ProjectDetails({
         </div>
 
         {/* Deliverables Section */}
-        <div className="mb-12 pt-8 border-t border-[#d1d1d1]">
-          <h2
-            className="text-[58px] font-normal leading-[1.1] mb-4 bg-gradient-to-r from-[#1f1f1f] to-[#404040] bg-clip-text"
-            style={{ WebkitTextFillColor: "transparent" }}
-          >
+        <section className="-mx-10 border-t border-gray-400/70 px-10 pt-10">
+          <h2 className="mb-2 font-serif text-3xl text-gray-900">
             Deliverables
           </h2>
-          <p className="text-[#686868] text-[20px] leading-[26px] mb-6 font-medium tracking-[-0.5px]">
+          <p className="mb-6 font-sans text-sm text-gray-600">
             All project files and assets delivered here, always up-to-date and
             ready to download.
           </p>
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="aspect-square rounded-[31px] border-2 border-[#adadad] bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors cursor-pointer"
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-2">📁</div>
-                  <p className="text-sm text-gray-600">Deliverables</p>
-                  <p className="text-xs text-gray-400">1.45 GB</p>
-                </div>
-              </div>
-            ))}
+          <div className="flex gap-4">
+            <ResourceCard
+              type="folder"
+              title="Deliverables"
+              subtitle="1.45 GB"
+            />
           </div>
-        </div>
+        </section>
 
         {/* Client Assets Section */}
-        <div className="mb-12 pt-8 border-t border-[#d1d1d1]">
-          <h2
-            className="text-[58px] font-normal leading-[1.1] mb-4 bg-gradient-to-r from-[#1f1f1f] to-[#404040] bg-clip-text"
-            style={{ WebkitTextFillColor: "transparent" }}
-          >
+        <section className="-mx-10 border-t border-gray-400/70 px-10 pt-10">
+          <h2 className="mb-2 font-serif text-3xl text-gray-900">
             Client Assets
           </h2>
-          <p className="text-[#686868] text-[20px] leading-[26px] mb-6 font-medium tracking-[-0.5px]">
+          <p className="mb-6 font-sans text-sm text-gray-600">
             Upload any files or assets needed for the project here.
           </p>
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="aspect-square rounded-[31px] border-2 border-[#adadad] bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors cursor-pointer"
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-2">📁</div>
-                  <p className="text-sm text-gray-600">Deliverables</p>
-                  <p className="text-xs text-gray-400">1.45 GB</p>
-                </div>
-              </div>
-            ))}
-            <div className="aspect-square rounded-[31px] border-2 border-dashed border-[#adadad] bg-[rgba(251,251,251,0.5)] flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
-              <span className="text-5xl text-gray-400">+</span>
-            </div>
+          <div className="flex gap-4">
+            <ResourceCard
+              type="folder"
+              title="Deliverables"
+              subtitle="1.45 GB"
+            />
           </div>
-        </div>
+        </section>
 
         {/* Legal Section */}
-        <div className="pt-8 border-t border-[#d1d1d1]">
-          <h2
-            className="text-[58px] font-normal leading-[1.1] mb-4 bg-gradient-to-r from-[#1f1f1f] to-[#404040] bg-clip-text"
-            style={{ WebkitTextFillColor: "transparent" }}
-          >
-            Legal
-          </h2>
-          <p className="text-[#686868] text-[20px] leading-[26px] mb-6 font-medium tracking-[-0.5px]">
+        <section className="-mx-10 border-t border-gray-400/70 px-10 pt-10">
+          <h2 className="mb-2 font-serif text-3xl text-gray-900">Legal</h2>
+          <p className="mb-6 font-sans text-sm text-gray-600">
             Access your contracts, legal documents, and invoices for this
             project here.
           </p>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Project Agreement */}
-            <div className="bg-white border-2 border-[#adadad] rounded-[31px] p-6 hover:shadow-lg transition-shadow cursor-pointer">
-              <div className="w-[106px] h-[106px] mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-                <span className="text-5xl">📄</span>
-              </div>
-              <p className="font-semibold text-[20px] text-black text-center mb-3 tracking-[-0.5px]">
-                Project Agreement
-              </p>
-              <div className="flex items-center justify-center gap-2 bg-[#c6ffc6] border border-[#42a44a] rounded-md px-2 py-1">
-                <span className="text-[#42a44a] text-xs">✓</span>
-                <span className="text-[#42a44a] text-xs font-semibold tracking-[-0.38px]">
-                  Signed
-                </span>
-              </div>
-            </div>
-
-            {/* NDA */}
-            <div className="bg-white border-2 border-[#adadad] rounded-[31px] p-6 hover:shadow-lg transition-shadow cursor-pointer">
-              <div className="w-[106px] h-[106px] mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-                <span className="text-5xl">📄</span>
-              </div>
-              <p className="font-semibold text-[20px] text-black text-center mb-3 tracking-[-0.5px]">
-                NDA
-              </p>
-              <div className="flex items-center justify-center gap-2 bg-[#fff2c6] border border-[#c59161] rounded-md px-2 py-1">
-                <span className="text-[#bd712c] text-xs">⚠</span>
-                <span className="text-[#bd712c] text-xs font-semibold tracking-[-0.4px]">
-                  Not signed
-                </span>
-              </div>
-            </div>
+          <div className="flex gap-4">
+            <ResourceCard
+              type="file"
+              title="Project Agreement"
+              badge={{ text: "Signed", variant: "success" }}
+            />
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

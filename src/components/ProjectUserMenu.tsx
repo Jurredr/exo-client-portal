@@ -55,12 +55,12 @@ export function ProjectUserMenu({
   };
 
   return (
-    <div className="fixed top-10 right-6 z-50">
+    <div className="fixed top-12 right-10 z-50">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="flex items-center justify-between gap-4 h-auto p-2 rounded-xl hover:bg-white/5 transition-all outline-none focus-visible:outline-none focus-visible:ring-0"
+            className="flex items-center justify-between gap-4 h-auto p-2 rounded-xl hover:bg-transparent outline-none focus-visible:outline-none focus-visible:ring-0"
           >
             <div className="flex flex-col items-end justify-center">
               <p className="font-semibold text-lg leading-tight text-white">

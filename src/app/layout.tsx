@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ReactQueryProvider } from "@/lib/react-query";
@@ -7,6 +8,27 @@ import { ReactQueryProvider } from "@/lib/react-query";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+});
+
+const perfectlyNineties = localFont({
+  src: [
+    {
+      path: "../../public/font/perfectly-nineties/perfectly-nineties-regular.otf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../public/font/perfectly-nineties/perfectly-nineties-semibold.otf",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../../public/font/perfectly-nineties/perfectly-nineties-bold.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-perfectly-nineties",
 });
 
 export const metadata: Metadata = {
@@ -35,7 +57,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>
+      <body
+        className={`${inter.variable} ${perfectlyNineties.variable} antialiased`}
+      >
         <ReactQueryProvider>
           {children}
           <Toaster />

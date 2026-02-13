@@ -83,7 +83,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           backgroundAttachment: "fixed",
           backgroundRepeat: "no-repeat",
         }}
-      ></div>
+      />
 
       {/* Fixed User Menu - always in top right */}
       <ProjectUserMenu
@@ -93,10 +93,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       />
 
       {/* Main Content - scrolls over background */}
-      <div className="relative z-10 pt-24 pb-12">
+      <div className="relative z-10 pt-14 pl-10 pb-12">
         <ProjectDetails
           project={projectWithOrg.project}
           organizationName={projectWithOrg.organization.name}
+          organizationImageUrl={
+            projectWithOrg.organization.imageStoragePath
+              ? `/api/projects/${id}/organization-image`
+              : undefined
+          }
         />
       </div>
     </div>

@@ -294,13 +294,15 @@ export default function ProjectDetails({
               </div>
 
               <button
-                className="mt-6 w-full rounded-2xl bg-linear-to-b from-gray-200 to-gray-300 py-4 font-sans text-sm font-semibold text-gray-800 shadow-sm transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={project.stage === "completed"}
+                className="mt-6 w-full rounded-2xl bg-linear-to-br cursor-pointer from-gray-100 to-gray-200 border border-gray-200 py-4 font-sans text-sm font-semibold text-gray-800 shadow-sm transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={
+                  project.stage !== "pay_first" && project.stage !== "pay_final"
+                }
               >
                 {paymentAmount === null
                   ? "Payment complete"
                   : paymentAmount === "€0"
-                    ? "No payment required"
+                    ? "Payment received"
                     : `Pay ${paymentAmount}`}
               </button>
             </div>

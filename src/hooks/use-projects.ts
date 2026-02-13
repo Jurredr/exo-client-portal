@@ -4,6 +4,7 @@ import { dashboardStatsKeys } from "./use-dashboard-stats";
 interface ProjectData {
   project: {
     id: string;
+    slug: string;
     title: string;
     description: string | null;
     status: string;

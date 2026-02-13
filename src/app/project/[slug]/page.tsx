@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import {
   getProjectWithOrganizationBySlug,
+  getProjectWithOrganization,
   canUserAccessProject,
   ensureUserExists,
   isUserInEXOOrganization,
@@ -36,8 +37,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     user.user_metadata?.avatar_url || user.user_metadata?.image
   );
 
-  // Get the project data by slug first (need project id for access check)
-  const projectWithOrg = await getProjectWithOrganizationBySlug(slug);
+  // Get the project data by slug or by id (for backward compatibility with old links)
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      slug
+    );
+  const projectWithOrg = isUuid
+    ? await getProjectWithOrganization(slug)
+    : await getProjectWithOrganizationBySlug(slug);
 
   if (!projectWithOrg) {
     redirect("/not-found");
@@ -97,12 +104,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       />
 
       {/* Progressive blur at bottom - fixed to viewport */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 h-[120px]">
+      <div className="fixed bottom-0 left-0 right-0 z-20">
         <ProgressiveBlur
           position="bottom"
-          backgroundColor="#1a1a1a"
-          height="120px"
-          blurAmount="6px"
+          backgroundColor="#CCCDCD"
+          height="100px"
+          // blurAmount="2px"
         />
       </div>
 

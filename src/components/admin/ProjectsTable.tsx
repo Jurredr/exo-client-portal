@@ -485,7 +485,7 @@ export function ProjectsTable() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
                 <Link
-                  href={`/project/${row.original.project.slug}`}
+                  href={`/project/${row.original.project.slug ?? row.original.project.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { getInvoiceById, isUserInEXOOrganization } from "@/lib/db/queries";
+import {
+  getInvoiceById,
+  isUserInEXOOrganization,
+  canUserAccessProject,
+} from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { generateInvoicePDF } from "@/lib/utils/invoice-pdf";
 import { downloadInvoicePDF } from "@/lib/utils/invoice-storage";
@@ -7,6 +11,8 @@ import { createHash } from "crypto";
 
 // Force dynamic rendering to always fetch fresh organization data
 export const dynamic = "force-dynamic";
+
+const CLIENT_VISIBLE_INVOICE_STATUSES = ["sent", "paid", "overdue"];
 
 export async function GET(
   request: Request,
@@ -23,11 +29,7 @@ export async function GET(
     }
 
     const isInEXO = await isUserInEXOOrganization(user.email);
-    if (!isInEXO) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
-    // Await params in Next.js 16
     const resolvedParams = await params;
     const id = resolvedParams.id;
 
@@ -38,15 +40,29 @@ export async function GET(
       );
     }
 
-    // Check for cache-busting query parameter
-    const { searchParams } = new URL(request.url);
-    const noCache =
-      searchParams.get("nocache") === "true" || searchParams.get("v");
-
     const invoiceData = await getInvoiceById(id);
     if (!invoiceData) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
+
+    // EXO can access any invoice; clients can only access invoices for projects they have access to
+    if (!isInEXO) {
+      const projectId = invoiceData.invoice.projectId;
+      if (
+        !projectId ||
+        !CLIENT_VISIBLE_INVOICE_STATUSES.includes(invoiceData.invoice.status)
+      ) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const hasAccess = await canUserAccessProject(user.email, projectId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
+    const { searchParams } = new URL(request.url);
+    const noCache =
+      searchParams.get("nocache") === "true" || searchParams.get("v");
 
     // Create ETag based on invoice ID and updatedAt for cache validation
     // Include cache-busting parameter in ETag if present

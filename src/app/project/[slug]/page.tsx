@@ -128,6 +128,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               ? `/api/projects/${projectWithOrg.project.id}/organization-image`
               : undefined
           }
+          isInEXO={isInEXO}
         />
       </div>
     </div>

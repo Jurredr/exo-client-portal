@@ -10,14 +10,13 @@ interface ResourceCardProps {
   };
   className?: string;
   onClick?: () => void;
+  href?: string;
 }
 
 const ICONS = {
   folder: "/macos-folder-blue512x512@2x.png",
   file: "/file-sheet.png",
 } as const;
-
-const ICON_SIZE = 56;
 
 export function ResourceCard({
   type,
@@ -26,17 +25,12 @@ export function ResourceCard({
   badge,
   className = "",
   onClick,
+  href,
 }: ResourceCardProps) {
-  return (
-    <div
-      className={`flex w-36 cursor-pointer flex-col items-center justify-center rounded-2xl border border-gray-200 bg-gray-50/80 py-3 transition-colors hover:bg-gray-100 ${className}`}
-      onClick={onClick}
-      onKeyDown={(e) =>
-        onClick && (e.key === "Enter" || e.key === " ") && onClick()
-      }
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-    >
+  const baseClassName = `flex w-36 cursor-pointer flex-col items-center justify-center rounded-2xl border border-gray-200 bg-gray-50/80 py-3 transition-colors hover:bg-gray-100 ${className}`;
+
+  const content = (
+    <>
       <div className="mb-2 flex h-18 w-18 relative items-center justify-center">
         <Image
           src={ICONS[type]}
@@ -62,6 +56,33 @@ export function ResourceCard({
           {badge.text}
         </span>
       )}
+    </>
+  );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={baseClassName}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <div
+      className={baseClassName}
+      onClick={onClick}
+      onKeyDown={(e) =>
+        onClick && (e.key === "Enter" || e.key === " ") && onClick()
+      }
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
+      {content}
     </div>
   );
 }

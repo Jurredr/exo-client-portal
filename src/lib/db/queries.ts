@@ -2193,6 +2193,23 @@ export async function getAllInvoicesCount(filters?: {
   return Number(result[0]?.count || 0);
 }
 
+export async function getInvoicesByProjectId(projectId: string) {
+  return db
+    .select({
+      id: invoices.id,
+      invoiceNumber: invoices.invoiceNumber,
+      amount: invoices.amount,
+      currency: invoices.currency,
+      status: invoices.status,
+      invoiceDate: invoices.invoiceDate,
+      dueDate: invoices.dueDate,
+      paidAt: invoices.paidAt,
+    })
+    .from(invoices)
+    .where(eq(invoices.projectId, projectId))
+    .orderBy(desc(invoices.invoiceDate), desc(invoices.invoiceNumber));
+}
+
 export async function getInvoiceById(invoiceId: string) {
   const result = await db
     .select({

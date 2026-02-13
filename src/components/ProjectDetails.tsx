@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import type { Project } from "@/types/project";
 import Image from "next/image";
 import { ResourceCard } from "@/components/ResourceCard";
+import { AddCard } from "@/components/AddCard";
 import { VAT_PERCENTAGE } from "@/lib/constants";
 import { formatDate } from "@/lib/utils/date";
 import {
@@ -30,10 +32,22 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+interface ProjectInvoice {
+  id: string;
+  invoiceNumber: string;
+  amount: string;
+  currency: string;
+  status: string;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  paidAt: string | null;
+}
+
 interface ProjectDetailsProps {
   project: Project;
   organizationName: string;
   organizationImageUrl?: string;
+  isInEXO?: boolean;
 }
 
 const STAGE_CONFIG = [
@@ -137,6 +151,7 @@ export default function ProjectDetails({
   project,
   organizationName,
   organizationImageUrl,
+  isInEXO = false,
 }: ProjectDetailsProps) {
   const currency = project.currency || "EUR";
   const vat = calculateVAT(project.subtotal, currency);
@@ -148,6 +163,14 @@ export default function ProjectDetails({
   );
   const progress = getStageProgress(project.stage);
   const statusConfig = getStatusConfig(project.status ?? "active");
+
+  const [invoices, setInvoices] = useState<ProjectInvoice[]>([]);
+  useEffect(() => {
+    fetch(`/api/projects/${project.id}/invoices`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setInvoices(Array.isArray(data) ? data : []))
+      .catch(() => setInvoices([]));
+  }, [project.id]);
 
   return (
     <div className="max-w-2xl">
@@ -266,20 +289,20 @@ export default function ProjectDetails({
                 </div>
                 <div className="flex items-center justify-between font-sans text-sm">
                   <span className="flex items-center gap-1 text-gray-600">
-                    {VAT_PERCENTAGE}% VAT
+                    {VAT_PERCENTAGE}% BTW
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           type="button"
                           className="inline-flex shrink-0 cursor-help rounded focus:outline-none focus:ring-2 focus:ring-gray-300"
-                          aria-label="VAT information"
+                          aria-label="BTW information"
                         >
                           <IconInfoCircle className="size-3.5 text-gray-400" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-68">
                         <p>
-                          VAT is 0% at the moment since EXO is still in the KOR
+                          BTW is 0% at the moment since EXO is still in the KOR
                           (Kleine ondernemers regeling).
                         </p>
                       </TooltipContent>
@@ -318,12 +341,13 @@ export default function ProjectDetails({
             All project files and assets delivered here, always up-to-date and
             ready to download.
           </p>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <ResourceCard
               type="folder"
               title="Deliverables"
               subtitle="1.45 GB"
             />
+            {isInEXO && <AddCard />}
           </div>
         </section>
 
@@ -335,12 +359,8 @@ export default function ProjectDetails({
           <p className="mb-6 font-sans text-sm text-gray-600">
             Upload any files or assets needed for the project here.
           </p>
-          <div className="flex gap-4">
-            <ResourceCard
-              type="folder"
-              title="Deliverables"
-              subtitle="1.45 GB"
-            />
+          <div className="flex flex-wrap gap-4">
+            <AddCard />
           </div>
         </section>
 
@@ -351,12 +371,34 @@ export default function ProjectDetails({
             Access your contracts, legal documents, and invoices for this
             project here.
           </p>
-          <div className="flex gap-4">
-            <ResourceCard
-              type="file"
-              title="Project Agreement"
-              badge={{ text: "Signed", variant: "success" }}
-            />
+          <div className="flex flex-wrap gap-4">
+            {invoices.map((invoice) => (
+              <ResourceCard
+                key={invoice.id}
+                type="file"
+                title={invoice.invoiceNumber}
+                subtitle={formatCurrency(
+                  parseNumeric(invoice.amount),
+                  invoice.currency
+                )}
+                badge={{
+                  text:
+                    invoice.status === "paid"
+                      ? "Paid"
+                      : invoice.status === "overdue"
+                        ? "Overdue"
+                        : "Sent",
+                  variant: invoice.status === "overdue" ? "warning" : "success",
+                }}
+                href={`/api/invoices/${invoice.id}/download`}
+              />
+            ))}
+            {invoices.length === 0 && (
+              <p className="font-sans text-sm text-gray-500">
+                No invoices for this project yet.
+              </p>
+            )}
+            {isInEXO && <AddCard />}
           </div>
         </section>
       </div>

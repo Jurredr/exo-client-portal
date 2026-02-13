@@ -1,5 +1,5 @@
 import { NotFoundContent } from "@/components/NotFoundContent";
 
-export default function NotFoundPage() {
+export default function NotFound() {
   return <NotFoundContent />;
 }

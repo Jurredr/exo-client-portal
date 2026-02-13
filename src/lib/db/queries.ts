@@ -29,6 +29,7 @@ import {
   EXO_ORGANIZATION_NAME,
   VAT_PERCENTAGE,
 } from "@/lib/constants";
+import { slugify, generateSlugSuffix } from "@/lib/utils/slug";
 
 export function isAdmin(email: string): boolean {
   return email.endsWith(ADMIN_EMAIL_DOMAIN);
@@ -141,6 +142,16 @@ export async function getProjectById(projectId: string) {
   return project[0] || null;
 }
 
+export async function getProjectBySlug(slug: string) {
+  const project = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.slug, slug))
+    .limit(1);
+
+  return project[0] || null;
+}
+
 export async function getUserByEmail(email: string) {
   const user = await db
     .select()
@@ -208,6 +219,20 @@ export async function getProjectWithOrganization(projectId: string) {
     .from(projects)
     .innerJoin(organizations, eq(projects.organizationId, organizations.id))
     .where(eq(projects.id, projectId))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function getProjectWithOrganizationBySlug(slug: string) {
+  const result = await db
+    .select({
+      project: projects,
+      organization: organizations,
+    })
+    .from(projects)
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .where(eq(projects.slug, slug))
     .limit(1);
 
   return result[0] || null;
@@ -999,9 +1024,11 @@ export async function createProject(data: {
   type?: "client" | "labs";
   organizationId: string;
 }) {
+  const slug = slugify(data.title, generateSlugSuffix());
   const [project] = await db
     .insert(projects)
     .values({
+      slug,
       title: data.title,
       description: data.description || null,
       status: data.status || "active",
@@ -1023,6 +1050,7 @@ export async function getAllProjects() {
     .select({
       project: {
         id: projects.id,
+        slug: projects.slug,
         title: projects.title,
         description: projects.description,
         status: projects.status,
@@ -1058,6 +1086,7 @@ export async function getAllProjectsPaginated(options?: {
     .select({
       project: {
         id: projects.id,
+        slug: projects.slug,
         title: projects.title,
         description: projects.description,
         status: projects.status,
@@ -1223,12 +1252,23 @@ export async function updateProject(
     type: "client" | "labs";
   }>
 ) {
+  const updateData: Record<string, unknown> = {
+    ...data,
+    updatedAt: new Date(),
+  };
+
+  // Regenerate slug when title changes
+  if (data.title) {
+    const existing = await getProjectById(projectId);
+    const suffix =
+      existing?.id?.toString().replace(/-/g, "").slice(0, 8) ??
+      generateSlugSuffix();
+    updateData.slug = slugify(data.title, suffix);
+  }
+
   const [project] = await db
     .update(projects)
-    .set({
-      ...data,
-      updatedAt: new Date(),
-    })
+    .set(updateData)
     .where(eq(projects.id, projectId))
     .returning();
 

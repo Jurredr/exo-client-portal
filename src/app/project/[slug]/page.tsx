@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import {
-  getProjectWithOrganization,
+  getProjectWithOrganizationBySlug,
   canUserAccessProject,
   ensureUserExists,
   isUserInEXOOrganization,
@@ -10,13 +10,14 @@ import {
 } from "@/lib/db/queries";
 import { ProjectUserMenu } from "@/components/ProjectUserMenu";
 import ProjectDetails from "@/components/ProjectDetails";
+import { ProgressiveBlur } from "@/components/ProgressiveBlur";
 
 interface ProjectPageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
-  const { id } = await params;
+  const { slug } = await params;
   const supabase = await createClient();
 
   // Get the current user
@@ -35,18 +36,21 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     user.user_metadata?.avatar_url || user.user_metadata?.image
   );
 
-  // Check if user can access this project
-  const hasAccess = await canUserAccessProject(user.email, id);
-
-  if (!hasAccess) {
-    redirect("/unauthorized");
-  }
-
-  // Get the project data with organization
-  const projectWithOrg = await getProjectWithOrganization(id);
+  // Get the project data by slug first (need project id for access check)
+  const projectWithOrg = await getProjectWithOrganizationBySlug(slug);
 
   if (!projectWithOrg) {
     redirect("/not-found");
+  }
+
+  // Check if user can access this project
+  const hasAccess = await canUserAccessProject(
+    user.email,
+    projectWithOrg.project.id
+  );
+
+  if (!hasAccess) {
+    redirect("/unauthorized");
   }
 
   // Get user data from database
@@ -92,6 +96,16 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         showAdminLink={isInEXO}
       />
 
+      {/* Progressive blur at bottom - fixed to viewport */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 h-[120px]">
+        <ProgressiveBlur
+          position="bottom"
+          backgroundColor="#1a1a1a"
+          height="120px"
+          blurAmount="6px"
+        />
+      </div>
+
       {/* Main Content - scrolls over background */}
       <div className="relative z-10 pt-14 pl-10 pb-12">
         <ProjectDetails
@@ -99,7 +113,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           organizationName={projectWithOrg.organization.name}
           organizationImageUrl={
             projectWithOrg.organization.imageStoragePath
-              ? `/api/projects/${id}/organization-image`
+              ? `/api/projects/${projectWithOrg.project.id}/organization-image`
               : undefined
           }
         />

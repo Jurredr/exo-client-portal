@@ -37,7 +37,7 @@ export default async function Home() {
     // Get any project for admins
     const allProjects = await db.select().from(projects).limit(1);
     if (allProjects.length > 0) {
-      redirect(`/project/${allProjects[0].id}`);
+      redirect(`/project/${allProjects[0].slug}`);
     }
   } else {
     // Non-admins need organization
@@ -78,7 +78,7 @@ export default async function Home() {
     }
 
     // Redirect to the first project
-    redirect(`/project/${userProjects[0].id}`);
+    redirect(`/project/${userProjects[0].slug}`);
   }
 
   // Fallback if no projects exist

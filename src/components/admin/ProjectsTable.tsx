@@ -484,7 +484,11 @@ export function ProjectsTable() {
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
-                <Link href={`/project/${row.original.project.id}`}>
+                <Link
+                  href={`/project/${row.original.project.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Open
                 </Link>
@@ -724,6 +728,36 @@ export function ProjectsTable() {
               <Copy className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+        <div className="flex flex-col gap-3">
+          <Label htmlFor="edit-slug">Slug</Label>
+          <div className="flex gap-2">
+            <Input
+              id="edit-slug"
+              value={selectedProject?.project.slug || ""}
+              disabled
+              className="bg-muted font-mono text-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                const slug = selectedProject?.project.slug;
+                if (slug) {
+                  const url = `${typeof window !== "undefined" ? window.location.origin : ""}/project/${slug}`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Project link copied to clipboard");
+                }
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Used in the project URL: /project/
+            {selectedProject?.project.slug ?? "..."}
+          </p>
         </div>
         <div className="flex flex-col gap-3">
           <Label htmlFor="edit-title">Title</Label>
@@ -1311,6 +1345,36 @@ export function ProjectsTable() {
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-slug">Slug</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="edit-slug"
+                        value={selectedProject.project.slug || ""}
+                        disabled
+                        className="bg-muted font-mono text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          const slug = selectedProject.project.slug;
+                          if (slug) {
+                            const url = `${typeof window !== "undefined" ? window.location.origin : ""}/project/${slug}`;
+                            navigator.clipboard.writeText(url);
+                            toast.success("Project link copied to clipboard");
+                          }
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      Used in the project URL: /project/
+                      {selectedProject.project.slug ?? "..."}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-title">Title</Label>

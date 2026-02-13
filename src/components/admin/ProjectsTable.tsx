@@ -483,16 +483,18 @@ export function ProjectsTable() {
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
-                <Link
-                  href={`/project/${row.original.project.slug ?? row.original.project.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open
-                </Link>
-              </DropdownMenuItem>
+              {row.original.project.type !== "labs" && (
+                <DropdownMenuItem asChild onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    href={`/project/${row.original.project.slug ?? row.original.project.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"

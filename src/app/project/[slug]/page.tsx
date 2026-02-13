@@ -50,6 +50,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     redirect("/not-found");
   }
 
+  // EXO Labs projects are internal - no public client pages
+  if (projectWithOrg.project.type === "labs") {
+    redirect("/not-found");
+  }
+
   // Check if user can access this project
   const hasAccess = await canUserAccessProject(
     user.email,

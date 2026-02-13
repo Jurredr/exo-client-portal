@@ -32,10 +32,13 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
-  // Admins can see all projects, others need organization
+  // Admins can see all projects, others need organization (exclude labs - internal only)
   if (isAdmin(user.email)) {
-    // Get any project for admins
-    const allProjects = await db.select().from(projects).limit(1);
+    const allProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.type, "client"))
+      .limit(1);
     if (allProjects.length > 0) {
       redirect(`/project/${allProjects[0].slug}`);
     }
@@ -57,14 +60,15 @@ export default async function Home() {
       );
     }
 
-    // Get user's first project
+    // Get user's first project (exclude labs - internal only)
     const userProjects = await db
       .select()
       .from(projects)
       .where(eq(projects.organizationId, dbUser.organizationId))
-      .limit(1);
+      .limit(10);
+    const clientProjects = userProjects.filter((p) => p.type === "client");
 
-    if (userProjects.length === 0) {
+    if (clientProjects.length === 0) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-black">
           <div className="text-center">
@@ -77,8 +81,8 @@ export default async function Home() {
       );
     }
 
-    // Redirect to the first project
-    redirect(`/project/${userProjects[0].slug}`);
+    // Redirect to the first client project
+    redirect(`/project/${clientProjects[0].slug}`);
   }
 
   // Fallback if no projects exist

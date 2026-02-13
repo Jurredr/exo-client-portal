@@ -94,6 +94,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ProjectData {
   project: {
     id: string;
+    slug: string;
     title: string;
     description: string | null;
     status: string;

@@ -41,6 +41,15 @@ interface ProjectInvoice {
   invoiceDate: string | null;
   dueDate: string | null;
   paidAt: string | null;
+  displayAmount?: number; // Total from line items for reimbursements, else parsed amount
+}
+
+interface ProjectContract {
+  id: string;
+  name: string;
+  signed: boolean;
+  signedAt: string | null;
+  createdAt: string;
 }
 
 interface ProjectDetailsProps {
@@ -165,11 +174,20 @@ export default function ProjectDetails({
   const statusConfig = getStatusConfig(project.status ?? "active");
 
   const [invoices, setInvoices] = useState<ProjectInvoice[]>([]);
+  const [contracts, setContracts] = useState<ProjectContract[]>([]);
+
   useEffect(() => {
     fetch(`/api/projects/${project.id}/invoices`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setInvoices(Array.isArray(data) ? data : []))
       .catch(() => setInvoices([]));
+  }, [project.id]);
+
+  useEffect(() => {
+    fetch(`/api/projects/${project.id}/contracts`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setContracts(Array.isArray(data) ? data : []))
+      .catch(() => setContracts([]));
   }, [project.id]);
 
   return (
@@ -372,13 +390,26 @@ export default function ProjectDetails({
             project here.
           </p>
           <div className="flex flex-wrap gap-4">
+            {contracts.map((contract) => (
+              <ResourceCard
+                key={contract.id}
+                type="file"
+                title={contract.name}
+                badge={
+                  contract.signed
+                    ? { text: "Signed", variant: "success" }
+                    : { text: "Pending", variant: "warning" }
+                }
+                href={`/api/contracts/${contract.id}/download`}
+              />
+            ))}
             {invoices.map((invoice) => (
               <ResourceCard
                 key={invoice.id}
                 type="file"
                 title={invoice.invoiceNumber}
                 subtitle={formatCurrency(
-                  parseNumeric(invoice.amount),
+                  invoice.displayAmount ?? parseNumeric(invoice.amount),
                   invoice.currency
                 )}
                 badge={{
@@ -393,9 +424,9 @@ export default function ProjectDetails({
                 href={`/api/invoices/${invoice.id}/download`}
               />
             ))}
-            {invoices.length === 0 && (
+            {invoices.length === 0 && contracts.length === 0 && (
               <p className="font-sans text-sm text-gray-500">
-                No invoices for this project yet.
+                No invoices or contracts for this project yet.
               </p>
             )}
             {isInEXO && <AddCard />}

@@ -2201,6 +2201,8 @@ export async function getInvoicesByProjectId(projectId: string) {
       amount: invoices.amount,
       currency: invoices.currency,
       status: invoices.status,
+      expenseId: invoices.expenseId,
+      transactionType: invoices.transactionType,
       invoiceDate: invoices.invoiceDate,
       dueDate: invoices.dueDate,
       paidAt: invoices.paidAt,
@@ -2208,6 +2210,51 @@ export async function getInvoicesByProjectId(projectId: string) {
     .from(invoices)
     .where(eq(invoices.projectId, projectId))
     .orderBy(desc(invoices.invoiceDate), desc(invoices.invoiceNumber));
+}
+
+export async function getContractsByProjectId(projectId: string) {
+  const fromJunction = await db
+    .select({
+      id: contracts.id,
+      name: contracts.name,
+      signed: contracts.signed,
+      signedAt: contracts.signedAt,
+      createdAt: contracts.createdAt,
+    })
+    .from(contracts)
+    .innerJoin(contractProjects, eq(contractProjects.contractId, contracts.id))
+    .where(
+      and(
+        eq(contractProjects.projectId, projectId),
+        eq(contracts.type, "contract")
+      )
+    )
+    .orderBy(desc(contracts.createdAt));
+
+  const fromLegacy = await db
+    .select({
+      id: contracts.id,
+      name: contracts.name,
+      signed: contracts.signed,
+      signedAt: contracts.signedAt,
+      createdAt: contracts.createdAt,
+    })
+    .from(contracts)
+    .where(
+      and(eq(contracts.projectId, projectId), eq(contracts.type, "contract"))
+    )
+    .orderBy(desc(contracts.createdAt));
+
+  const seen = new Set<string>();
+  const merged = [...fromJunction, ...fromLegacy].filter((c) => {
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+  merged.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  return merged;
 }
 
 export async function getInvoiceById(invoiceId: string) {

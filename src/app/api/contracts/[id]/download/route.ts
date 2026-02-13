@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { getContractById, isUserInEXOOrganization } from "@/lib/db/queries";
+import {
+  getContractById,
+  isUserInEXOOrganization,
+  canUserAccessProject,
+} from "@/lib/db/queries";
 import { downloadContractFile } from "@/lib/utils/file-storage";
 import { NextResponse } from "next/server";
 
@@ -17,11 +21,6 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
-    if (!isInEXO) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { id } = await params;
     const contractData = await getContractById(id);
 
@@ -30,6 +29,17 @@ export async function GET(
         { error: "Contract not found" },
         { status: 404 }
       );
+    }
+
+    const isInEXO = await isUserInEXOOrganization(user.email);
+    if (!isInEXO) {
+      const projects = contractData.projects || [];
+      const hasAccess = await Promise.all(
+        projects.map((p) => canUserAccessProject(user.email!, p.id))
+      ).then((results) => results.some(Boolean));
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
 
     // Check if there's a file in Storage

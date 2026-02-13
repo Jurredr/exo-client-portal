@@ -6,6 +6,24 @@ export function parseNumeric(value: string | null | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
+/** Calculate total from invoice line items (same logic as InvoicesTable Total column, for reimbursements) */
+export function calculateTotalFromLineItems(
+  lineItems: Array<{
+    quantity: string | number;
+    unitPrice: string | number;
+    taxPercentage: string | number;
+  }>
+): number {
+  return lineItems.reduce((sum, item) => {
+    const quantity = parseFloat(String(item.quantity)) || 0;
+    const unitPrice = parseFloat(String(item.unitPrice)) || 0;
+    const taxPercentage = parseFloat(String(item.taxPercentage)) || 0;
+    const subtotal = quantity * unitPrice;
+    const tax = subtotal * (taxPercentage / 100);
+    return sum + subtotal + tax;
+  }, 0);
+}
+
 export function formatCurrency(
   amount: number,
   currency: string = "EUR"

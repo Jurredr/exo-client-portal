@@ -1,4 +1,4 @@
-export const VAT_PERCENTAGE = 21;
+export const VAT_PERCENTAGE = 0;
 
 export const EXO_EMAIL = "exo@jurre.me";
 

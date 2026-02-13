@@ -24,6 +24,11 @@ import {
   IconRefresh,
   IconInfoCircle,
 } from "@tabler/icons-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ProjectDetailsProps {
   project: Project;
@@ -249,7 +254,23 @@ export default function ProjectDetails({
                 <div className="flex items-center justify-between font-sans text-sm">
                   <span className="flex items-center gap-1 text-gray-600">
                     {VAT_PERCENTAGE}% VAT
-                    <IconInfoCircle className="size-3.5 text-gray-400" />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex shrink-0 cursor-help rounded focus:outline-none focus:ring-2 focus:ring-gray-300"
+                          aria-label="VAT information"
+                        >
+                          <IconInfoCircle className="size-3.5 text-gray-400" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-68">
+                        <p>
+                          VAT is 0% at the moment since EXO is still in the KOR
+                          (Kleine ondernemers regeling).
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   </span>
                   <span className="font-semibold text-gray-900">{vat}</span>
                 </div>

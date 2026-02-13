@@ -20,7 +20,7 @@ export default async function DashboardLayout({
 
   const isInEXO = await isUserInEXOOrganization(user.email);
   if (!isInEXO) {
-    redirect("/unauthorized");
+    redirect("/projects");
   }
 
   return (

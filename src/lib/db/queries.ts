@@ -172,6 +172,41 @@ export async function getUserById(userId: string) {
   return user[0] || null;
 }
 
+export async function getProjectsForUser(userEmail: string) {
+  const user = await getUserByEmail(userEmail);
+  if (!user) return [];
+
+  const orgIds: string[] = [];
+  if (user.organizationId) orgIds.push(user.organizationId);
+
+  const userOrgs = await db
+    .select({ organizationId: userOrganizations.organizationId })
+    .from(userOrganizations)
+    .where(eq(userOrganizations.userId, user.id));
+  userOrgs.forEach((uo) => {
+    if (uo.organizationId && !orgIds.includes(uo.organizationId)) {
+      orgIds.push(uo.organizationId);
+    }
+  });
+
+  if (orgIds.length === 0) return [];
+
+  return db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      title: projects.title,
+      organizationId: projects.organizationId,
+      organizationName: organizations.name,
+    })
+    .from(projects)
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .where(
+      and(eq(projects.type, "client"), inArray(projects.organizationId, orgIds))
+    )
+    .orderBy(desc(projects.createdAt));
+}
+
 export async function canUserAccessProject(
   userEmail: string,
   projectId: string

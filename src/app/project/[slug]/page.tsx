@@ -62,7 +62,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   );
 
   if (!hasAccess) {
-    redirect("/unauthorized");
+    redirect("/projects");
   }
 
   // Get user data from database

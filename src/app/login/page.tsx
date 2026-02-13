@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -16,7 +16,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   config: "Configuration error. Please contact support.",
 };
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -122,5 +122,28 @@ export default function LoginPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="fixed inset-0 flex flex-col items-center justify-center bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url(/bg-clear.jpg)" }}
+        >
+          <Image
+            src="/exo-glass.png"
+            alt="EXO"
+            width={164}
+            height={164}
+            className="shrink-0 object-contain opacity-80"
+          />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

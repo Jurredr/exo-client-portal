@@ -1,9 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { ensureUserExists, getUserByEmail } from "@/lib/db/queries";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const token_hash = requestUrl.searchParams.get("token_hash");

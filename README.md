@@ -14,6 +14,7 @@ A Next.js client portal application built with Supabase authentication, Drizzle 
 
 - **Next.js 16** - React framework with App Router
 - **Supabase** - Authentication and database
+- **Resend** - Email delivery via SMTP (Supabase Auth) and API (custom emails)
 - **Drizzle ORM** - Type-safe database queries
 - **Tailwind CSS** - Styling
 - **TypeScript** - Type safety
@@ -23,7 +24,7 @@ A Next.js client portal application built with Supabase authentication, Drizzle 
 1. **Install dependencies:**
 
    ```bash
-   pnpm install
+   bun install
    ```
 
 2. **Set up environment variables:**
@@ -33,6 +34,7 @@ A Next.js client portal application built with Supabase authentication, Drizzle 
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    DATABASE_URL=your_postgres_connection_string
+   RESEND_API_KEY=your_resend_api_key  # Optional: for custom emails from the app
    ```
 
    **Important:**
@@ -48,23 +50,33 @@ A Next.js client portal application built with Supabase authentication, Drizzle 
    - Disable "Enable sign up" (accounts are added manually)
    - Set up email templates for magic links
 
-4. **Set up Database:**
+4. **Configure Resend SMTP for Supabase Auth** (fixes "email rate limit exceeded"):
+   - Go to [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Authentication** → **SMTP Settings**
+   - Enable custom SMTP and enter Resend credentials:
+     - **Host:** `smtp.resend.com`
+     - **Port:** `465`
+     - **Username:** `resend`
+     - **Password:** Your Resend API key (from [resend.com/api-keys](https://resend.com/api-keys))
+   - Set **Sender email** and **Sender name** (use a verified domain in Resend)
+   - Save — magic links will be sent via Resend, bypassing Supabase's 2/hour default limit
+
+5. **Set up Database:**
    - Run Drizzle migrations to create tables:
 
    ```bash
-   pnpm db:generate
-   pnpm db:migrate
+   bun db:generate
+   bun db:migrate
    ```
 
-5. **Add client accounts manually:**
+6. **Add client accounts manually:**
    - In Supabase dashboard, go to Authentication > Users
    - Click "Add user" and enter the client's email
    - The client will receive a magic link to sign in
 
-6. **Run the development server:**
+7. **Run the development server:**
 
    ```bash
-   pnpm dev
+   bun dev
    ```
 
    Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -86,6 +98,7 @@ src/
 │   ├── schema.ts          # Drizzle schema definitions
 │   └── index.ts           # Database connection
 └── lib/
+    ├── email/             # Resend email client
     └── supabase/          # Supabase client utilities
 ```
 

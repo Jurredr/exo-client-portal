@@ -13,6 +13,8 @@ const BUTTON_LABEL = "Sign in with Email";
 const ERROR_MESSAGES: Record<string, string> = {
   not_whitelisted: "Your email is not authorized to access this portal.",
   auth_failed: "Authentication failed. Please try again.",
+  pkce_failed:
+    "Login link expired or was opened in a different browser. Please request a new link and open it in the same browser where you requested it.",
   config: "Configuration error. Please contact support.",
 };
 

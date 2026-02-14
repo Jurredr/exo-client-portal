@@ -48,7 +48,12 @@ A Next.js client portal application built with Supabase authentication, Drizzle 
    - In Supabase dashboard, go to Authentication > Settings
    - Enable "Email" provider
    - Disable "Enable sign up" (accounts are added manually)
-   - Set up email templates for magic links
+   - In **Authentication → URL Configuration**, set **Site URL** (e.g. `https://portal.exo.black`) and add your callback to **Redirect URLs** (e.g. `https://portal.exo.black/auth/callback`)
+   - **Important**: Customize the **Magic Link** email template (Authentication → Email Templates) so links work across devices. Replace the default link with:
+     ```
+     {{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=magiclink
+     ```
+     This ensures users can click the link from any browser or device (e.g. request on desktop, click from phone email).
 
 4. **Configure Resend SMTP for Supabase Auth** (fixes "email rate limit exceeded"):
    - Go to [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Authentication** → **SMTP Settings**

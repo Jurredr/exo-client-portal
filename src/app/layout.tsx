@@ -48,18 +48,10 @@ export const metadata: Metadata = {
   description: seoDescription,
   icons: {
     icon: [
-      {
-        url: "/exo.svg",
-        type: "image/svg+xml",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/exo-white.svg",
-        type: "image/svg+xml",
-        media: "(prefers-color-scheme: dark)",
-      },
+      { url: "/og-logo.png", type: "image/png", sizes: "256x256" },
+      { url: "/og-logo.ico", sizes: "any" },
     ],
-    apple: "/exo.svg",
+    apple: "/og-logo.png",
   },
   openGraph: {
     type: "website",

@@ -26,8 +26,13 @@ export async function GET(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
+        const isProduction = process.env.NODE_ENV === "production";
         cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
+          response.cookies.set(name, value, {
+            ...options,
+            // Required for cookies to persist on HTTPS in production
+            secure: isProduction,
+          })
         );
       },
     },

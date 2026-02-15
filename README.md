@@ -41,6 +41,7 @@ A Next.js client portal application built with Supabase authentication, Drizzle 
    - Use the **anon key** (publishable key) for `NEXT_PUBLIC_SUPABASE_ANON_KEY` - this is safe for client-side use
    - The **service_role key** (secret key) should NEVER be used in `NEXT_PUBLIC_` variables - it's only for server-side admin operations
    - You can find both keys in your Supabase dashboard under Settings > API
+   - **Production (Vercel)**: Use the Supabase **Transaction pooler** connection string (port 6543) for `DATABASE_URL` to avoid connection exhaustion. In Dashboard → Project Settings → Database → Connection string, select "URI" and "Transaction" mode.
 
 3. **Set up Supabase:**
    - Create a new Supabase project

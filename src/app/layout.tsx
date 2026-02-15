@@ -31,7 +31,14 @@ const perfectlyNineties = localFont({
   variable: "--font-perfectly-nineties",
 });
 
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "https://portal.exo.black");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: "EXO Client Portal",
   description: "Client portal for EXO projects",
   icons: {
@@ -47,6 +54,28 @@ export const metadata: Metadata = {
         media: "(prefers-color-scheme: dark)",
       },
     ],
+    apple: "/exo.svg",
+  },
+  openGraph: {
+    type: "website",
+    url: baseUrl,
+    siteName: "EXO Client Portal",
+    title: "EXO Client Portal",
+    description: "Client portal for EXO projects",
+    images: [
+      {
+        url: "/seo.jpg",
+        width: 1200,
+        height: 675,
+        alt: "EXO - Digital Experiences don't have to be boring.",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EXO Client Portal",
+    description: "Client portal for EXO projects",
+    images: ["/seo.jpg"],
   },
 };
 

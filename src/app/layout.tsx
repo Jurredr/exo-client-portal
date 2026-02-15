@@ -37,10 +37,15 @@ const baseUrl =
     ? `https://${process.env.VERCEL_URL}`
     : "https://portal.exo.black");
 
+const seoTitle =
+  "EXO Client Portal – Access Your Projects, Deliverables & Documents";
+const seoDescription =
+  "Access your EXO projects, deliverables, and documents in one place. The client portal keeps you informed and in control of your project progress.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
-  title: "EXO Client Portal",
-  description: "Client portal for EXO projects",
+  title: seoTitle,
+  description: seoDescription,
   icons: {
     icon: [
       {
@@ -60,8 +65,8 @@ export const metadata: Metadata = {
     type: "website",
     url: baseUrl,
     siteName: "EXO Client Portal",
-    title: "EXO Client Portal",
-    description: "Client portal for EXO projects",
+    title: seoTitle,
+    description: seoDescription,
     images: [
       {
         url: "/seo.jpg",
@@ -73,8 +78,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "EXO Client Portal",
-    description: "Client portal for EXO projects",
+    title: seoTitle,
+    description: seoDescription,
     images: ["/seo.jpg"],
   },
 };

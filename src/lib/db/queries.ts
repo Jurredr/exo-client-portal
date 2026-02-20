@@ -2607,6 +2607,40 @@ export async function deleteInvoice(invoiceId: string) {
   }
 }
 
+export async function markOverdueInvoices(): Promise<
+  Array<{ invoiceNumber: string; organizationName: string; dueDate: Date }>
+> {
+  const result = await db
+    .update(invoices)
+    .set({ status: "overdue", updatedAt: new Date() })
+    .where(
+      and(
+        eq(invoices.status, "sent"),
+        sql`${invoices.dueDate} IS NOT NULL AND ${invoices.dueDate}::date < CURRENT_DATE`
+      )
+    )
+    .returning({
+      invoiceNumber: invoices.invoiceNumber,
+      organizationId: invoices.organizationId,
+      dueDate: invoices.dueDate,
+    });
+
+  if (result.length === 0) return [];
+
+  const orgIds = [...new Set(result.map((r) => r.organizationId))];
+  const orgs = await db
+    .select({ id: organizations.id, name: organizations.name })
+    .from(organizations)
+    .where(inArray(organizations.id, orgIds));
+  const orgMap = new Map(orgs.map((o) => [o.id, o.name]));
+
+  return result.map((r) => ({
+    invoiceNumber: r.invoiceNumber,
+    organizationName: orgMap.get(r.organizationId) ?? "Unknown",
+    dueDate: r.dueDate!,
+  }));
+}
+
 export async function invalidateAllInvoiceCaches() {
   // Update all invoices' updatedAt to force cache invalidation
   // This changes the ETag for all invoices, invalidating browser/CDN cache

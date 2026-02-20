@@ -35,6 +35,7 @@ A Next.js client portal application built with Supabase authentication, Drizzle 
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    DATABASE_URL=your_postgres_connection_string
    RESEND_API_KEY=your_resend_api_key  # Optional: for custom emails from the app
+   RESEND_FROM_EMAIL=Portal <noreply@yourdomain.com>  # Sender for cron alerts (use verified Resend domain)
    ```
 
    **Important:**

@@ -3,5 +3,11 @@
   "devCommand": "bun dev",
   "installCommand": "bun install",
   "framework": "nextjs",
-  "regions": ["iad1"]
+  "regions": ["fra1"],
+  "crons": [
+    {
+      "path": "/api/cron/overdue-invoices",
+      "schedule": "0 23 * * *"
+    }
+  ]
 }

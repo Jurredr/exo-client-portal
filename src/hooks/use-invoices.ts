@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { dashboardStatsKeys } from "./use-dashboard-stats";
+import { financialsKeys } from "./use-financials";
 
 interface InvoiceData {
   invoice: {
@@ -95,6 +96,7 @@ export interface UpdateInvoiceData {
   description?: string | null;
   invoiceDate?: Date | string | null;
   dueDate?: Date | string | null;
+  paidAt?: Date | string | null;
   pdfStoragePath?: string | null;
   pdfFileName?: string | null;
   pdfSizeBytes?: number | null;
@@ -199,9 +201,12 @@ export function useCreateInvoice() {
         queryKey: invoiceKeys.all,
         type: "active",
       });
-      // Also invalidate dashboard stats since invoices affect revenue
+      // Also invalidate dashboard stats and financials since invoices affect revenue
       await queryClient.invalidateQueries({
         queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: financialsKeys.all,
       });
       await queryClient.refetchQueries({
         queryKey: dashboardStatsKeys.all,
@@ -235,9 +240,12 @@ export function useUpdateInvoice() {
         queryKey: invoiceKeys.all,
         type: "active",
       });
-      // Also invalidate dashboard stats since invoices affect revenue
+      // Also invalidate dashboard stats and financials since invoices affect revenue
       await queryClient.invalidateQueries({
         queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: financialsKeys.all,
       });
       await queryClient.refetchQueries({
         queryKey: dashboardStatsKeys.all,
@@ -266,9 +274,12 @@ export function useDeleteInvoice() {
         queryKey: invoiceKeys.all,
         type: "active",
       });
-      // Also invalidate dashboard stats since invoices affect revenue
+      // Also invalidate dashboard stats and financials since invoices affect revenue
       await queryClient.invalidateQueries({
         queryKey: dashboardStatsKeys.all,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: financialsKeys.all,
       });
       await queryClient.refetchQueries({
         queryKey: dashboardStatsKeys.all,

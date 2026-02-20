@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -124,13 +123,6 @@ const INVOICE_STATUS_OPTIONS = [
   { value: "overdue", label: "Overdue", state: "bg-red-500" },
   { value: "cancelled", label: "Cancelled", state: "bg-gray-400" },
 ];
-
-const formatStatus = (status: string) => {
-  const statusConfig = INVOICE_STATUS_OPTIONS.find((s) => s.value === status);
-  return statusConfig
-    ? statusConfig.label
-    : status.charAt(0).toUpperCase() + status.slice(1);
-};
 
 const calculateTotalFromLineItems = (
   lineItems: Array<{
@@ -575,7 +567,7 @@ export function InvoicesTable() {
         enableSorting: false,
       },
     ],
-    []
+    [updateMutation]
   );
 
   const [sorting, setSorting] = useState<SortingState>([
@@ -959,6 +951,7 @@ export function InvoicesTable() {
                     description: editingInvoice.invoice.description,
                     invoiceDate: editingInvoice.invoice.invoiceDate,
                     dueDate: editingInvoice.invoice.dueDate,
+                    paidAt: editingInvoice.invoice.paidAt ?? null,
                     pdfStoragePath:
                       editingInvoice.invoice.pdfStoragePath || null,
                     pdfFileName: editingInvoice.invoice.pdfFileName || null,
@@ -1000,6 +993,7 @@ export function InvoicesTable() {
                   description: editingInvoice.invoice.description,
                   invoiceDate: editingInvoice.invoice.invoiceDate,
                   dueDate: editingInvoice.invoice.dueDate,
+                  paidAt: editingInvoice.invoice.paidAt ?? null,
                   pdfStoragePath: editingInvoice.invoice.pdfStoragePath || null,
                   pdfFileName: editingInvoice.invoice.pdfFileName || null,
                   pdfSizeBytes: editingInvoice.invoice.pdfSizeBytes || null,

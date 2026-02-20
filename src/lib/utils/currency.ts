@@ -24,6 +24,46 @@ export function calculateTotalFromLineItems(
   }, 0);
 }
 
+/**
+ * Calculate VAT (omzetbelasting) from invoice line items.
+ * Used for revenue excluding VAT when not under KOR.
+ */
+export function calculateVATFromLineItems(
+  lineItems: Array<{
+    quantity: string | number;
+    unitPrice: string | number;
+    taxPercentage: string | number;
+  }>
+): number {
+  return lineItems.reduce((sum, item) => {
+    const quantity = parseFloat(String(item.quantity)) || 0;
+    const unitPrice = parseFloat(String(item.unitPrice)) || 0;
+    const taxPercentage = parseFloat(String(item.taxPercentage)) || 0;
+    const subtotal = quantity * unitPrice;
+    const tax = subtotal * (taxPercentage / 100);
+    return sum + tax;
+  }, 0);
+}
+
+/**
+ * Revenue excluding VAT (omzet exclusief BTW) for profit calculations.
+ * - KOR: full amount is revenue (no VAT charged).
+ * - Non-KOR: subtract VAT from total (VAT is owed to tax authority).
+ */
+export function getRevenueExcludingVAT(
+  totalAmount: number,
+  lineItems: Array<{
+    quantity: string | number;
+    unitPrice: string | number;
+    taxPercentage: string | number;
+  }>,
+  isKOR: boolean
+): number {
+  if (isKOR) return totalAmount;
+  const vat = calculateVATFromLineItems(lineItems);
+  return totalAmount - vat;
+}
+
 export function formatCurrency(
   amount: number,
   currency: string = "EUR"

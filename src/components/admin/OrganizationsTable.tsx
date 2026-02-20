@@ -96,9 +96,7 @@ export function OrganizationsTable() {
   const [originalBtwNumber, setOriginalBtwNumber] = useState<string>("");
   const [originalEmail, setOriginalEmail] = useState<string>("");
   const [originalTelephone, setOriginalTelephone] = useState<string>("");
-  const [originalImageStoragePath, setOriginalImageStoragePath] = useState<
-    string | null
-  >(null);
+  const [, setOriginalImageStoragePath] = useState<string | null>(null);
   const prevSelectedOrgIdRef = useRef<string | null>(null);
   const isMobile = useIsMobile();
 

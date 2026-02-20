@@ -170,9 +170,7 @@ export function UsersTable() {
   const [originalOrganizationIds, setOriginalOrganizationIds] = useState<
     string[]
   >([]);
-  const [originalImageStoragePath, setOriginalImageStoragePath] = useState<
-    string | null
-  >(null);
+  const [, setOriginalImageStoragePath] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const prevSelectedUserIdRef = useRef<string | null>(null);

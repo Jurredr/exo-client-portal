@@ -70,6 +70,7 @@ interface Invoice {
   description: string | null;
   invoiceDate: string;
   dueDate: string | null;
+  paidAt?: string | null;
   pdfStoragePath: string | null; // Path in Supabase Storage
   pdfFileName: string | null;
   pdfSizeBytes: number | null;
@@ -116,6 +117,7 @@ export function CreateInvoiceForm({
         isKOR: false,
         dueDate: getDefaultDueDate(),
         invoiceDate: new Date().toISOString().split("T")[0],
+        paidAt: "",
       };
     }
     return {
@@ -131,6 +133,7 @@ export function CreateInvoiceForm({
         ? new Date(invoice.dueDate).toISOString().split("T")[0]
         : "",
       invoiceDate: formatDateForInput(invoice.invoiceDate),
+      paidAt: formatDateForInput(invoice.paidAt),
     };
   };
 
@@ -175,6 +178,7 @@ export function CreateInvoiceForm({
       })()
   );
   const [invoiceDate, setInvoiceDate] = useState(initialFormValues.invoiceDate);
+  const [paidAt, setPaidAt] = useState(initialFormValues.paidAt ?? "");
   // TanStack Query hooks
   const { data: organizationsData, isLoading: isLoadingOrgs } =
     useOrganizations();
@@ -234,6 +238,7 @@ export function CreateInvoiceForm({
         isKOR: false,
         dueDate: "",
         invoiceDate: "",
+        paidAt: "",
         lineItems: [] as InvoiceLineItem[],
         pdfStoragePath: null as string | null,
       };
@@ -251,6 +256,7 @@ export function CreateInvoiceForm({
         ? new Date(invoice.dueDate).toISOString().split("T")[0]
         : "",
       invoiceDate: formatDateForInput(invoice.invoiceDate),
+      paidAt: formatDateForInput(invoice.paidAt),
       lineItems:
         invoice.lineItems && invoice.lineItems.length > 0
           ? invoice.lineItems.map((item) => ({
@@ -292,12 +298,15 @@ export function CreateInvoiceForm({
   const [originalInvoiceDate, setOriginalInvoiceDate] = useState<string>(
     initialOriginalValues.invoiceDate
   );
+  const [originalPaidAt, setOriginalPaidAt] = useState<string>(
+    initialOriginalValues.paidAt ?? ""
+  );
   const [originalLineItems, setOriginalLineItems] = useState<InvoiceLineItem[]>(
     initialOriginalValues.lineItems
   );
-  const [originalPdfStoragePath, setOriginalPdfStoragePath] = useState<
-    string | null
-  >(initialOriginalValues.pdfStoragePath);
+  const [, setOriginalPdfStoragePath] = useState<string | null>(
+    initialOriginalValues.pdfStoragePath
+  );
 
   // Calculate total from line items
   const calculateTotal = (): number => {
@@ -333,6 +342,7 @@ export function CreateInvoiceForm({
         ? new Date(invoice.dueDate).toISOString().split("T")[0]
         : "";
       const invDate = formatDateForInput(invoice.invoiceDate);
+      const paid = formatDateForInput(invoice.paidAt);
       // Normalize lineItems - remove id and order fields for comparison
       const items =
         invoice.lineItems && invoice.lineItems.length > 0
@@ -355,6 +365,7 @@ export function CreateInvoiceForm({
       setIsKOR(kor);
       setDueDate(due);
       setInvoiceDate(invDate);
+      setPaidAt(paid);
       setLineItems(items);
 
       // Update original values for change detection
@@ -367,6 +378,7 @@ export function CreateInvoiceForm({
       setOriginalIsKOR(kor);
       setOriginalDueDate(due);
       setOriginalInvoiceDate(invDate);
+      setOriginalPaidAt(paid);
       setOriginalLineItems(items);
       setOriginalPdfStoragePath(pdfPath);
     } else {
@@ -380,6 +392,7 @@ export function CreateInvoiceForm({
       setOriginalIsKOR(false);
       setOriginalDueDate("");
       setOriginalInvoiceDate("");
+      setOriginalPaidAt("");
       setOriginalLineItems([]);
       setOriginalPdfStoragePath(null);
     }
@@ -440,6 +453,7 @@ export function CreateInvoiceForm({
       isKOR !== originalIsKOR ||
       dueDate !== originalDueDate ||
       invoiceDate !== originalInvoiceDate ||
+      paidAt !== originalPaidAt ||
       lineItemsChanged ||
       pdfFile !== null ||
       removePdf
@@ -464,6 +478,8 @@ export function CreateInvoiceForm({
     originalDueDate,
     invoiceDate,
     originalInvoiceDate,
+    paidAt,
+    originalPaidAt,
     lineItems,
     originalLineItems,
     pdfFile,
@@ -653,6 +669,7 @@ export function CreateInvoiceForm({
           isKOR,
           invoiceDate: invoiceDate || new Date().toISOString().split("T")[0],
           dueDate: dueDate || null,
+          paidAt: paidAt ? new Date(paidAt) : null,
           // Only include PDF fields if they're explicitly set (new file or removal)
           // If undefined, the API will preserve the existing PDF
           ...(pdfFile || removePdf
@@ -905,6 +922,23 @@ export function CreateInvoiceForm({
             onChange={(e) => setDueDate(e.target.value)}
           />
         </div>
+        {invoice && status === "paid" && (
+          <div className="space-y-2">
+            <Label
+              htmlFor="invoice-paid-at"
+              className="flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Paid at
+            </Label>
+            <Input
+              id="invoice-paid-at"
+              type="date"
+              value={paidAt}
+              onChange={(e) => setPaidAt(e.target.value)}
+            />
+          </div>
+        )}
       </div>
       <div className="flex items-center space-x-2">
         <Checkbox

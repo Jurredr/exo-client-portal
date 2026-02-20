@@ -345,13 +345,14 @@ export function OffersTable() {
         enableSorting: false,
       },
     ],
-    []
+    [updateMutation]
   );
 
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
   ]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table returns non-memoizable functions
   const table = useReactTable({
     data: offers,
     columns,

@@ -87,9 +87,7 @@ export function CreateContractForm({
   const [originalName, setOriginalName] = useState<string>("");
   const [originalRequiresPortalSignature, setOriginalRequiresPortalSignature] =
     useState<boolean>(true);
-  const [originalFileStoragePath, setOriginalFileStoragePath] = useState<
-    string | null
-  >(null);
+  const [, setOriginalFileStoragePath] = useState<string | null>(null);
 
   // Store original values when editing
   useEffect(() => {

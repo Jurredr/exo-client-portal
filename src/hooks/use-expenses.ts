@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { financialsKeys } from "./use-financials";
 
 interface ExpenseData {
   expense: {
@@ -125,6 +126,9 @@ export function useCreateExpense() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: expenseKeys.all });
+      await queryClient.invalidateQueries({
+        queryKey: financialsKeys.all,
+      });
       await queryClient.refetchQueries({
         queryKey: expenseKeys.all,
         type: "active",
@@ -153,6 +157,9 @@ export function useUpdateExpense() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: expenseKeys.all });
+      await queryClient.invalidateQueries({
+        queryKey: financialsKeys.all,
+      });
       await queryClient.refetchQueries({
         queryKey: expenseKeys.all,
         type: "active",
@@ -176,6 +183,9 @@ export function useDeleteExpense() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: expenseKeys.all });
+      await queryClient.invalidateQueries({
+        queryKey: financialsKeys.all,
+      });
       await queryClient.refetchQueries({
         queryKey: expenseKeys.all,
         type: "active",

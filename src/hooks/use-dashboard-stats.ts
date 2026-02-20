@@ -3,17 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 interface DashboardStats {
   revenue: {
     total: number;
-    thisMonth: number;
-    lastMonth: number;
+    last30Days: number;
     change: number;
     chartData: Array<{ date: string; revenue: number }>;
   };
   hours: {
     total: number;
     thisWeek: number;
-    thisMonth: number;
+    last30Days: number;
     thisYear: number;
-    lastMonth: number;
     change: number;
     chartData: Array<{ date: string; hours: number }>;
   };
@@ -38,6 +36,7 @@ async function fetchDashboardStats(
   const params = new URLSearchParams({
     revenueTimeRange,
     hoursTimeRange,
+    clientDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD for date range calculations
   });
   const response = await fetch(`/api/dashboard/stats?${params}`);
   if (!response.ok) {

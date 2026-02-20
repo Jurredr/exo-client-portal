@@ -88,9 +88,7 @@ export function CreateExpenseForm({
   const [originalDate, setOriginalDate] = useState<string>("");
   const [originalCategory, setOriginalCategory] = useState<string>("");
   const [originalVendor, setOriginalVendor] = useState<string>("");
-  const [originalInvoiceStoragePath, setOriginalInvoiceStoragePath] = useState<
-    string | null
-  >(null);
+  const [, setOriginalInvoiceStoragePath] = useState<string | null>(null);
   const { data: currentUser } = useCurrentUser();
   const createExpenseMutation = useCreateExpense();
   const updateExpenseMutation = useUpdateExpense();

@@ -38,7 +38,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -48,11 +47,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
-import { cn } from "@/lib/utils";
 import {
   CLIENT_PROJECT_STAGES,
   LABS_PROJECT_STAGES,
-  formatStage as formatStageHelper,
   getProjectStages,
 } from "@/lib/constants/stages";
 import {
@@ -125,19 +122,6 @@ const PROJECT_STATUSES: StatusOption[] = [
   { value: "on_hold", label: "On Hold", state: "bg-yellow-500" },
   { value: "cancelled", label: "Cancelled", state: "bg-red-500" },
 ];
-
-// Format stage value to readable label
-const formatStage = (stage: string, projectType?: "client" | "labs") => {
-  return formatStageHelper(stage, projectType);
-};
-
-// Format status value to readable label
-const formatStatus = (status: string) => {
-  const statusConfig = PROJECT_STATUSES.find((s) => s.value === status);
-  return statusConfig
-    ? statusConfig.label
-    : status.charAt(0).toUpperCase() + status.slice(1);
-};
 
 // Format hours (as decimal) to "xhrs ymin" format
 const formatHours = (decimalHours: number) => {
@@ -514,7 +498,7 @@ export function ProjectsTable() {
         enableSorting: false,
       },
     ],
-    []
+    [updateMutation]
   );
 
   // Columns for labs projects (without subtotal)
@@ -530,6 +514,7 @@ export function ProjectsTable() {
     { id: "title", desc: false },
   ]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table returns non-memoizable functions
   const clientTable = useReactTable({
     data: clientProjects,
     columns,

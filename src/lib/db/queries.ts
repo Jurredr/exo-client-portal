@@ -23,12 +23,21 @@ import {
   like,
   or,
   isNull,
+  isNotNull,
 } from "drizzle-orm";
 import {
   ADMIN_EMAIL_DOMAIN,
   EXO_ORGANIZATION_NAME,
   VAT_PERCENTAGE,
 } from "@/lib/constants";
+import {
+  calculateDutchIncomeTax,
+  isRecurringExpenseCategory,
+} from "@/lib/constants/dutch-tax";
+import {
+  getRevenueExcludingVAT,
+  calculateVATFromLineItems,
+} from "@/lib/utils/currency";
 import { slugify, generateSlugSuffix } from "@/lib/utils/slug";
 
 export function isAdmin(email: string): boolean {
@@ -1432,12 +1441,36 @@ async function getEurToUsdRate(): Promise<number> {
   }
 }
 
-// Helper function to parse invoice amount (removes currency symbols, commas, spaces)
-function parseInvoiceAmount(amount: string): number {
+// Helper function to parse invoice amount (removes currency symbols).
+// Handles both US format (1,234.56) and European format (1.234,56 or 3.500).
+function parseInvoiceAmount(amount: string | null | undefined): number {
   if (!amount) return 0;
-  // Remove currency symbols (€, $), commas, spaces, and other non-numeric characters except decimal point
-  const cleaned = amount.replace(/[€$,\s]/g, "").trim();
-  const parsed = parseFloat(cleaned);
+  const cleaned = amount.replace(/[€$\s]/g, "").trim();
+  if (!cleaned) return 0;
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastPeriod = cleaned.lastIndexOf(".");
+
+  if (lastComma > lastPeriod) {
+    // European: 1.234,56 (period = thousands, comma = decimal)
+    const normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  if (lastPeriod >= 0) {
+    const afterPeriod = cleaned.slice(lastPeriod + 1).replace(/,/g, "");
+    // European thousands: 3.500 = 3500 (exactly 3 digits after period, no comma)
+    if (lastComma < 0 && /^\d{3}$/.test(afterPeriod)) {
+      const normalized = cleaned.replace(/\./g, "");
+      const parsed = parseFloat(normalized);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    // US: 1,234.56 (comma = thousands, period = decimal)
+    const normalized = cleaned.replace(/,/g, "");
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  const parsed = parseFloat(cleaned.replace(/,/g, ""));
   return isNaN(parsed) ? 0 : parsed;
 }
 
@@ -1458,14 +1491,21 @@ async function convertToEUR(
 
 export async function getDashboardStats(
   revenueTimeRange: string = "year",
-  hoursTimeRange: string = "30d"
+  hoursTimeRange: string = "30d",
+  clientDateStr?: string | null
 ) {
-  const now = new Date();
+  // Use client's date when provided so "last 30 days" matches user's calendar (avoids server/client date mismatch)
+  const now = (() => {
+    if (clientDateStr && /^\d{4}-\d{2}-\d{2}$/.test(clientDateStr)) {
+      const [y, m, d] = clientDateStr.split("-").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0, 0);
+    }
+    return new Date();
+  })();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(
+  const endOfMonth = new Date(
     now.getFullYear(),
-    now.getMonth(),
+    now.getMonth() + 1,
     0,
     23,
     59,
@@ -1480,13 +1520,44 @@ export async function getDashboardStats(
   endOfToday.setHours(23, 59, 59, 999);
   const startOfYear = new Date(now.getFullYear(), 0, 1);
 
+  // Last 30 days (rolling window) - uses client date when provided
+  const startOfLast30Days = new Date(now);
+  startOfLast30Days.setDate(startOfLast30Days.getDate() - 30);
+  startOfLast30Days.setHours(0, 0, 0, 0);
+  const endOfLast30Days = new Date(now);
+  endOfLast30Days.setHours(23, 59, 59, 999);
+  const startOfPrev30Days = new Date(startOfLast30Days);
+  startOfPrev30Days.setDate(startOfPrev30Days.getDate() - 30);
+  const endOfPrev30Days = new Date(startOfLast30Days);
+  endOfPrev30Days.setMilliseconds(endOfPrev30Days.getMilliseconds() - 1);
+
   // Fetch exchange rate once at the beginning to avoid multiple API calls
   const usdToEurRate = await getEurToUsdRate();
 
-  // Get all paid invoices with their amounts and transaction types
-  // Only require status = "paid", paidAt is optional
+  // Revenue chart date range (needed for building revenueByDate in same loop)
+  let revenueStartDate: Date;
+  let revenueEndDate: Date = now;
+  let revenueDaysToShow = 0;
+  let revenueGroupByMonth = false;
+  if (revenueTimeRange === "year") {
+    revenueStartDate = new Date(now.getFullYear(), 0, 1);
+    revenueEndDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    revenueGroupByMonth = true;
+  } else {
+    const days =
+      revenueTimeRange === "90d" ? 90 : revenueTimeRange === "30d" ? 30 : 7;
+    revenueStartDate = new Date(now);
+    revenueStartDate.setDate(revenueStartDate.getDate() - days);
+    revenueStartDate.setHours(0, 0, 0, 0);
+    revenueEndDate = new Date(now);
+    revenueEndDate.setHours(23, 59, 59, 999);
+    revenueDaysToShow = days;
+  }
+
+  // Get all paid invoices (excl. reimbursements)
   const paidInvoices = await db
     .select({
+      id: invoices.id,
       amount: invoices.amount,
       currency: invoices.currency,
       transactionType: invoices.transactionType,
@@ -1497,41 +1568,60 @@ export async function getDashboardStats(
     .from(invoices)
     .where(and(eq(invoices.status, "paid"), isNull(invoices.expenseId)));
 
-  // Calculate total revenue (debits add, credits subtract)
-  let totalRevenue = 0;
-  let revenueThisMonth = 0;
-  let revenueLastMonth = 0;
+  // Helper: compare by calendar date (YYYY-MM-DD) to avoid timezone/parsing edge cases
+  const toDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-  for (const invoice of paidInvoices) {
-    const amount = parseInvoiceAmount(invoice.amount);
-    // Convert to EUR if needed
+  // Calculate revenue: sum of invoice totals (paid, non-reimbursement)
+  let totalRevenue = 0;
+  let revenueLast30Days = 0;
+  let revenuePrev30Days = 0;
+  let revenueThisMonth = 0; // Safeguard: last30Days can never be < current month
+  const revenueByDate: { [key: string]: number } = {};
+
+  const startStr = toDateStr(startOfLast30Days);
+  const endStr = toDateStr(endOfLast30Days);
+  const prevStartStr = toDateStr(startOfPrev30Days);
+  const prevEndStr = toDateStr(endOfPrev30Days);
+  const monthStartStr = toDateStr(startOfMonth);
+  const monthEndStr = toDateStr(endOfMonth);
+
+  for (const inv of paidInvoices) {
+    const amount = parseInvoiceAmount(inv.amount);
     const amountInEUR = await convertToEUR(
       amount,
-      invoice.currency || "EUR",
+      inv.currency || "EUR",
       usdToEurRate
     );
-    // Default to debit if transactionType is null (for invoices created before migration)
-    const isDebit = (invoice.transactionType || "debit") === "debit";
-    const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
+    const isDebit = (inv.transactionType || "debit") === "debit";
+    const value = isDebit ? amountInEUR : -amountInEUR;
+
+    // Use paidAt for all date-based logic (revenue = when received)
+    const dateForPeriod = inv.paidAt
+      ? new Date(inv.paidAt)
+      : inv.dueDate
+        ? new Date(inv.dueDate)
+        : new Date(inv.createdAt);
+    const dStr = toDateStr(dateForPeriod);
 
     totalRevenue += value;
 
-    // Use dueDate if available, otherwise use paidAt, then createdAt as fallback
-    const dateForCalculation = invoice.dueDate
-      ? new Date(invoice.dueDate)
-      : invoice.paidAt
-        ? new Date(invoice.paidAt)
-        : new Date(invoice.createdAt);
+    if (dStr >= startStr && dStr <= endStr) revenueLast30Days += value;
+    if (dStr >= prevStartStr && dStr <= prevEndStr) revenuePrev30Days += value;
+    if (dStr >= monthStartStr && dStr <= monthEndStr) revenueThisMonth += value;
 
-    if (dateForCalculation >= startOfMonth) {
-      revenueThisMonth += value;
+    // Chart: group by date within selected range
+    if (dateForPeriod >= revenueStartDate && dateForPeriod <= revenueEndDate) {
+      const dateKey = revenueGroupByMonth
+        ? `${dateForPeriod.getFullYear()}-${String(dateForPeriod.getMonth() + 1).padStart(2, "0")}`
+        : dStr;
+      revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + value;
     }
-    if (
-      dateForCalculation >= startOfLastMonth &&
-      dateForCalculation <= endOfLastMonth
-    ) {
-      revenueLastMonth += value;
-    }
+  }
+
+  // Safeguard: last 30 days always includes current month, so it can never be less
+  if (now.getDate() <= 30 && revenueLast30Days < revenueThisMonth) {
+    revenueLast30Days = revenueThisMonth;
   }
 
   // Get total hours
@@ -1546,21 +1636,8 @@ export async function getDashboardStats(
 
   const totalHours = parseFloat(totalHoursResult[0]?.total || "0");
 
-  // Get hours this month
-  const hoursThisMonthResult = await db
-    .select({
-      total:
-        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
-          "total"
-        ),
-    })
-    .from(hourRegistrations)
-    .where(gte(hourRegistrations.date, startOfMonth));
-
-  const hoursThisMonth = parseFloat(hoursThisMonthResult[0]?.total || "0");
-
-  // Get hours last month
-  const hoursLastMonthResult = await db
+  // Get hours last 30 days (rolling window)
+  const hoursLast30DaysResult = await db
     .select({
       total:
         sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
@@ -1570,12 +1647,30 @@ export async function getDashboardStats(
     .from(hourRegistrations)
     .where(
       and(
-        gte(hourRegistrations.date, startOfLastMonth),
-        lte(hourRegistrations.date, endOfLastMonth)
+        gte(hourRegistrations.date, startOfLast30Days),
+        lte(hourRegistrations.date, endOfLast30Days)
       )
     );
 
-  const hoursLastMonth = parseFloat(hoursLastMonthResult[0]?.total || "0");
+  const hoursLast30Days = parseFloat(hoursLast30DaysResult[0]?.total || "0");
+
+  // Get hours previous 30 days (for change calculation)
+  const hoursPrev30DaysResult = await db
+    .select({
+      total:
+        sql<string>`COALESCE(SUM(${hourRegistrations.hours}::numeric), 0)`.as(
+          "total"
+        ),
+    })
+    .from(hourRegistrations)
+    .where(
+      and(
+        gte(hourRegistrations.date, startOfPrev30Days),
+        lte(hourRegistrations.date, endOfPrev30Days)
+      )
+    );
+
+  const hoursPrev30Days = parseFloat(hoursPrev30DaysResult[0]?.total || "0");
 
   // Get hours this week (last 7 days inclusive)
   const hoursThisWeekResult = await db
@@ -1619,85 +1714,20 @@ export async function getDashboardStats(
   // const allOrganizations = await db.select().from(organizations);
   // const allUsers = await db.select().from(users);
 
-  // Calculate percentage changes
+  // Calculate percentage changes (last 30 days vs previous 30 days)
   const revenueChange =
-    revenueLastMonth > 0
-      ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100
-      : revenueThisMonth > 0
+    revenuePrev30Days > 0
+      ? ((revenueLast30Days - revenuePrev30Days) / revenuePrev30Days) * 100
+      : revenueLast30Days > 0
         ? 100
         : 0;
 
   const hoursChange =
-    hoursLastMonth > 0
-      ? ((hoursThisMonth - hoursLastMonth) / hoursLastMonth) * 100
-      : hoursThisMonth > 0
+    hoursPrev30Days > 0
+      ? ((hoursLast30Days - hoursPrev30Days) / hoursPrev30Days) * 100
+      : hoursLast30Days > 0
         ? 100
         : 0;
-
-  // Calculate revenue chart date range based on time range parameter
-  let revenueStartDate: Date;
-  let revenueEndDate: Date = now;
-  let revenueDaysToShow = 0;
-  let revenueGroupByMonth = false;
-
-  if (revenueTimeRange === "year") {
-    revenueStartDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
-    revenueEndDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999); // December 31st
-    revenueGroupByMonth = true;
-  } else {
-    const days =
-      revenueTimeRange === "90d" ? 90 : revenueTimeRange === "30d" ? 30 : 7;
-    revenueStartDate = new Date(now);
-    revenueStartDate.setDate(revenueStartDate.getDate() - days);
-    revenueDaysToShow = days;
-  }
-
-  const revenueOverTime = await db
-    .select({
-      dueDate: invoices.dueDate,
-      paidAt: invoices.paidAt,
-      createdAt: invoices.createdAt,
-      amount: invoices.amount,
-      transactionType: invoices.transactionType,
-      currency: invoices.currency,
-    })
-    .from(invoices)
-    .where(and(eq(invoices.status, "paid"), isNull(invoices.expenseId)))
-    .orderBy(invoices.dueDate);
-
-  // Group revenue by date/month (debits add, credits subtract)
-  const revenueByDate: { [key: string]: number } = {};
-  for (const row of revenueOverTime) {
-    // Use dueDate if available, otherwise use paidAt, then createdAt as fallback
-    const dateForChart = row.dueDate
-      ? new Date(row.dueDate)
-      : row.paidAt
-        ? new Date(row.paidAt)
-        : new Date(row.createdAt);
-
-    // Only include if within the selected time range
-    if (dateForChart >= revenueStartDate && dateForChart <= revenueEndDate) {
-      let dateKey: string;
-      if (revenueGroupByMonth) {
-        // Format as YYYY-MM for monthly grouping
-        dateKey = `${dateForChart.getFullYear()}-${String(dateForChart.getMonth() + 1).padStart(2, "0")}`;
-      } else {
-        // Format as YYYY-MM-DD for daily grouping
-        dateKey = dateForChart.toISOString().split("T")[0];
-      }
-      const amount = parseInvoiceAmount(row.amount);
-      // Convert to EUR if needed
-      const amountInEUR = await convertToEUR(
-        amount,
-        row.currency || "EUR",
-        usdToEurRate
-      );
-      // Default to debit if transactionType is null
-      const isDebit = (row.transactionType || "debit") === "debit";
-      const value = isDebit ? amountInEUR : -amountInEUR; // Credits subtract from revenue
-      revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + value;
-    }
-  }
 
   // Generate revenue chart data
   const revenueChartData: { date: string; revenue: number }[] = [];
@@ -1853,17 +1883,15 @@ export async function getDashboardStats(
   return {
     revenue: {
       total: totalRevenue,
-      thisMonth: revenueThisMonth,
-      lastMonth: revenueLastMonth,
+      last30Days: revenueLast30Days,
       change: revenueChange,
       chartData: revenueChartData,
     },
     hours: {
       total: totalHours,
       thisWeek: hoursThisWeek,
-      thisMonth: hoursThisMonth,
+      last30Days: hoursLast30Days,
       thisYear: hoursThisYear,
-      lastMonth: hoursLastMonth,
       change: hoursChange,
       chartData: hoursChartData,
     },
@@ -1873,6 +1901,530 @@ export async function getDashboardStats(
       completed: completedProjects.length,
       chartData: projectsChartData,
     },
+  };
+}
+
+/**
+ * Parse expense amount (stored as text).
+ * Handles both US format (1,234.56) and European format (1.234,56 or 3.500).
+ */
+function parseExpenseAmount(amount: string | null | undefined): number {
+  if (!amount) return 0;
+  const cleaned = amount.replace(/[€$\s]/g, "").trim();
+  if (!cleaned) return 0;
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastPeriod = cleaned.lastIndexOf(".");
+
+  if (lastComma > lastPeriod) {
+    // European: 1.234,56 (period = thousands, comma = decimal)
+    const normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  if (lastPeriod >= 0) {
+    const afterPeriod = cleaned.slice(lastPeriod + 1).replace(/,/g, "");
+    // European thousands: 3.500 = 3500 (exactly 3 digits after period, no comma)
+    if (lastComma < 0 && /^\d{3}$/.test(afterPeriod)) {
+      const normalized = cleaned.replace(/\./g, "");
+      const parsed = parseFloat(normalized);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    // US: 1,234.56 (comma = thousands, period = decimal)
+    const normalized = cleaned.replace(/,/g, "");
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  const parsed = parseFloat(cleaned.replace(/,/g, ""));
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+export interface FinancialsStats {
+  revenue: {
+    total: number; // Omzet exclusief BTW (revenue excluding VAT)
+    vatCollected: number; // Omzetbelasting collected (liability to tax authority)
+    last30Days: number;
+    change: number;
+    chartData: Array<{ date: string; revenue: number }>;
+  };
+  expenses: {
+    total: number;
+    last30Days: number;
+    recurring: number;
+    byCategory: Array<{ category: string; amount: number; count: number }>;
+    chartData: Array<{ date: string; expenses: number }>;
+  };
+  profit: {
+    gross: number;
+    margin: number; // percentage
+    taxable: number; // gross profit for tax (simplified: revenue - expenses)
+    incomeTax: number; // Dutch Box 1 (ZZP/eenmanszaak)
+    net: number;
+  };
+  taxYear: number; // Year used for tax brackets
+  estimations: {
+    outstandingInvoices: number; // sent + overdue, not yet paid
+    outstandingCount: number;
+  };
+  timeRange: string;
+}
+
+export async function getFinancialsStats(
+  timeRange: string = "year",
+  taxYear?: number,
+  clientDateStr?: string | null
+): Promise<FinancialsStats> {
+  // Use client's date when provided so "last 30 days" matches user's calendar
+  const now = (() => {
+    if (clientDateStr && /^\d{4}-\d{2}-\d{2}$/.test(clientDateStr)) {
+      const [y, m, d] = clientDateStr.split("-").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0, 0);
+    }
+    return new Date();
+  })();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  );
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+  // Last 30 days (rolling window) - uses client date when provided
+  const startOfLast30Days = new Date(now);
+  startOfLast30Days.setDate(startOfLast30Days.getDate() - 30);
+  startOfLast30Days.setHours(0, 0, 0, 0);
+  const endOfLast30Days = new Date(now);
+  endOfLast30Days.setHours(23, 59, 59, 999);
+  const startOfPrev30Days = new Date(startOfLast30Days);
+  startOfPrev30Days.setDate(startOfPrev30Days.getDate() - 30);
+  const endOfPrev30Days = new Date(startOfLast30Days);
+  endOfPrev30Days.setMilliseconds(endOfPrev30Days.getMilliseconds() - 1);
+
+  let startDate: Date;
+  let endDate: Date = now;
+  let groupByMonth = false;
+  const isAllTime = timeRange === "all";
+
+  if (timeRange === "all") {
+    startDate = new Date(2000, 0, 1);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+    groupByMonth = true;
+  } else if (timeRange === "year") {
+    startDate = startOfYear;
+    endDate = endOfYear;
+    groupByMonth = true;
+  } else {
+    const days = timeRange === "90d" ? 90 : timeRange === "30d" ? 30 : 7;
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+  }
+
+  // Previous period for change (when not all-time)
+  let prevStartDate: Date | null = null;
+  let prevEndDate: Date | null = null;
+  if (!isAllTime && timeRange === "year") {
+    prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
+    prevEndDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+  } else if (!isAllTime && timeRange !== "year") {
+    const days = timeRange === "90d" ? 90 : timeRange === "30d" ? 30 : 7;
+    prevEndDate = new Date(startDate);
+    prevEndDate.setMilliseconds(prevEndDate.getMilliseconds() - 1);
+    prevStartDate = new Date(prevEndDate);
+    prevStartDate.setDate(prevStartDate.getDate() - days);
+    prevStartDate.setHours(0, 0, 0, 0);
+  }
+
+  const usdToEurRate = await getEurToUsdRate();
+
+  // --- Revenue (paid invoices, excluding reimbursements) ---
+  const paidInvoices = await db
+    .select({
+      id: invoices.id,
+      amount: invoices.amount,
+      currency: invoices.currency,
+      transactionType: invoices.transactionType,
+      isKOR: invoices.isKOR,
+      dueDate: invoices.dueDate,
+      paidAt: invoices.paidAt,
+      createdAt: invoices.createdAt,
+    })
+    .from(invoices)
+    .where(and(eq(invoices.status, "paid"), isNull(invoices.expenseId)));
+
+  const paidInvoiceIds = paidInvoices.map((i) => i.id);
+  const lineItemsForPaid =
+    paidInvoiceIds.length > 0
+      ? await db
+          .select({
+            invoiceId: invoiceLineItems.invoiceId,
+            quantity: invoiceLineItems.quantity,
+            unitPrice: invoiceLineItems.unitPrice,
+            taxPercentage: invoiceLineItems.taxPercentage,
+          })
+          .from(invoiceLineItems)
+          .where(inArray(invoiceLineItems.invoiceId, paidInvoiceIds))
+          .orderBy(invoiceLineItems.order)
+      : [];
+
+  const lineItemsByInvoiceId = new Map<
+    string,
+    Array<{
+      quantity: string | number;
+      unitPrice: string | number;
+      taxPercentage: string | number;
+    }>
+  >();
+  for (const item of lineItemsForPaid) {
+    const list = lineItemsByInvoiceId.get(item.invoiceId) ?? [];
+    list.push({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      taxPercentage: item.taxPercentage,
+    });
+    lineItemsByInvoiceId.set(item.invoiceId, list);
+  }
+
+  // Helper: compare by calendar date (YYYY-MM-DD) to avoid timezone/parsing edge cases
+  const toDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  let totalRevenue = 0;
+  let totalVATCollected = 0;
+  let revenueLast30Days = 0; // Rolling 30 days (for "all" mode subtext)
+  let revenuePrev30Days = 0; // Previous 30 days (for "all" mode change)
+  let revenueThisMonth = 0; // Safeguard: last30Days can never be < current month
+  let revenueLastMonth = 0; // For period: current period total
+  let revenuePrevPeriod = 0; // Previous period total (for change when not all-time)
+  const revenueByDate: Record<string, number> = {};
+
+  const last30StartStr = toDateStr(startOfLast30Days);
+  const last30EndStr = toDateStr(endOfLast30Days);
+  const prev30StartStr = toDateStr(startOfPrev30Days);
+  const prev30EndStr = toDateStr(endOfPrev30Days);
+  const monthStartStr = toDateStr(startOfMonth);
+  const monthEndStr = toDateStr(endOfMonth);
+  const periodStartStr = toDateStr(startDate);
+  const periodEndStr = toDateStr(endDate);
+  const prevPeriodStartStr = prevStartDate ? toDateStr(prevStartDate) : "";
+  const prevPeriodEndStr = prevEndDate ? toDateStr(prevEndDate) : "";
+
+  for (const inv of paidInvoices) {
+    const amount = parseInvoiceAmount(inv.amount);
+    const amountInEUR = await convertToEUR(
+      amount,
+      inv.currency || "EUR",
+      usdToEurRate
+    );
+    const lineItems = lineItemsByInvoiceId.get(inv.id) ?? [];
+    const isKOR = inv.isKOR ?? false;
+    const vatInInvoiceCurrency = isKOR
+      ? 0
+      : calculateVATFromLineItems(lineItems);
+    const vatInEUR = await convertToEUR(
+      vatInInvoiceCurrency,
+      inv.currency || "EUR",
+      usdToEurRate
+    );
+
+    const isDebit = (inv.transactionType || "debit") === "debit";
+    // Revenue = invoice total (no VAT adjustment)
+    const value = isDebit ? amountInEUR : -amountInEUR;
+
+    // Use paidAt for all date-based logic (revenue = when received)
+    const dateForPeriod = inv.paidAt
+      ? new Date(inv.paidAt)
+      : inv.dueDate
+        ? new Date(inv.dueDate)
+        : new Date(inv.createdAt);
+    const dStr = toDateStr(dateForPeriod);
+
+    const inPeriod = dStr >= periodStartStr && dStr <= periodEndStr;
+    // All Time: include all paid invoices. Other periods: filter by date.
+    if (isAllTime || inPeriod) {
+      totalRevenue += value;
+      totalVATCollected += isDebit ? vatInEUR : -vatInEUR;
+    }
+
+    // Rolling 30 days (for "all" mode subtext and change) - use date str to avoid parsing issues
+    if (dStr >= last30StartStr && dStr <= last30EndStr)
+      revenueLast30Days += value;
+    if (dStr >= prev30StartStr && dStr <= prev30EndStr)
+      revenuePrev30Days += value;
+    if (dStr >= monthStartStr && dStr <= monthEndStr) revenueThisMonth += value;
+
+    // For change badge (All Time: last 30d vs prev 30d. Other: period vs prev period)
+    if (!isAllTime) {
+      if (inPeriod) revenueLastMonth += value; // period total
+      if (
+        prevPeriodStartStr &&
+        prevPeriodEndStr &&
+        dStr >= prevPeriodStartStr &&
+        dStr <= prevPeriodEndStr
+      )
+        revenuePrevPeriod += value;
+    }
+
+    if (inPeriod) {
+      const key = groupByMonth
+        ? `${dateForPeriod.getFullYear()}-${String(dateForPeriod.getMonth() + 1).padStart(2, "0")}`
+        : dStr;
+      revenueByDate[key] = (revenueByDate[key] || 0) + value;
+    }
+  }
+
+  // Safeguard: last 30 days always includes current month, so it can never be less
+  if (now.getDate() <= 30 && revenueLast30Days < revenueThisMonth) {
+    revenueLast30Days = revenueThisMonth;
+  }
+  // When timeRange is 30d, totalRevenue should also respect this (it's the same metric)
+  if (
+    timeRange === "30d" &&
+    now.getDate() <= 30 &&
+    totalRevenue < revenueThisMonth
+  ) {
+    totalRevenue = revenueThisMonth;
+  }
+
+  const revenueChange = isAllTime
+    ? revenuePrev30Days > 0
+      ? ((revenueLast30Days - revenuePrev30Days) / revenuePrev30Days) * 100
+      : revenueLast30Days > 0
+        ? 100
+        : 0
+    : revenuePrevPeriod > 0
+      ? ((revenueLastMonth - revenuePrevPeriod) / revenuePrevPeriod) * 100
+      : revenueLastMonth > 0
+        ? 100
+        : 0;
+
+  // --- Expenses (exclude reimbursed: expense with paid invoice = pass-through, net zero) ---
+  const reimbursedExpenseIds = await db
+    .select({ expenseId: invoices.expenseId })
+    .from(invoices)
+    .where(and(eq(invoices.status, "paid"), isNotNull(invoices.expenseId)));
+  const reimbursedIds = new Set(
+    reimbursedExpenseIds
+      .map((r) => r.expenseId)
+      .filter((id): id is string => id != null)
+  );
+
+  const allExpenses = await db
+    .select({
+      id: expenses.id,
+      amount: expenses.amount,
+      currency: expenses.currency,
+      date: expenses.date,
+      category: expenses.category,
+    })
+    .from(expenses)
+    .orderBy(expenses.date);
+
+  let totalExpenses = 0;
+  let expensesLast30Days = 0;
+  let recurringExpenses = 0;
+  const expensesByCategory: Record<string, { amount: number; count: number }> =
+    {};
+  const expensesByDate: Record<string, number> = {};
+
+  for (const exp of allExpenses) {
+    if (reimbursedIds.has(exp.id)) continue; // Pass-through: don't count
+
+    const amount = parseExpenseAmount(exp.amount);
+    const amountInEUR = await convertToEUR(
+      amount,
+      exp.currency || "EUR",
+      usdToEurRate
+    );
+
+    const expDate = exp.date ? new Date(exp.date) : new Date();
+    const inPeriod = expDate >= startDate && expDate <= endDate;
+    // All Time: include all. Other periods: filter by date.
+    if (isAllTime || inPeriod) totalExpenses += amountInEUR;
+
+    // Always track last 30 days (rolling window)
+    if (expDate >= startOfLast30Days && expDate <= endOfLast30Days)
+      expensesLast30Days += amountInEUR;
+
+    if (isRecurringExpenseCategory(exp.category)) {
+      recurringExpenses += amountInEUR;
+    }
+
+    const cat = exp.category?.trim() || "Uncategorized";
+    if (inPeriod) {
+      if (!expensesByCategory[cat]) {
+        expensesByCategory[cat] = { amount: 0, count: 0 };
+      }
+      expensesByCategory[cat].amount += amountInEUR;
+      expensesByCategory[cat].count += 1;
+    }
+
+    if (expDate >= startDate && expDate <= endDate) {
+      const key = groupByMonth
+        ? `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, "0")}`
+        : expDate.toISOString().split("T")[0];
+      expensesByDate[key] = (expensesByDate[key] || 0) + amountInEUR;
+    }
+  }
+
+  const expensesByCategoryArray = Object.entries(expensesByCategory)
+    .map(([category, { amount, count }]) => ({ category, amount, count }))
+    .sort((a, b) => b.amount - a.amount);
+
+  // --- Outstanding invoices (sent, overdue) - expected revenue excl. VAT ---
+  const outstandingInvoices = await db
+    .select({
+      id: invoices.id,
+      amount: invoices.amount,
+      currency: invoices.currency,
+      transactionType: invoices.transactionType,
+      isKOR: invoices.isKOR,
+    })
+    .from(invoices)
+    .where(or(eq(invoices.status, "sent"), eq(invoices.status, "overdue"))!);
+
+  const outstandingIds = outstandingInvoices.map((i) => i.id);
+  const outstandingLineItems =
+    outstandingIds.length > 0
+      ? await db
+          .select({
+            invoiceId: invoiceLineItems.invoiceId,
+            quantity: invoiceLineItems.quantity,
+            unitPrice: invoiceLineItems.unitPrice,
+            taxPercentage: invoiceLineItems.taxPercentage,
+          })
+          .from(invoiceLineItems)
+          .where(inArray(invoiceLineItems.invoiceId, outstandingIds))
+          .orderBy(invoiceLineItems.order)
+      : [];
+
+  const outstandingLineItemsByInvoice = new Map<
+    string,
+    Array<{
+      quantity: string | number;
+      unitPrice: string | number;
+      taxPercentage: string | number;
+    }>
+  >();
+  for (const item of outstandingLineItems) {
+    const list = outstandingLineItemsByInvoice.get(item.invoiceId) ?? [];
+    list.push({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      taxPercentage: item.taxPercentage,
+    });
+    outstandingLineItemsByInvoice.set(item.invoiceId, list);
+  }
+
+  let outstandingTotal = 0;
+  for (const inv of outstandingInvoices) {
+    const amount = parseInvoiceAmount(inv.amount);
+    const amountInEUR = await convertToEUR(
+      amount,
+      inv.currency || "EUR",
+      usdToEurRate
+    );
+    const lineItems = outstandingLineItemsByInvoice.get(inv.id) ?? [];
+    const revenueExclVAT = getRevenueExcludingVAT(
+      amountInEUR,
+      lineItems,
+      inv.isKOR ?? false
+    );
+    const isDebit = (inv.transactionType || "debit") === "debit";
+    outstandingTotal += isDebit ? revenueExclVAT : -revenueExclVAT;
+  }
+
+  // --- Profit & tax (ZZP/eenmanszaak: Box 1 income tax) ---
+  const grossProfit = totalRevenue - totalExpenses;
+  const margin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+  const taxableProfit = Math.max(0, grossProfit);
+  const yearForTax = taxYear ?? now.getFullYear();
+  const incomeTax = calculateDutchIncomeTax(taxableProfit, yearForTax);
+  const netProfit = grossProfit - incomeTax;
+
+  // --- Chart data ---
+  const revenueChartData: Array<{ date: string; revenue: number }> = [];
+  const expensesChartData: Array<{ date: string; expenses: number }> = [];
+
+  if (groupByMonth) {
+    const startMonth = isAllTime
+      ? new Date(now.getFullYear(), now.getMonth() - 11, 1)
+      : new Date(now.getFullYear(), 0, 1);
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(
+        startMonth.getFullYear(),
+        startMonth.getMonth() + i,
+        1
+      );
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+      revenueChartData.push({
+        date: label,
+        revenue: revenueByDate[key] || 0,
+      });
+      expensesChartData.push({
+        date: label,
+        expenses: expensesByDate[key] || 0,
+      });
+    }
+  } else {
+    const days = timeRange === "90d" ? 90 : timeRange === "30d" ? 30 : 7;
+    for (let i = 0; i <= days; i++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().split("T")[0];
+      const label = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
+      revenueChartData.push({
+        date: label,
+        revenue: revenueByDate[key] || 0,
+      });
+      expensesChartData.push({
+        date: label,
+        expenses: expensesByDate[key] || 0,
+      });
+    }
+  }
+
+  return {
+    revenue: {
+      total: totalRevenue,
+      vatCollected: totalVATCollected,
+      last30Days: revenueLast30Days,
+      change: revenueChange,
+      chartData: revenueChartData,
+    },
+    expenses: {
+      total: totalExpenses,
+      last30Days: expensesLast30Days,
+      recurring: recurringExpenses,
+      byCategory: expensesByCategoryArray,
+      chartData: expensesChartData,
+    },
+    profit: {
+      gross: grossProfit,
+      margin,
+      taxable: taxableProfit,
+      incomeTax,
+      net: netProfit,
+    },
+    taxYear: yearForTax,
+    estimations: {
+      outstandingInvoices: outstandingTotal,
+      outstandingCount: outstandingInvoices.length,
+    },
+    timeRange,
   };
 }
 
@@ -2478,6 +3030,9 @@ export async function createInvoice(data: {
     order: number;
   }>;
 }) {
+  const status = data.status || "draft";
+  const paidAt = status === "paid" ? new Date() : null;
+
   const [invoice] = await db
     .insert(invoices)
     .values({
@@ -2487,7 +3042,7 @@ export async function createInvoice(data: {
       expenseId: data.expenseId ?? null,
       amount: data.amount,
       currency: data.currency || "EUR",
-      status: data.status || "draft",
+      status,
       type: data.type || "manual",
       transactionType: data.transactionType || "debit",
       vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : null,
@@ -2495,6 +3050,7 @@ export async function createInvoice(data: {
       description: data.description || null,
       invoiceDate: data.invoiceDate ?? new Date(),
       dueDate: data.dueDate || null,
+      paidAt,
       pdfStoragePath: data.pdfStoragePath || null,
       pdfFileName: data.pdfFileName || null,
       pdfSizeBytes: data.pdfSizeBytes || null,
@@ -2548,6 +3104,34 @@ export async function updateInvoice(
   }>
 ) {
   const { lineItems, ...invoiceData } = data;
+
+  // When status changes to "paid", set paidAt if not already provided
+  if (data.status === "paid" && data.paidAt === undefined) {
+    const [current] = await db
+      .select({ status: invoices.status, paidAt: invoices.paidAt })
+      .from(invoices)
+      .where(eq(invoices.id, invoiceId))
+      .limit(1);
+    if (current && (current.status !== "paid" || current.paidAt == null)) {
+      (invoiceData as Record<string, unknown>).paidAt = new Date();
+    }
+  }
+
+  // When status changes away from "paid", clear paidAt
+  if (
+    data.status &&
+    data.status !== "paid" &&
+    invoiceData.paidAt === undefined
+  ) {
+    const [current] = await db
+      .select({ status: invoices.status })
+      .from(invoices)
+      .where(eq(invoices.id, invoiceId))
+      .limit(1);
+    if (current?.status === "paid") {
+      (invoiceData as Record<string, unknown>).paidAt = null;
+    }
+  }
 
   // Always update updatedAt to invalidate download cache (ETag is based on updatedAt)
   const [invoice] = await db

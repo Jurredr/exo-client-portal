@@ -69,7 +69,7 @@ export function CreateOfferForm({
       setStatus("draft");
       setFile(null);
     }
-  }, [offer?.id]);
+  }, [offer]);
 
   const projects: Project[] =
     projectsData?.map((item: { project: Project }) => item.project) || [];

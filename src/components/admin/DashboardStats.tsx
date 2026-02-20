@@ -302,10 +302,14 @@ export default function DashboardStats() {
                       <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p>
+                      <p className="font-medium mb-1">
+                        Sum of paid invoice totals (excl. reimbursements)
+                      </p>
+                      <p className="text-xs">
+                        {" "}
                         {currency === "EUR"
-                          ? "USD invoices are converted to EUR using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."
-                          : "All amounts are converted to USD using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."}
+                          ? "USD converted to EUR via exchangerate-api.com."
+                          : "Amounts converted to USD via exchangerate-api.com."}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -321,16 +325,20 @@ export default function DashboardStats() {
               <div className="flex items-center justify-between">
                 <dt className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  Revenue This Month
+                  Revenue (Last 30 days)
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p>
+                      <p className="font-medium mb-1">
+                        Revenue received in the last 30 days (by payment date)
+                      </p>
+                      <p className="text-xs">
+                        Change vs previous 30 days.{" "}
                         {currency === "EUR"
-                          ? "USD invoices are converted to EUR using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."
-                          : "All amounts are converted to USD using real-time exchange rates from exchangerate-api.com. Rates are cached for 1 hour and updated automatically."}
+                          ? "USD converted to EUR."
+                          : "Amounts converted to USD."}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -358,7 +366,7 @@ export default function DashboardStats() {
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
                 {formatCurrency(
-                  convertAmount(stats.revenue.thisMonth),
+                  convertAmount(stats.revenue.last30Days),
                   currency
                 )}
               </dd>
@@ -496,7 +504,7 @@ export default function DashboardStats() {
               <div className="flex items-center justify-between">
                 <dt className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Hours This Month
+                  Hours (Last 30 days)
                 </dt>
                 <Badge
                   variant="outline"
@@ -520,7 +528,7 @@ export default function DashboardStats() {
                 </Badge>
               </div>
               <dd className="text-3xl font-semibold text-foreground mt-2">
-                {formatHours(stats.hours.thisMonth)}
+                {formatHours(stats.hours.last30Days)}
               </dd>
             </CardContent>
           </Card>

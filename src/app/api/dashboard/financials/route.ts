@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { isUserInEXOOrganization, getDashboardStats } from "@/lib/db/queries";
+import { isUserInEXOOrganization, getFinancialsStats } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -19,18 +19,15 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const revenueTimeRange = searchParams.get("revenueTimeRange") || "year";
-    const hoursTimeRange = searchParams.get("hoursTimeRange") || "30d";
+    const timeRange = searchParams.get("timeRange") || "all";
+    const taxYearParam = searchParams.get("taxYear");
+    const taxYear = taxYearParam ? parseInt(taxYearParam, 10) : undefined;
     const clientDate = searchParams.get("clientDate"); // YYYY-MM-DD from client for consistent date ranges
 
-    const stats = await getDashboardStats(
-      revenueTimeRange,
-      hoursTimeRange,
-      clientDate
-    );
+    const stats = await getFinancialsStats(timeRange, taxYear, clientDate);
     return NextResponse.json(stats);
   } catch (error) {
-    console.error("Error fetching dashboard stats:", error);
+    console.error("Error fetching financials:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

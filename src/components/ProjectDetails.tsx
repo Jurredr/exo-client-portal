@@ -39,7 +39,7 @@ interface ProjectInvoice {
   amount: string;
   currency: string;
   status: string;
-  invoiceDate: string | null;
+  invoiceDate: string;
   dueDate: string | null;
   paidAt: string | null;
   displayAmount?: number; // Total from line items for reimbursements, else parsed amount

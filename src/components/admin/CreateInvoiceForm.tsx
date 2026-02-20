@@ -68,7 +68,7 @@ interface Invoice {
   status: string;
   transactionType: string;
   description: string | null;
-  invoiceDate: string | null;
+  invoiceDate: string;
   dueDate: string | null;
   pdfStoragePath: string | null; // Path in Supabase Storage
   pdfFileName: string | null;
@@ -130,11 +130,22 @@ export function CreateInvoiceForm({
       dueDate: invoice.dueDate
         ? new Date(invoice.dueDate).toISOString().split("T")[0]
         : "",
-      invoiceDate: invoice.invoiceDate
-        ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0],
+      invoiceDate: formatDateForInput(invoice.invoiceDate),
     };
   };
+
+  // Format date for HTML date input (YYYY-MM-DD). For edit mode with null, use "" not today.
+  function formatDateForInput(
+    value: string | Date | null | undefined,
+    fallbackToToday = false
+  ): string {
+    if (value == null || value === "")
+      return fallbackToToday ? new Date().toISOString().split("T")[0] : "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime()))
+      return fallbackToToday ? new Date().toISOString().split("T")[0] : "";
+    return d.toISOString().split("T")[0];
+  }
 
   const initialFormValues = getInitialFormValues();
   const [organizationId, setOrganizationId] = useState<string>(
@@ -239,9 +250,7 @@ export function CreateInvoiceForm({
       dueDate: invoice.dueDate
         ? new Date(invoice.dueDate).toISOString().split("T")[0]
         : "",
-      invoiceDate: invoice.invoiceDate
-        ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0],
+      invoiceDate: formatDateForInput(invoice.invoiceDate),
       lineItems:
         invoice.lineItems && invoice.lineItems.length > 0
           ? invoice.lineItems.map((item) => ({
@@ -323,9 +332,7 @@ export function CreateInvoiceForm({
       const due = invoice.dueDate
         ? new Date(invoice.dueDate).toISOString().split("T")[0]
         : "";
-      const invDate = invoice.invoiceDate
-        ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
+      const invDate = formatDateForInput(invoice.invoiceDate);
       // Normalize lineItems - remove id and order fields for comparison
       const items =
         invoice.lineItems && invoice.lineItems.length > 0
@@ -338,7 +345,19 @@ export function CreateInvoiceForm({
           : [];
       const pdfPath = invoice.pdfStoragePath;
 
-      // Update original values (with key prop, component remounts so these should match initial values)
+      // Sync form values when invoice prop changes (ensures correct display when opening edit modal)
+      setOrganizationId(orgId);
+      setProjectId(projId);
+      setCurrency(curr);
+      setStatus(stat);
+      setTransactionType(transType);
+      setExpenseId(expId);
+      setIsKOR(kor);
+      setDueDate(due);
+      setInvoiceDate(invDate);
+      setLineItems(items);
+
+      // Update original values for change detection
       setOriginalOrganizationId(orgId);
       setOriginalProjectId(projId);
       setOriginalCurrency(curr);
@@ -632,7 +651,7 @@ export function CreateInvoiceForm({
           status,
           transactionType,
           isKOR,
-          invoiceDate: invoiceDate || null,
+          invoiceDate: invoiceDate || new Date().toISOString().split("T")[0],
           dueDate: dueDate || null,
           // Only include PDF fields if they're explicitly set (new file or removal)
           // If undefined, the API will preserve the existing PDF
@@ -672,6 +691,7 @@ export function CreateInvoiceForm({
           type: "manual",
           transactionType,
           isKOR,
+          invoiceDate: invoiceDate || new Date().toISOString().split("T")[0],
           dueDate: dueDate || null,
           pdfStoragePath,
           pdfFileName,

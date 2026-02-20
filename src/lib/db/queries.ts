@@ -2465,7 +2465,7 @@ export async function createInvoice(data: {
   vatIncluded?: boolean | null;
   isKOR?: boolean;
   description?: string | null;
-  invoiceDate?: Date | null;
+  invoiceDate?: Date;
   dueDate?: Date | null;
   pdfStoragePath?: string | null; // Path in Supabase Storage
   pdfFileName?: string | null;
@@ -2493,7 +2493,7 @@ export async function createInvoice(data: {
       vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : null,
       isKOR: data.isKOR || false,
       description: data.description || null,
-      invoiceDate: data.invoiceDate || null,
+      invoiceDate: data.invoiceDate ?? new Date(),
       dueDate: data.dueDate || null,
       pdfStoragePath: data.pdfStoragePath || null,
       pdfFileName: data.pdfFileName || null,
@@ -2531,7 +2531,7 @@ export async function updateInvoice(
     vatIncluded: boolean | null;
     isKOR: boolean;
     description: string | null;
-    invoiceDate: Date | null;
+    invoiceDate: Date;
     dueDate: Date | null;
     paidAt: Date | null;
     pdfStoragePath: string | null; // Path in Supabase Storage

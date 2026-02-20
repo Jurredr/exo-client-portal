@@ -94,8 +94,11 @@ export function CreateExpenseForm({
   const { data: currentUser } = useCurrentUser();
   const createExpenseMutation = useCreateExpense();
   const updateExpenseMutation = useUpdateExpense();
+  const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
   const isSubmitting =
-    createExpenseMutation.isPending || updateExpenseMutation.isPending;
+    isSubmittingLocal ||
+    createExpenseMutation.isPending ||
+    updateExpenseMutation.isPending;
 
   // Store original values when editing
   useEffect(() => {
@@ -201,6 +204,7 @@ export function CreateExpenseForm({
       return;
     }
 
+    setIsSubmittingLocal(true);
     try {
       let invoiceStoragePath: string | null = null;
       let invoiceFileName: string | null = null;
@@ -232,6 +236,7 @@ export function CreateExpenseForm({
         } catch (error) {
           console.error("Error uploading file:", error);
           toast.error("Failed to upload file. Please try again.");
+          setIsSubmittingLocal(false);
           return;
         }
       } else if (removeInvoice) {
@@ -269,6 +274,7 @@ export function CreateExpenseForm({
           onError: (error: Error) => {
             toast.error(error.message || "Failed to update expense");
           },
+          onSettled: () => setIsSubmittingLocal(false),
         });
       } else {
         const createData: CreateExpenseData = {
@@ -302,6 +308,7 @@ export function CreateExpenseForm({
             toast.error(error.message || "Failed to create expense");
             onError?.(); // Reopen modal on failure so user can retry
           },
+          onSettled: () => setIsSubmittingLocal(false),
         });
       }
     } catch (error) {
@@ -310,6 +317,7 @@ export function CreateExpenseForm({
           ? error.message
           : `Failed to ${expense ? "update" : "create"} expense`
       );
+      setIsSubmittingLocal(false);
     }
   };
 

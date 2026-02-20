@@ -90,7 +90,7 @@ interface InvoiceData {
     vatIncluded: boolean | null;
     isKOR: boolean;
     description: string | null;
-    invoiceDate: string | null;
+    invoiceDate: string;
     dueDate: string | null;
     paidAt: string | null;
     pdfStoragePath: string | null; // Path in Supabase Storage
@@ -984,6 +984,7 @@ export function InvoicesTable() {
             </DialogHeader>
             {editingInvoice && (
               <CreateInvoiceForm
+                key={editingInvoice.invoice.id}
                 invoice={{
                   id: editingInvoice.invoice.id,
                   invoiceNumber: editingInvoice.invoice.invoiceNumber,

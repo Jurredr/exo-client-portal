@@ -180,7 +180,7 @@ export const invoices = pgTable("invoices", {
   vatIncluded: boolean("vat_included"), // Deprecated: whether 21% VAT is included in the total (kept for backward compatibility)
   isKOR: boolean("is_kor").notNull().default(false), // Kleine ondernemersregeling - if true, no tax is charged
   description: text("description"), // For manual invoices (deprecated, use line items instead)
-  invoiceDate: timestamp("invoice_date"), // Manual invoice date (defaults to createdAt if not set)
+  invoiceDate: timestamp("invoice_date").notNull(), // Invoice date (required)
   dueDate: timestamp("due_date"),
   paidAt: timestamp("paid_at"),
   pdfStoragePath: text("pdf_storage_path"), // Path in Supabase Storage (e.g., "invoices/invoice-123.pdf")

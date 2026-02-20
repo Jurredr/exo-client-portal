@@ -207,7 +207,7 @@ export async function POST(request: Request) {
           vatIncluded: vatIncluded !== undefined ? vatIncluded : null,
           isKOR: finalIsKOR,
           description: description || null,
-          invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
+          invoiceDate: invoiceDate ? new Date(invoiceDate) : new Date(),
           dueDate: dueDate ? new Date(dueDate) : null,
           pdfStoragePath: pdfStoragePath || null,
           pdfFileName: pdfFileName || null,
@@ -409,11 +409,11 @@ export async function PATCH(request: Request) {
       ...(updateData.description !== undefined && {
         description: updateData.description?.trim() || null,
       }),
-      ...(updateData.invoiceDate !== undefined && {
-        invoiceDate: updateData.invoiceDate
-          ? new Date(updateData.invoiceDate)
-          : null,
-      }),
+      ...(updateData.invoiceDate !== undefined &&
+        updateData.invoiceDate !== null &&
+        updateData.invoiceDate !== "" && {
+          invoiceDate: new Date(updateData.invoiceDate),
+        }),
       ...(updateData.dueDate !== undefined && {
         dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null,
       }),

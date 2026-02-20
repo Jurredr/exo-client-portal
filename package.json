@@ -16,6 +16,7 @@
     "db:push": "drizzle-kit push",
     "migrate:contracts-expenses": "tsx scripts/migrate-contracts-expenses-to-storage.ts",
     "migrate:images": "tsx scripts/migrate-images-to-storage.ts",
+    "migrate:invoice-date": "tsx scripts/backfill-invoice-date.ts",
     "prepare": "husky"
   },
   "dependencies": {

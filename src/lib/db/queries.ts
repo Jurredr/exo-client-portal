@@ -761,6 +761,37 @@ export async function getCompanyById(companyId: string) {
   return company[0] || null;
 }
 
+export async function getCompaniesByNameOrBtw(
+  vendorName?: string | null,
+  btwNumber?: string | null
+) {
+  const hasName = vendorName?.trim();
+  const hasBtw = btwNumber?.trim();
+  if (!hasName && !hasBtw) return [];
+
+  const conditions: ReturnType<typeof like>[] = [];
+  if (hasName) {
+    conditions.push(like(companies.name, `%${hasName}%`));
+  }
+  if (hasBtw) {
+    const normalized = hasBtw.replace(/\s/g, "");
+    conditions.push(like(companies.btwNumber, `%${normalized}%`));
+  }
+
+  const results = await db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      btwNumber: companies.btwNumber,
+      kvkNumber: companies.kvkNumber,
+    })
+    .from(companies)
+    .where(or(...conditions))
+    .limit(10);
+
+  return results;
+}
+
 export async function createContact(data: {
   firstName: string;
   lastName: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   useCreateExpense,
   useUpdateExpense,
@@ -8,6 +8,7 @@ import {
   type UpdateExpenseData,
 } from "@/hooks/use-expenses";
 import { useCurrentUser } from "@/hooks/use-users";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,8 @@ import {
   FileText,
   Copy,
   Loader2,
+  Scan,
+  Building2,
 } from "lucide-react";
 
 const EXPENSE_CATEGORIES = [
@@ -40,6 +43,13 @@ const EXPENSE_CATEGORIES = [
   "Professional Services",
   "Other",
 ];
+
+interface SuggestedCompany {
+  id: string;
+  name: string;
+  btwNumber: string | null;
+  kvkNumber: string | null;
+}
 
 interface Expense {
   id: string;
@@ -80,6 +90,16 @@ export function CreateExpenseForm({
   // For existing files in Storage, we just show the filename
   const [invoicePreview, setInvoicePreview] = useState<string | null>(null);
   const [removeInvoice, setRemoveInvoice] = useState(false);
+  // AI extract flow (create mode only)
+  const [showForm, setShowForm] = useState(!!expense);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [suggestedCompanies, setSuggestedCompanies] = useState<
+    SuggestedCompany[]
+  >([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
+    null
+  );
+  const { data: companies = [] } = useOrganizations();
   const [originalDescription, setOriginalDescription] = useState<string>("");
   const [originalAmount, setOriginalAmount] = useState<string>("");
   const [originalCurrency, setOriginalCurrency] = useState<"USD" | "EUR">(
@@ -162,6 +182,42 @@ export function CreateExpenseForm({
     removeInvoice,
   ]);
 
+  const extractAndPreFill = useCallback(async (file: File) => {
+    setIsExtracting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/expenses/extract-invoice", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to extract invoice");
+      }
+      const data = await res.json();
+      if (data.vendor) setVendor(data.vendor);
+      if (data.amount) setAmount(data.amount);
+      if (data.currency)
+        setCurrency(
+          data.currency === "USD" || data.currency === "EUR"
+            ? data.currency
+            : "EUR"
+        );
+      if (data.date) setDate(data.date);
+      if (data.description) setDescription(data.description);
+      setSuggestedCompanies(data.suggestedCompanies ?? []);
+      setShowForm(true);
+      toast.success("Invoice data extracted");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to extract invoice"
+      );
+    } finally {
+      setIsExtracting(false);
+    }
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -169,18 +225,16 @@ export function CreateExpenseForm({
         toast.error("File size must be less than 10MB");
         return;
       }
-      setInvoiceFile(file);
-      setRemoveInvoice(false); // Reset remove flag when new file is selected
-
-      // Validate file type - only PDFs allowed
       if (file.type !== "application/pdf") {
         toast.error("Please upload a PDF file");
-        setInvoiceFile(null);
         return;
       }
-
-      // No preview for PDFs, just show filename
+      setInvoiceFile(file);
+      setRemoveInvoice(false);
       setInvoicePreview(null);
+      if (!expense) {
+        extractAndPreFill(file);
+      }
     }
   };
 
@@ -283,6 +337,7 @@ export function CreateExpenseForm({
           date: date, // date is validated above, so it's guaranteed to be a string
           category: category || null,
           vendor: vendor.trim() || null,
+          companyId: selectedCompanyId || null,
           invoiceStoragePath,
           invoiceFileName,
           invoiceSizeBytes,
@@ -301,6 +356,8 @@ export function CreateExpenseForm({
             setVendor("");
             setInvoiceFile(null);
             setInvoicePreview(null);
+            setSuggestedCompanies([]);
+            setSelectedCompanyId(null);
           },
           onError: (error: Error) => {
             toast.error(error.message || "Failed to create expense");
@@ -318,6 +375,52 @@ export function CreateExpenseForm({
       setIsSubmittingLocal(false);
     }
   };
+
+  // Create mode: optional upload step first
+  if (!expense && !showForm) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <Scan className="mx-auto h-10 w-10 text-muted-foreground" />
+          <h3 className="mt-2 font-medium">Upload invoice to auto-fill</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upload a PDF invoice to extract vendor, amount, date and more.
+          </p>
+          <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+            <Label
+              htmlFor="expense-invoice-upload"
+              className="cursor-pointer rounded-md border px-4 py-2 text-sm hover:bg-muted"
+            >
+              <Upload className="mr-2 inline h-4 w-4" />
+              Choose PDF
+            </Label>
+            <Input
+              id="expense-invoice-upload"
+              type="file"
+              accept=".pdf"
+              onChange={handleFileChange}
+              className="hidden"
+              disabled={isExtracting}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowForm(true)}
+              disabled={isExtracting}
+            >
+              Skip
+            </Button>
+          </div>
+          {isExtracting && (
+            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Extracting invoice data...
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -431,6 +534,38 @@ export function CreateExpenseForm({
           />
         </div>
       </div>
+      {(suggestedCompanies.length > 0 || companies.length > 0) && (
+        <div className="space-y-2">
+          <Label htmlFor="expense-company" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Link to company
+          </Label>
+          <Select
+            value={selectedCompanyId || "none"}
+            onValueChange={(v) => setSelectedCompanyId(v === "none" ? null : v)}
+          >
+            <SelectTrigger id="expense-company">
+              <SelectValue placeholder="No company" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No company</SelectItem>
+              {suggestedCompanies.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                  {c.btwNumber ? ` (${c.btwNumber})` : ""}
+                </SelectItem>
+              ))}
+              {companies
+                .filter((c) => !suggestedCompanies.some((s) => s.id === c.id))
+                .map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="expense-invoice" className="flex items-center gap-2">
           <Upload className="h-4 w-4" />

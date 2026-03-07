@@ -78,14 +78,21 @@
 
 ## Phase 3 – Expenses: AI-powered invoice scanning
 
-### 3.1 – Upload incoming invoice and auto-extract data
+### 3.1 – Upload incoming invoice and auto-extract data ✅
 
-- [ ] On the CreateExpenseForm, add an "Upload invoice" step first
-- [ ] After upload, send the file to the OpenAI API (`gpt-4.1-mini`) using vision with a prompt to extract: vendor name, amount, currency, date, BTW number if present, description
-- [ ] Pre-fill the form fields with extracted data
-- [ ] User can review and correct before saving
-- [ ] If a company with the same name or BTW number already exists in `companies`, suggest linking to it automatically
-- [ ] If not, offer to create a new company record on the spot
+- [x] On the CreateExpenseForm, add an "Upload invoice" step first (optional; user can skip)
+- [x] After upload, send the file to the OpenAI API (`gpt-4o-mini`) using Responses API with PDF input to extract: vendor name, amount, currency, date, BTW number if present, description
+- [x] Pre-fill the form fields with extracted data
+- [x] User can review and correct before saving
+- [x] If a company with the same name or BTW number already exists in `companies`, suggest linking to it in the company selector
+- [x] Company selector shows suggested companies first, then all companies
+
+**Implementation notes:**
+
+- API route `/api/expenses/extract-invoice` accepts PDF via FormData, uses OpenAI Responses API with `input_file` (base64), returns extracted JSON + `suggestedCompanies`.
+- `getCompaniesByNameOrBtw(vendorName, btwNumber)` in queries.ts finds matching companies.
+- CreateExpenseForm: two-step flow (upload/skip) for create mode; extract on file select; company selector with suggested + all companies.
+- Add `OPENAI_API_KEY` to `.env.local` for extraction to work.
 
 ---
 

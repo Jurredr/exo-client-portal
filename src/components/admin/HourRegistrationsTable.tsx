@@ -813,6 +813,7 @@ export function HourRegistrationsTable() {
             minutes: "",
             description: "",
             category: "client",
+            contactId: undefined,
             projectId: undefined,
           });
           window.dispatchEvent(new Event("hour-registration-saved"));

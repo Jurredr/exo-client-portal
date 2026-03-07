@@ -4,13 +4,13 @@ import {
   getAllProjects,
   getAllProjectsPaginated,
   getAllProjectsCount,
-  isUserInEXOOrganization,
+  isUserInEXOCompany,
   updateProject,
   getTotalHoursByProject,
   deleteProject,
   getProjectById,
   isAdmin,
-  getOrCreateEXOOrganization,
+  getOrCreateEXOCompany,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { getDefaultStage } from "@/lib/constants/stages";
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -133,7 +133,10 @@ export async function POST(request: Request) {
       currency,
       type,
       organizationId,
+      companyId: bodyCompanyId,
     } = body;
+
+    const companyId = bodyCompanyId ?? organizationId;
 
     if (!title || typeof title !== "string" || title.trim().length === 0) {
       return NextResponse.json(
@@ -146,19 +149,19 @@ export async function POST(request: Request) {
 
     // Subtotal is optional for all project types
 
-    if (!organizationId || typeof organizationId !== "string") {
+    if (!companyId || typeof companyId !== "string") {
       return NextResponse.json(
-        { error: "Organization ID is required" },
+        { error: "Company ID is required" },
         { status: 400 }
       );
     }
 
-    // For EXO Labs projects, ensure they're under EXO organization
+    // For EXO Labs projects, ensure they're under EXO company
     if (projectType === "labs") {
-      const exoOrg = await getOrCreateEXOOrganization();
-      if (organizationId !== exoOrg.id) {
+      const exoCompany = await getOrCreateEXOCompany();
+      if (companyId !== exoCompany.id) {
         return NextResponse.json(
-          { error: "EXO Labs projects must be under EXO organization" },
+          { error: "EXO Labs projects must be under EXO company" },
           { status: 400 }
         );
       }
@@ -174,7 +177,7 @@ export async function POST(request: Request) {
       subtotal: subtotal || null,
       currency: currency || "EUR",
       type: projectType,
-      organizationId,
+      companyId,
     });
 
     return NextResponse.json(project, { status: 201 });
@@ -198,7 +201,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -267,7 +270,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

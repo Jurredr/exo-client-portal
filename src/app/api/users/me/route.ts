@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getUserByEmail } from "@/lib/db/queries";
 import { db } from "@/db";
-import { organizations, userOrganizations } from "@/db/schema";
+import { companies, userCompanies } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -21,30 +21,27 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Get primary organization (for backward compatibility)
-    const primaryOrg = dbUser.organizationId
+    // Get primary company (for backward compatibility)
+    const primaryCompany = dbUser.companyId
       ? await db
           .select({
-            id: organizations.id,
-            name: organizations.name,
+            id: companies.id,
+            name: companies.name,
           })
-          .from(organizations)
-          .where(eq(organizations.id, dbUser.organizationId))
+          .from(companies)
+          .where(eq(companies.id, dbUser.companyId))
           .limit(1)
       : [];
 
-    // Get all organizations from junction table
-    const userOrgs = await db
+    // Get all companies from junction table
+    const userCompaniesList = await db
       .select({
-        id: organizations.id,
-        name: organizations.name,
+        id: companies.id,
+        name: companies.name,
       })
-      .from(userOrganizations)
-      .innerJoin(
-        organizations,
-        eq(userOrganizations.organizationId, organizations.id)
-      )
-      .where(eq(userOrganizations.userId, dbUser.id));
+      .from(userCompanies)
+      .innerJoin(companies, eq(userCompanies.companyId, companies.id))
+      .where(eq(userCompanies.userId, dbUser.id));
 
     return NextResponse.json({
       user: {
@@ -55,12 +52,13 @@ export async function GET() {
         imageSizeBytes: dbUser.imageSizeBytes,
         phone: dbUser.phone,
         note: dbUser.note,
-        organizationId: dbUser.organizationId,
+        companyId: dbUser.companyId,
+        organizationId: dbUser.companyId, // Alias for backward compatibility
         createdAt: dbUser.createdAt.toISOString(),
         updatedAt: dbUser.updatedAt.toISOString(),
       },
-      organization: primaryOrg[0] || null,
-      organizations: userOrgs,
+      organization: primaryCompany[0] || null,
+      organizations: userCompaniesList,
     });
   } catch (error) {
     console.error("Error fetching current user:", error);

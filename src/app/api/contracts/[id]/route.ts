@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   getContractById,
-  isUserInEXOOrganization,
+  isUserInEXOCompany,
   getUserByEmail,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
@@ -31,16 +31,15 @@ export async function GET(
     }
 
     // Check if user can access this contract
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     const dbUser = await getUserByEmail(user.email);
 
     if (!dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // User must be in EXO or in the contract's organization
-    const canAccess =
-      isInEXO || dbUser.organizationId === contractData.organization.id;
+    // User must be in EXO or in the contract's company
+    const canAccess = isInEXO || dbUser.companyId === contractData.company.id;
 
     if (!canAccess) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

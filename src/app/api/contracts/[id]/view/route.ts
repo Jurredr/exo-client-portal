@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getContractById, isUserInEXOOrganization } from "@/lib/db/queries";
+import { getContractById, isUserInEXOCompany } from "@/lib/db/queries";
 import { downloadContractFile } from "@/lib/utils/file-storage";
 import { NextResponse } from "next/server";
 
@@ -17,7 +17,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

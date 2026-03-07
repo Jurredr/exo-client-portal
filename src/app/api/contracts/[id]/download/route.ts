@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   getContractById,
-  isUserInEXOOrganization,
+  isUserInEXOCompany,
   canUserAccessProject,
 } from "@/lib/db/queries";
 import { downloadContractFile } from "@/lib/utils/file-storage";
@@ -31,7 +31,7 @@ export async function GET(
       );
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       const projects = contractData.projects || [];
       const hasAccess = await Promise.all(

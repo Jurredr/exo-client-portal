@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getAllContractsPaginated,
   getAllContractsCount,
-  isUserInEXOOrganization,
+  isUserInEXOCompany,
   createContract,
   updateContract,
   getContractById,
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -94,6 +94,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       organizationId,
+      companyId: bodyCompanyId,
       projectIds,
       projectId,
       name,
@@ -103,9 +104,10 @@ export async function POST(request: Request) {
       requiresPortalSignature,
     } = body;
 
-    if (!organizationId || typeof organizationId !== "string") {
+    const companyId = bodyCompanyId ?? organizationId;
+    if (!companyId || typeof companyId !== "string") {
       return NextResponse.json(
-        { error: "Organization ID is required" },
+        { error: "Company ID is required" },
         { status: 400 }
       );
     }
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
     const finalProjectIds = projectIds || (projectId ? [projectId] : []);
 
     const contract = await createContract({
-      organizationId,
+      companyId,
       projectIds: finalProjectIds.length > 0 ? finalProjectIds : undefined,
       name: name.trim(),
       fileStoragePath: fileStoragePath || null,
@@ -152,7 +154,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -161,6 +163,7 @@ export async function PATCH(request: Request) {
     const {
       id,
       organizationId,
+      companyId: bodyCompanyId,
       projectIds,
       name,
       fileStoragePath, // Path in Supabase Storage
@@ -186,7 +189,7 @@ export async function PATCH(request: Request) {
     }
 
     const updateData: {
-      organizationId?: string;
+      companyId?: string;
       name?: string;
       fileStoragePath?: string | null; // Path in Supabase Storage
       fileName?: string | null;
@@ -194,7 +197,8 @@ export async function PATCH(request: Request) {
       requiresPortalSignature?: boolean;
       projectIds?: string[];
     } = {};
-    if (organizationId) updateData.organizationId = organizationId;
+    const companyIdForUpdate = bodyCompanyId ?? organizationId;
+    if (companyIdForUpdate) updateData.companyId = companyIdForUpdate;
     if (name !== undefined) updateData.name = name.trim();
     if (fileStoragePath !== undefined)
       updateData.fileStoragePath = fileStoragePath || null;
@@ -228,7 +232,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

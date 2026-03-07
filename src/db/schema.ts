@@ -9,18 +9,37 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 
-export const organizations = pgTable("organizations", {
+export const COMPANY_TYPES = ["client", "supplier", "both"] as const;
+export type CompanyType = (typeof COMPANY_TYPES)[number];
+
+export const CONTACT_TYPES = ["client", "supplier", "both"] as const;
+export type ContactType = (typeof CONTACT_TYPES)[number];
+
+export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  imageStoragePath: text("image_storage_path"), // Path in Supabase Storage (e.g., "organizations/org-123.jpg")
+  imageStoragePath: text("image_storage_path"), // Path in Supabase Storage (logo)
   imageSizeBytes: integer("image_size_bytes"), // File size in bytes
   address: text("address"),
   kvkNumber: text("kvk_number"),
   btwNumber: text("btw_number"),
   email: text("email"),
   telephone: text("telephone"),
+  type: text("type").notNull().default("client"), // client | supplier | both
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const contacts = pgTable("contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  photo: text("photo"), // Path in Supabase Storage
+  companyId: uuid("company_id").references(() => companies.id),
+  type: text("type").notNull().default("client"), // client | supplier | both
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const users = pgTable("users", {
@@ -31,7 +50,7 @@ export const users = pgTable("users", {
   note: text("note"),
   imageStoragePath: text("image_storage_path"), // Path in Supabase Storage (e.g., "users/user-123.jpg")
   imageSizeBytes: integer("image_size_bytes"), // File size in bytes
-  organizationId: uuid("organization_id").references(() => organizations.id),
+  companyId: uuid("company_id").references(() => companies.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -48,8 +67,8 @@ export const projects = pgTable("projects", {
   subtotal: text("subtotal"), // Nullable for EXO Labs projects
   currency: text("currency").notNull().default("EUR"), // USD, EUR
   type: text("type").notNull().default("client"), // client, labs
-  organizationId: uuid("organization_id")
-    .references(() => organizations.id)
+  companyId: uuid("company_id")
+    .references(() => companies.id)
     .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -79,8 +98,8 @@ export const clientAssets = pgTable("client_assets", {
 
 export const contracts = pgTable("contracts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: uuid("organization_id")
-    .references(() => organizations.id)
+  companyId: uuid("company_id")
+    .references(() => companies.id)
     .notNull(),
   projectId: uuid("project_id").references(() => projects.id), // Deprecated: kept for backward compatibility, use contractProjects junction table
   name: text("name").notNull(),
@@ -123,20 +142,20 @@ export const hourRegistrations = pgTable("hour_registrations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Many-to-many relationship between users and organizations
-export const userOrganizations = pgTable(
-  "user_organizations",
+// Many-to-many relationship between users and companies
+export const userCompanies = pgTable(
+  "user_companies",
   {
     userId: uuid("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    organizationId: uuid("organization_id")
-      .references(() => organizations.id, { onDelete: "cascade" })
+    companyId: uuid("company_id")
+      .references(() => companies.id, { onDelete: "cascade" })
       .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.organizationId] }),
+    pk: primaryKey({ columns: [table.userId, table.companyId] }),
   })
 );
 
@@ -164,8 +183,8 @@ export const invoices = pgTable("invoices", {
   projectId: uuid("project_id").references(() => projects.id, {
     onDelete: "set null",
   }),
-  organizationId: uuid("organization_id")
-    .references(() => organizations.id)
+  companyId: uuid("company_id")
+    .references(() => companies.id)
     .notNull(),
   expenseId: uuid("expense_id")
     .references(() => expenses.id, {

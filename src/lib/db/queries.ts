@@ -2,9 +2,10 @@ import { db } from "@/db";
 import {
   projects,
   users,
-  organizations,
+  companies,
+  contacts,
   hourRegistrations,
-  userOrganizations,
+  userCompanies,
   invoices,
   invoiceLineItems,
   contracts,
@@ -44,54 +45,52 @@ export function isAdmin(email: string): boolean {
   return email.endsWith(ADMIN_EMAIL_DOMAIN);
 }
 
-export async function isUserInEXOOrganization(
-  userEmail: string
-): Promise<boolean> {
+export async function isUserInEXOCompany(userEmail: string): Promise<boolean> {
   const user = await getUserByEmail(userEmail);
   if (!user) {
     return false;
   }
 
-  const exoOrg = await getOrCreateEXOOrganization();
+  const exoCompany = await getOrCreateEXOCompany();
 
-  // Check primary organization (backward compatibility)
-  if (user.organizationId === exoOrg.id) {
+  // Check primary company (backward compatibility)
+  if (user.companyId === exoCompany.id) {
     return true;
   }
 
   // Check junction table
-  const userOrg = await db
+  const userCompany = await db
     .select()
-    .from(userOrganizations)
+    .from(userCompanies)
     .where(
-      sql`${userOrganizations.userId} = ${user.id} AND ${userOrganizations.organizationId} = ${exoOrg.id}`
+      sql`${userCompanies.userId} = ${user.id} AND ${userCompanies.companyId} = ${exoCompany.id}`
     )
     .limit(1);
 
-  return userOrg.length > 0;
+  return userCompany.length > 0;
 }
 
-export async function getOrCreateEXOOrganization() {
-  // Try to find EXO organization
+export async function getOrCreateEXOCompany() {
+  // Try to find EXO company
   const existing = await db
     .select()
-    .from(organizations)
-    .where(eq(organizations.name, EXO_ORGANIZATION_NAME))
+    .from(companies)
+    .where(eq(companies.name, EXO_ORGANIZATION_NAME))
     .limit(1);
 
   if (existing[0]) {
     return existing[0];
   }
 
-  // Create EXO organization if it doesn't exist
-  const [newOrg] = await db
-    .insert(organizations)
+  // Create EXO company if it doesn't exist
+  const [newCompany] = await db
+    .insert(companies)
     .values({
       name: EXO_ORGANIZATION_NAME,
     })
     .returning();
 
-  return newOrg;
+  return newCompany;
 }
 
 export async function ensureUserExists(
@@ -119,11 +118,11 @@ export async function ensureUserExists(
     return existing;
   }
 
-  // Determine organization
-  let organizationId: string | null = null;
+  // Determine company
+  let companyId: string | null = null;
   if (isAdmin(email)) {
-    const exoOrg = await getOrCreateEXOOrganization();
-    organizationId = exoOrg.id;
+    const exoCompany = await getOrCreateEXOCompany();
+    companyId = exoCompany.id;
   }
 
   // Create user
@@ -134,7 +133,7 @@ export async function ensureUserExists(
       name: name || null,
       imageStoragePath: imageStoragePath || null,
       imageSizeBytes: imageSizeBytes || null,
-      organizationId,
+      companyId,
     })
     .returning();
 
@@ -185,33 +184,33 @@ export async function getProjectsForUser(userEmail: string) {
   const user = await getUserByEmail(userEmail);
   if (!user) return [];
 
-  const orgIds: string[] = [];
-  if (user.organizationId) orgIds.push(user.organizationId);
+  const companyIds: string[] = [];
+  if (user.companyId) companyIds.push(user.companyId);
 
-  const userOrgs = await db
-    .select({ organizationId: userOrganizations.organizationId })
-    .from(userOrganizations)
-    .where(eq(userOrganizations.userId, user.id));
-  userOrgs.forEach((uo) => {
-    if (uo.organizationId && !orgIds.includes(uo.organizationId)) {
-      orgIds.push(uo.organizationId);
+  const userCompaniesList = await db
+    .select({ companyId: userCompanies.companyId })
+    .from(userCompanies)
+    .where(eq(userCompanies.userId, user.id));
+  userCompaniesList.forEach((uc) => {
+    if (uc.companyId && !companyIds.includes(uc.companyId)) {
+      companyIds.push(uc.companyId);
     }
   });
 
-  if (orgIds.length === 0) return [];
+  if (companyIds.length === 0) return [];
 
   return db
     .select({
       id: projects.id,
       slug: projects.slug,
       title: projects.title,
-      organizationId: projects.organizationId,
-      organizationName: organizations.name,
+      companyId: projects.companyId,
+      companyName: companies.name,
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .where(
-      and(eq(projects.type, "client"), inArray(projects.organizationId, orgIds))
+      and(eq(projects.type, "client"), inArray(projects.companyId, companyIds))
     )
     .orderBy(desc(projects.createdAt));
 }
@@ -227,7 +226,7 @@ export async function canUserAccessProject(
 
   // Get the project
   const project = await getProjectById(projectId);
-  if (!project || !project.organizationId) {
+  if (!project || !project.companyId) {
     return false;
   }
 
@@ -237,45 +236,45 @@ export async function canUserAccessProject(
     return false;
   }
 
-  // Check primary organization (backward compatibility)
-  if (user.organizationId === project.organizationId) {
+  // Check primary company (backward compatibility)
+  if (user.companyId === project.companyId) {
     return true;
   }
 
   // Check junction table
-  const userOrg = await db
+  const userCompany = await db
     .select()
-    .from(userOrganizations)
+    .from(userCompanies)
     .where(
-      sql`${userOrganizations.userId} = ${user.id} AND ${userOrganizations.organizationId} = ${project.organizationId}`
+      sql`${userCompanies.userId} = ${user.id} AND ${userCompanies.companyId} = ${project.companyId}`
     )
     .limit(1);
 
-  return userOrg.length > 0;
+  return userCompany.length > 0;
 }
 
-export async function getProjectWithOrganization(projectId: string) {
+export async function getProjectWithCompany(projectId: string) {
   const result = await db
     .select({
       project: projects,
-      organization: organizations,
+      company: companies,
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .where(eq(projects.id, projectId))
     .limit(1);
 
   return result[0] || null;
 }
 
-export async function getProjectWithOrganizationBySlug(slug: string) {
+export async function getProjectWithCompanyBySlug(slug: string) {
   const result = await db
     .select({
       project: projects,
-      organization: organizations,
+      company: companies,
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .where(eq(projects.slug, slug))
     .limit(1);
 
@@ -615,7 +614,7 @@ export async function deleteHourRegistration(registrationId: string) {
     .where(eq(hourRegistrations.id, registrationId));
 }
 
-export async function createOrganization(data: {
+export async function createCompany(data: {
   name: string;
   imageStoragePath?: string | null; // Path in Supabase Storage
   imageSizeBytes?: number | null;
@@ -624,9 +623,10 @@ export async function createOrganization(data: {
   btwNumber?: string | null;
   email?: string | null;
   telephone?: string | null;
+  type?: string | null;
 }) {
-  const [organization] = await db
-    .insert(organizations)
+  const [company] = await db
+    .insert(companies)
     .values({
       name: data.name,
       imageStoragePath: data.imageStoragePath || null,
@@ -636,16 +636,17 @@ export async function createOrganization(data: {
       btwNumber: data.btwNumber || null,
       email: data.email || null,
       telephone: data.telephone || null,
+      type: data.type || "client",
     })
     .returning();
 
-  return organization;
+  return company;
 }
 
-export async function updateOrganization(
-  organizationId: string,
+export async function updateCompany(
+  companyId: string,
   data: {
-    name: string;
+    name?: string;
     imageStoragePath?: string | null; // Path in Supabase Storage
     imageSizeBytes?: number | null;
     address?: string | null;
@@ -653,88 +654,186 @@ export async function updateOrganization(
     btwNumber?: string | null;
     email?: string | null;
     telephone?: string | null;
+    type?: string | null;
   }
 ) {
-  const [updatedOrganization] = await db
-    .update(organizations)
+  const [updatedCompany] = await db
+    .update(companies)
     .set({
-      ...data,
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.imageStoragePath !== undefined && {
+        imageStoragePath: data.imageStoragePath,
+      }),
+      ...(data.imageSizeBytes !== undefined && {
+        imageSizeBytes: data.imageSizeBytes,
+      }),
+      ...(data.address !== undefined && { address: data.address }),
+      ...(data.kvkNumber !== undefined && { kvkNumber: data.kvkNumber }),
+      ...(data.btwNumber !== undefined && { btwNumber: data.btwNumber }),
+      ...(data.email !== undefined && { email: data.email }),
+      ...(data.telephone !== undefined && { telephone: data.telephone }),
+      ...(data.type !== undefined && data.type !== null && { type: data.type }),
       updatedAt: new Date(),
     })
-    .where(eq(organizations.id, organizationId))
+    .where(eq(companies.id, companyId))
     .returning();
 
-  return updatedOrganization;
+  return updatedCompany;
 }
 
-export async function getAllOrganizations() {
+export async function getAllCompanies() {
   // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
-  const orgs = await db
+  const companyList = await db
     .select({
-      id: organizations.id,
-      name: organizations.name,
-      imageStoragePath: organizations.imageStoragePath, // Path string is safe to include
-      imageSizeBytes: organizations.imageSizeBytes,
-      address: organizations.address,
-      kvkNumber: organizations.kvkNumber,
-      btwNumber: organizations.btwNumber,
-      email: organizations.email,
-      telephone: organizations.telephone,
-      createdAt: organizations.createdAt,
-      updatedAt: organizations.updatedAt,
+      id: companies.id,
+      name: companies.name,
+      imageStoragePath: companies.imageStoragePath, // Path string is safe to include
+      imageSizeBytes: companies.imageSizeBytes,
+      address: companies.address,
+      kvkNumber: companies.kvkNumber,
+      btwNumber: companies.btwNumber,
+      email: companies.email,
+      telephone: companies.telephone,
+      type: companies.type,
+      createdAt: companies.createdAt,
+      updatedAt: companies.updatedAt,
     })
-    .from(organizations)
-    .orderBy(organizations.name);
+    .from(companies)
+    .orderBy(companies.name);
 
-  // Get user counts for each organization from the junction table
-  // This correctly counts users who are part of multiple organizations
+  // Get user counts for each company from the junction table
   const userCounts = await db
     .select({
-      organizationId: userOrganizations.organizationId,
-      count: sql<number>`COUNT(DISTINCT ${userOrganizations.userId})::int`.as(
+      companyId: userCompanies.companyId,
+      count: sql<number>`COUNT(DISTINCT ${userCompanies.userId})::int`.as(
         "count"
       ),
     })
-    .from(userOrganizations)
-    .groupBy(userOrganizations.organizationId);
+    .from(userCompanies)
+    .groupBy(userCompanies.companyId);
 
-  // Create a map of organizationId -> count
   const countMap: Record<string, number> = {};
   userCounts.forEach((row) => {
-    if (row.organizationId) {
-      countMap[row.organizationId] = row.count;
+    if (row.companyId) {
+      countMap[row.companyId] = row.count;
     }
   });
 
-  // Add user count to each organization
-  return orgs.map((org) => ({
-    ...org,
-    userCount: countMap[org.id] || 0,
+  return companyList.map((company) => ({
+    ...company,
+    userCount: countMap[company.id] || 0,
   }));
 }
 
-export async function getOrganizationById(organizationId: string) {
-  const org = await db
+export async function getCompanyById(companyId: string) {
+  const company = await db
     .select()
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
+    .from(companies)
+    .where(eq(companies.id, companyId))
     .limit(1);
 
-  return org[0] || null;
+  return company[0] || null;
+}
+
+export async function createContact(data: {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+  phone?: string | null;
+  photo?: string | null;
+  companyId?: string | null;
+  type?: string | null;
+}) {
+  const [contact] = await db
+    .insert(contacts)
+    .values({
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email || null,
+      phone: data.phone || null,
+      photo: data.photo || null,
+      companyId: data.companyId || null,
+      type: data.type || "client",
+    })
+    .returning();
+
+  return contact;
+}
+
+export async function updateContact(
+  contactId: string,
+  data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string | null;
+    phone?: string | null;
+    photo?: string | null;
+    companyId?: string | null;
+    type?: string | null;
+  }
+) {
+  const [updatedContact] = await db
+    .update(contacts)
+    .set({
+      ...(data.firstName !== undefined && { firstName: data.firstName }),
+      ...(data.lastName !== undefined && { lastName: data.lastName }),
+      ...(data.email !== undefined && { email: data.email }),
+      ...(data.phone !== undefined && { phone: data.phone }),
+      ...(data.photo !== undefined && { photo: data.photo }),
+      ...(data.companyId !== undefined && { companyId: data.companyId }),
+      ...(data.type !== undefined && data.type !== null && { type: data.type }),
+    })
+    .where(eq(contacts.id, contactId))
+    .returning();
+
+  return updatedContact;
+}
+
+export async function getAllContacts() {
+  return db
+    .select({
+      id: contacts.id,
+      firstName: contacts.firstName,
+      lastName: contacts.lastName,
+      email: contacts.email,
+      phone: contacts.phone,
+      photo: contacts.photo,
+      companyId: contacts.companyId,
+      type: contacts.type,
+      createdAt: contacts.createdAt,
+      companyName: companies.name,
+    })
+    .from(contacts)
+    .leftJoin(companies, eq(contacts.companyId, companies.id))
+    .orderBy(contacts.lastName, contacts.firstName);
+}
+
+export async function getContactById(contactId: string) {
+  const contact = await db
+    .select()
+    .from(contacts)
+    .where(eq(contacts.id, contactId))
+    .limit(1);
+
+  return contact[0] || null;
+}
+
+export async function deleteContact(contactId: string) {
+  await db.delete(contacts).where(eq(contacts.id, contactId));
 }
 
 export async function createUser(
   email: string,
   name: string | null,
-  organizationIds: string[] | null,
+  companyIds: string[] | null,
   imageStoragePath?: string | null, // Path in Supabase Storage
   imageSizeBytes?: number | null,
   phone?: string | null,
   note?: string | null
 ) {
-  // Create user with first organization as primary (for backward compatibility)
-  const primaryOrgId =
-    organizationIds && organizationIds.length > 0 ? organizationIds[0] : null;
+  // Create user with first company as primary (for backward compatibility)
+  const primaryCompanyId =
+    companyIds && companyIds.length > 0 ? companyIds[0] : null;
 
   const [newUser] = await db
     .insert(users)
@@ -745,16 +844,16 @@ export async function createUser(
       note: note || null,
       imageStoragePath: imageStoragePath || null,
       imageSizeBytes: imageSizeBytes || null,
-      organizationId: primaryOrgId,
+      companyId: primaryCompanyId,
     })
     .returning();
 
-  // Add all organizations to the junction table
-  if (organizationIds && organizationIds.length > 0) {
-    await db.insert(userOrganizations).values(
-      organizationIds.map((orgId) => ({
+  // Add all companies to the junction table
+  if (companyIds && companyIds.length > 0) {
+    await db.insert(userCompanies).values(
+      companyIds.map((companyId) => ({
         userId: newUser.id,
-        organizationId: orgId,
+        companyId,
       }))
     );
   }
@@ -766,40 +865,38 @@ export async function updateUser(
   userId: string,
   data: Partial<{
     name: string | null;
-    organizationId: string | null;
-    organizationIds?: string[] | null;
+    companyId: string | null;
+    companyIds?: string[] | null;
     imageStoragePath?: string | null; // Path in Supabase Storage
     imageSizeBytes?: number | null;
     phone: string | null;
     note: string | null;
   }>
 ) {
-  // If organizationIds is provided, update the junction table
-  if (data.organizationIds !== undefined) {
+  // If companyIds is provided, update the junction table
+  if (data.companyIds !== undefined) {
     // Delete existing relationships
-    await db
-      .delete(userOrganizations)
-      .where(eq(userOrganizations.userId, userId));
+    await db.delete(userCompanies).where(eq(userCompanies.userId, userId));
 
     // Add new relationships
-    if (data.organizationIds && data.organizationIds.length > 0) {
-      await db.insert(userOrganizations).values(
-        data.organizationIds.map((orgId) => ({
+    if (data.companyIds && data.companyIds.length > 0) {
+      await db.insert(userCompanies).values(
+        data.companyIds.map((companyId) => ({
           userId,
-          organizationId: orgId,
+          companyId,
         }))
       );
 
-      // Update primary organizationId for backward compatibility
-      data.organizationId = data.organizationIds[0];
+      // Update primary companyId for backward compatibility
+      data.companyId = data.companyIds[0];
     } else {
-      data.organizationId = null;
+      data.companyId = null;
     }
   }
 
   const updateData: Partial<{
     name: string | null;
-    organizationId: string | null;
+    companyId: string | null;
     imageStoragePath: string | null;
     imageSizeBytes: number | null;
     phone: string | null;
@@ -807,8 +904,8 @@ export async function updateUser(
     updatedAt: Date;
   }> = {
     ...(data.name !== undefined && { name: data.name }),
-    ...(data.organizationId !== undefined && {
-      organizationId: data.organizationId,
+    ...(data.companyId !== undefined && {
+      companyId: data.companyId,
     }),
     ...(data.imageStoragePath !== undefined && {
       imageStoragePath: data.imageStoragePath,
@@ -832,8 +929,8 @@ export async function updateUser(
 
 export async function getAllUsers() {
   // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
-  // Get all users with their primary organization (for backward compatibility)
-  const usersWithPrimaryOrg = await db
+  // Get all users with their primary company (for backward compatibility)
+  const usersWithPrimaryCompany = await db
     .select({
       user: {
         id: users.id,
@@ -843,48 +940,48 @@ export async function getAllUsers() {
         note: users.note,
         imageStoragePath: users.imageStoragePath, // Path string is safe to include
         imageSizeBytes: users.imageSizeBytes,
-        organizationId: users.organizationId,
+        companyId: users.companyId,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(users)
-    .leftJoin(organizations, eq(users.organizationId, organizations.id))
+    .leftJoin(companies, eq(users.companyId, companies.id))
     .orderBy(users.email);
 
-  // Get all user-organization relationships
-  const allUserOrgs = await db
+  // Get all user-company relationships
+  const allUserCompanies = await db
     .select({
-      userId: userOrganizations.userId,
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      userId: userCompanies.userId,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
-    .from(userOrganizations)
-    .innerJoin(
-      organizations,
-      eq(userOrganizations.organizationId, organizations.id)
-    );
+    .from(userCompanies)
+    .innerJoin(companies, eq(userCompanies.companyId, companies.id));
 
-  // Group organizations by user ID
-  const orgsByUserId: Record<string, Array<{ id: string; name: string }>> = {};
-  allUserOrgs.forEach((row) => {
-    if (!orgsByUserId[row.userId]) {
-      orgsByUserId[row.userId] = [];
+  // Group companies by user ID
+  const companiesByUserId: Record<
+    string,
+    Array<{ id: string; name: string }>
+  > = {};
+  allUserCompanies.forEach((row) => {
+    if (!companiesByUserId[row.userId]) {
+      companiesByUserId[row.userId] = [];
     }
-    orgsByUserId[row.userId].push(row.organization);
+    companiesByUserId[row.userId].push(row.company);
   });
 
   // Combine results
-  return usersWithPrimaryOrg.map((row) => ({
+  return usersWithPrimaryCompany.map((row) => ({
     user: row.user,
-    organization: row.organization,
-    organizations: orgsByUserId[row.user.id] || [],
+    company: row.company,
+    companies: companiesByUserId[row.user.id] || [],
   }));
 }
 
@@ -892,11 +989,11 @@ export async function getAllUsers() {
 export async function getAllUsersPaginated(options?: {
   limit?: number;
   offset?: number;
-  organizationId?: string;
+  companyId?: string;
   search?: string;
 }) {
   // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
-  // Get paginated users with their primary organization
+  // Get paginated users with their primary company
   let query = db
     .select({
       user: {
@@ -907,39 +1004,36 @@ export async function getAllUsersPaginated(options?: {
         note: users.note,
         imageStoragePath: users.imageStoragePath, // Path string is safe to include
         imageSizeBytes: users.imageSizeBytes,
-        organizationId: users.organizationId,
+        companyId: users.companyId,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(users)
-    .leftJoin(organizations, eq(users.organizationId, organizations.id));
+    .leftJoin(companies, eq(users.companyId, companies.id));
 
   // Apply filters
   const conditions = [];
-  if (options?.organizationId) {
-    // Filter by organization - check both primary organization and junction table
+  if (options?.companyId) {
+    // Filter by company - check both primary company and junction table
     const userOrgIds = await db
-      .select({ userId: userOrganizations.userId })
-      .from(userOrganizations)
-      .where(eq(userOrganizations.organizationId, options.organizationId));
+      .select({ userId: userCompanies.userId })
+      .from(userCompanies)
+      .where(eq(userCompanies.companyId, options.companyId));
     const userIds = userOrgIds.map((row) => row.userId);
 
-    // Also include users with this as primary organization
+    // Also include users with this as primary company
     if (userIds.length > 0) {
       conditions.push(
-        or(
-          eq(users.organizationId, options.organizationId),
-          inArray(users.id, userIds)
-        )!
+        or(eq(users.companyId, options.companyId), inArray(users.id, userIds))!
       );
     } else {
-      // If no users in junction table, only check primary organization
-      conditions.push(eq(users.organizationId, options.organizationId));
+      // If no users in junction table, only check primary company
+      conditions.push(eq(users.companyId, options.companyId));
     }
   }
   if (options?.search) {
@@ -948,7 +1042,7 @@ export async function getAllUsersPaginated(options?: {
       or(
         like(sql`LOWER(${users.email})`, searchTerm),
         like(sql`LOWER(${users.name})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm)
+        like(sql`LOWER(${companies.name})`, searchTerm)
       )!
     );
   }
@@ -971,70 +1065,63 @@ export async function getAllUsersPaginated(options?: {
   // Get user IDs for the paginated users
   const userIds = usersWithPrimaryOrg.map((row) => row.user.id);
 
-  // Get all user-organization relationships for these users
+  // Get all user-company relationships for these users
   const allUserOrgs =
     userIds.length > 0
       ? await db
           .select({
-            userId: userOrganizations.userId,
-            organization: organizations,
+            userId: userCompanies.userId,
+            company: companies,
           })
-          .from(userOrganizations)
-          .innerJoin(
-            organizations,
-            eq(userOrganizations.organizationId, organizations.id)
-          )
-          .where(inArray(userOrganizations.userId, userIds))
+          .from(userCompanies)
+          .innerJoin(companies, eq(userCompanies.companyId, companies.id))
+          .where(inArray(userCompanies.userId, userIds))
       : [];
 
-  // Group organizations by user ID
-  const orgsByUserId: Record<string, (typeof organizations.$inferSelect)[]> =
-    {};
+  // Group companies by user ID
+  const orgsByUserId: Record<string, (typeof companies.$inferSelect)[]> = {};
   allUserOrgs.forEach((row) => {
     if (!orgsByUserId[row.userId]) {
       orgsByUserId[row.userId] = [];
     }
-    orgsByUserId[row.userId].push(row.organization);
+    orgsByUserId[row.userId].push(row.company);
   });
 
   // Combine results
   return usersWithPrimaryOrg.map((row) => ({
     user: row.user,
-    organization: row.organization,
-    organizations: orgsByUserId[row.user.id] || [],
+    company: row.company,
+    companies: orgsByUserId[row.user.id] || [],
   }));
 }
 
 // Get total count of users with optional filters
 export async function getAllUsersCount(filters?: {
-  organizationId?: string;
+  companyId?: string;
   search?: string;
 }) {
   let query = db
     .select({ count: sql<number>`count(*)` })
     .from(users)
-    .leftJoin(organizations, eq(users.organizationId, organizations.id));
+    .leftJoin(companies, eq(users.companyId, companies.id));
 
   const conditions = [];
-  if (filters?.organizationId) {
-    // Filter by organization - check both primary organization and junction table
+  if (filters?.companyId) {
+    // Filter by company - check both primary company and junction table
     const userOrgIds = await db
-      .select({ userId: userOrganizations.userId })
-      .from(userOrganizations)
-      .where(eq(userOrganizations.organizationId, filters.organizationId));
+      .select({ userId: userCompanies.userId })
+      .from(userCompanies)
+      .where(eq(userCompanies.companyId, filters.companyId));
     const userIds = userOrgIds.map((row) => row.userId);
 
-    // Also include users with this as primary organization
+    // Also include users with this as primary company
     if (userIds.length > 0) {
       conditions.push(
-        or(
-          eq(users.organizationId, filters.organizationId),
-          inArray(users.id, userIds)
-        )!
+        or(eq(users.companyId, filters.companyId), inArray(users.id, userIds))!
       );
     } else {
-      // If no users in junction table, only check primary organization
-      conditions.push(eq(users.organizationId, filters.organizationId));
+      // If no users in junction table, only check primary company
+      conditions.push(eq(users.companyId, filters.companyId));
     }
   }
   if (filters?.search) {
@@ -1043,7 +1130,7 @@ export async function getAllUsersCount(filters?: {
       or(
         like(sql`LOWER(${users.email})`, searchTerm),
         like(sql`LOWER(${users.name})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm)
+        like(sql`LOWER(${companies.name})`, searchTerm)
       )!
     );
   }
@@ -1066,7 +1153,7 @@ export async function createProject(data: {
   subtotal?: string | null;
   currency?: string;
   type?: "client" | "labs";
-  organizationId: string;
+  companyId: string;
 }) {
   const slug = slugify(data.title, generateSlugSuffix());
   const [project] = await db
@@ -1082,7 +1169,7 @@ export async function createProject(data: {
       subtotal: data.subtotal || null,
       currency: data.currency || "EUR",
       type: data.type || "client",
-      organizationId: data.organizationId,
+      companyId: data.companyId,
     })
     .returning();
 
@@ -1104,17 +1191,17 @@ export async function getAllProjects() {
         subtotal: projects.subtotal,
         currency: projects.currency,
         type: projects.type,
-        organizationId: projects.organizationId,
+        companyId: projects.companyId,
         createdAt: projects.createdAt,
         updatedAt: projects.updatedAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .orderBy(desc(projects.createdAt));
 }
 
@@ -1140,17 +1227,17 @@ export async function getAllProjectsPaginated(options?: {
         subtotal: projects.subtotal,
         currency: projects.currency,
         type: projects.type,
-        organizationId: projects.organizationId,
+        companyId: projects.companyId,
         createdAt: projects.createdAt,
         updatedAt: projects.updatedAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id));
+    .innerJoin(companies, eq(projects.companyId, companies.id));
 
   // Apply filters
   const conditions = [];
@@ -1165,7 +1252,7 @@ export async function getAllProjectsPaginated(options?: {
     conditions.push(
       or(
         like(sql`LOWER(${projects.title})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${companies.name})`, searchTerm),
         like(sql`LOWER(${projects.description})`, searchTerm)
       )!
     );
@@ -1196,7 +1283,7 @@ export async function getAllProjectsCount(filters?: {
   let query = db
     .select({ count: sql<number>`count(*)` })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id));
+    .innerJoin(companies, eq(projects.companyId, companies.id));
 
   const conditions = [];
   if (filters?.status) {
@@ -1210,7 +1297,7 @@ export async function getAllProjectsCount(filters?: {
     conditions.push(
       or(
         like(sql`LOWER(${projects.title})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${companies.name})`, searchTerm),
         like(sql`LOWER(${projects.description})`, searchTerm)
       )!
     );
@@ -1238,17 +1325,17 @@ export async function getClientProjects() {
         subtotal: projects.subtotal,
         currency: projects.currency,
         type: projects.type,
-        organizationId: projects.organizationId,
+        companyId: projects.companyId,
         createdAt: projects.createdAt,
         updatedAt: projects.updatedAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .where(eq(projects.type, "client"))
     .orderBy(desc(projects.createdAt));
 }
@@ -1267,17 +1354,17 @@ export async function getEXOLabsProjects() {
         subtotal: projects.subtotal,
         currency: projects.currency,
         type: projects.type,
-        organizationId: projects.organizationId,
+        companyId: projects.companyId,
         createdAt: projects.createdAt,
         updatedAt: projects.updatedAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(projects)
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .where(eq(projects.type, "labs"))
     .orderBy(desc(projects.createdAt));
 }
@@ -1343,26 +1430,25 @@ export async function getTotalHoursByProject() {
   return hoursMap;
 }
 
-export async function deleteOrganization(organizationId: string) {
-  // Get the organization first to check if it has a Storage image
-  const org = await db
-    .select({ imageStoragePath: organizations.imageStoragePath })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
+export async function deleteCompany(companyId: string) {
+  // Get the company first to check if it has a Storage image
+  const company = await db
+    .select({ imageStoragePath: companies.imageStoragePath })
+    .from(companies)
+    .where(eq(companies.id, companyId))
     .limit(1);
 
-  // Delete the organization
-  await db.delete(organizations).where(eq(organizations.id, organizationId));
+  // Delete the company
+  await db.delete(companies).where(eq(companies.id, companyId));
 
   // Delete the image from Storage if it exists
-  if (org[0]?.imageStoragePath) {
+  if (company[0]?.imageStoragePath) {
     try {
-      const { deleteOrganizationImage } =
-        await import("@/lib/utils/image-storage");
-      await deleteOrganizationImage(org[0].imageStoragePath);
+      const { deleteCompanyImage } = await import("@/lib/utils/image-storage");
+      await deleteCompanyImage(company[0].imageStoragePath);
     } catch (error) {
       // Log error but don't fail the deletion if Storage deletion fails
-      console.error("Error deleting organization image from Storage:", error);
+      console.error("Error deleting company image from Storage:", error);
     }
   }
 }
@@ -1710,8 +1796,8 @@ export async function getDashboardStats(
     (p) => p.status === "completed"
   );
 
-  // Get organization and user counts (unused but kept for potential future use)
-  // const allOrganizations = await db.select().from(organizations);
+  // Get company and user counts (unused but kept for potential future use)
+  // const allOrganizations = await db.select().from(companies);
   // const allUsers = await db.select().from(users);
 
   // Calculate percentage changes (last 30 days vs previous 30 days)
@@ -2437,7 +2523,7 @@ export async function getAllInvoices() {
         id: invoices.id,
         invoiceNumber: invoices.invoiceNumber,
         projectId: invoices.projectId,
-        organizationId: invoices.organizationId,
+        companyId: invoices.companyId,
         expenseId: invoices.expenseId,
         amount: invoices.amount,
         currency: invoices.currency,
@@ -2459,14 +2545,14 @@ export async function getAllInvoices() {
         id: projects.id,
         title: projects.title,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
-    .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
+    .innerJoin(companies, eq(invoices.companyId, companies.id))
     // Sort by invoice number (INV-YYYY-NNNN) for stable, expected ordering
     .orderBy(desc(invoices.invoiceNumber), desc(invoices.createdAt));
 
@@ -2579,7 +2665,7 @@ export async function getAllInvoicesPaginated(options?: {
         id: invoices.id,
         invoiceNumber: invoices.invoiceNumber,
         projectId: invoices.projectId,
-        organizationId: invoices.organizationId,
+        companyId: invoices.companyId,
         expenseId: invoices.expenseId,
         amount: invoices.amount,
         currency: invoices.currency,
@@ -2602,14 +2688,14 @@ export async function getAllInvoicesPaginated(options?: {
         id: projects.id,
         title: projects.title,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
-    .innerJoin(organizations, eq(invoices.organizationId, organizations.id));
+    .innerJoin(companies, eq(invoices.companyId, companies.id));
 
   // Apply filters
   const conditions = [];
@@ -2624,7 +2710,7 @@ export async function getAllInvoicesPaginated(options?: {
     conditions.push(
       or(
         like(sql`LOWER(${invoices.invoiceNumber})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${companies.name})`, searchTerm),
         like(sql`LOWER(${projects.title})`, searchTerm),
         like(sql`LOWER(${invoices.description})`, searchTerm)
       )!
@@ -2750,7 +2836,7 @@ export async function getAllInvoicesCount(filters?: {
         .select({ count: sql<number>`count(*)` })
         .from(invoices)
         .leftJoin(projects, eq(invoices.projectId, projects.id))
-        .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
+        .innerJoin(companies, eq(invoices.companyId, companies.id))
     : db.select({ count: sql<number>`count(*)` }).from(invoices);
 
   // Apply same filters as getAllInvoicesPaginated
@@ -2766,7 +2852,7 @@ export async function getAllInvoicesCount(filters?: {
     conditions.push(
       or(
         like(sql`LOWER(${invoices.invoiceNumber})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${companies.name})`, searchTerm),
         like(sql`LOWER(${projects.title})`, searchTerm),
         like(sql`LOWER(${invoices.description})`, searchTerm)
       )!
@@ -2851,7 +2937,7 @@ export async function getInvoiceById(invoiceId: string) {
         id: invoices.id,
         invoiceNumber: invoices.invoiceNumber,
         projectId: invoices.projectId,
-        organizationId: invoices.organizationId,
+        companyId: invoices.companyId,
         expenseId: invoices.expenseId,
         amount: invoices.amount,
         currency: invoices.currency,
@@ -2876,19 +2962,19 @@ export async function getInvoiceById(invoiceId: string) {
         subtotal: projects.subtotal,
         currency: projects.currency,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
-        address: organizations.address,
-        kvkNumber: organizations.kvkNumber,
-        btwNumber: organizations.btwNumber,
-        email: organizations.email,
-        telephone: organizations.telephone,
+      company: {
+        id: companies.id,
+        name: companies.name,
+        address: companies.address,
+        kvkNumber: companies.kvkNumber,
+        btwNumber: companies.btwNumber,
+        email: companies.email,
+        telephone: companies.telephone,
       },
     })
     .from(invoices)
     .leftJoin(projects, eq(invoices.projectId, projects.id))
-    .innerJoin(organizations, eq(invoices.organizationId, organizations.id))
+    .innerJoin(companies, eq(invoices.companyId, companies.id))
     .where(eq(invoices.id, invoiceId))
     .limit(1);
 
@@ -3007,7 +3093,7 @@ export async function getNextInvoiceNumber(): Promise<string> {
 export async function createInvoice(data: {
   invoiceNumber: string;
   projectId?: string | null;
-  organizationId: string;
+  companyId: string;
   expenseId?: string | null;
   amount: string;
   currency?: string;
@@ -3038,7 +3124,7 @@ export async function createInvoice(data: {
     .values({
       invoiceNumber: data.invoiceNumber,
       projectId: data.projectId || null,
-      organizationId: data.organizationId,
+      companyId: data.companyId,
       expenseId: data.expenseId ?? null,
       amount: data.amount,
       currency: data.currency || "EUR",
@@ -3077,7 +3163,7 @@ export async function createInvoice(data: {
 export async function updateInvoice(
   invoiceId: string,
   data: Partial<{
-    organizationId: string;
+    companyId: string;
     projectId: string | null;
     status: string;
     expenseId: string | null;
@@ -3192,7 +3278,7 @@ export async function deleteInvoice(invoiceId: string) {
 }
 
 export async function markOverdueInvoices(): Promise<
-  Array<{ invoiceNumber: string; organizationName: string; dueDate: Date }>
+  Array<{ invoiceNumber: string; companyName: string; dueDate: Date }>
 > {
   const result = await db
     .update(invoices)
@@ -3205,22 +3291,22 @@ export async function markOverdueInvoices(): Promise<
     )
     .returning({
       invoiceNumber: invoices.invoiceNumber,
-      organizationId: invoices.organizationId,
+      companyId: invoices.companyId,
       dueDate: invoices.dueDate,
     });
 
   if (result.length === 0) return [];
 
-  const orgIds = [...new Set(result.map((r) => r.organizationId))];
+  const orgIds = [...new Set(result.map((r) => r.companyId))];
   const orgs = await db
-    .select({ id: organizations.id, name: organizations.name })
-    .from(organizations)
-    .where(inArray(organizations.id, orgIds));
+    .select({ id: companies.id, name: companies.name })
+    .from(companies)
+    .where(inArray(companies.id, orgIds));
   const orgMap = new Map(orgs.map((o) => [o.id, o.name]));
 
   return result.map((r) => ({
     invoiceNumber: r.invoiceNumber,
-    organizationName: orgMap.get(r.organizationId) ?? "Unknown",
+    companyName: orgMap.get(r.companyId) ?? "Unknown",
     dueDate: r.dueDate!,
   }));
 }
@@ -3236,13 +3322,13 @@ export async function invalidateAllInvoiceCaches() {
 
 // Contract queries
 export async function getAllContracts() {
-  // Get all contracts with their organization and first project (for backward compatibility)
+  // Get all contracts with their company and first project (for backward compatibility)
   // Note: fileStoragePath is just a path string, not the file data, so it's safe to include
   const contractsList = await db
     .select({
       contract: {
         id: contracts.id,
-        organizationId: contracts.organizationId,
+        companyId: contracts.companyId,
         name: contracts.name,
         type: contracts.type,
         fileStoragePath: contracts.fileStoragePath,
@@ -3255,9 +3341,9 @@ export async function getAllContracts() {
         signedBy: contracts.signedBy,
         createdAt: contracts.createdAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
       project: {
         id: projects.id,
@@ -3270,7 +3356,7 @@ export async function getAllContracts() {
       },
     })
     .from(contracts)
-    .innerJoin(organizations, eq(contracts.organizationId, organizations.id))
+    .innerJoin(companies, eq(contracts.companyId, companies.id))
     .leftJoin(projects, eq(contracts.projectId, projects.id))
     .leftJoin(users, eq(contracts.signedBy, users.id))
     .where(eq(contracts.type, "contract"))
@@ -3287,17 +3373,14 @@ export async function getAllContracts() {
               id: projects.id,
               title: projects.title,
             },
-            organization: {
-              id: organizations.id,
-              name: organizations.name,
+            company: {
+              id: companies.id,
+              name: companies.name,
             },
           })
           .from(contractProjects)
           .innerJoin(projects, eq(contractProjects.projectId, projects.id))
-          .innerJoin(
-            organizations,
-            eq(projects.organizationId, organizations.id)
-          )
+          .innerJoin(companies, eq(projects.companyId, companies.id))
           .where(inArray(contractProjects.contractId, allContractProjectIds))
       : [];
 
@@ -3319,19 +3402,19 @@ export async function getAllContracts() {
       return {
         ...contract,
         projects: [contract.project],
-        organizations: [contract.organization], // Always has organization now
+        companies: [contract.company], // Always has company now
       };
     }
-    // Always include the contract's organization, plus any from projects
+    // Always include the contract's company, plus any from projects
     const allOrganizations = new Map();
-    allOrganizations.set(contract.organization.id, contract.organization);
+    allOrganizations.set(contract.company.id, contract.company);
     associatedProjects.forEach((a) => {
-      allOrganizations.set(a.organization.id, a.organization);
+      allOrganizations.set(a.company.id, a.company);
     });
     return {
       ...contract,
       projects: associatedProjects.map((a) => a.project),
-      organizations: Array.from(allOrganizations.values()),
+      companies: Array.from(allOrganizations.values()),
     };
   });
 }
@@ -3341,7 +3424,7 @@ export async function getContractById(contractId: string) {
     .select({
       contract: {
         id: contracts.id,
-        organizationId: contracts.organizationId,
+        companyId: contracts.companyId,
         name: contracts.name,
         type: contracts.type,
         fileStoragePath: contracts.fileStoragePath,
@@ -3354,9 +3437,9 @@ export async function getContractById(contractId: string) {
         signedBy: contracts.signedBy,
         createdAt: contracts.createdAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
       project: {
         id: projects.id,
@@ -3369,7 +3452,7 @@ export async function getContractById(contractId: string) {
       },
     })
     .from(contracts)
-    .innerJoin(organizations, eq(contracts.organizationId, organizations.id))
+    .innerJoin(companies, eq(contracts.companyId, companies.id))
     .leftJoin(projects, eq(contracts.projectId, projects.id))
     .leftJoin(users, eq(contracts.signedBy, users.id))
     .where(and(eq(contracts.id, contractId), eq(contracts.type, "contract")))
@@ -3384,21 +3467,21 @@ export async function getContractById(contractId: string) {
         id: projects.id,
         title: projects.title,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
     })
     .from(contractProjects)
     .innerJoin(projects, eq(contractProjects.projectId, projects.id))
-    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .innerJoin(companies, eq(projects.companyId, companies.id))
     .where(eq(contractProjects.contractId, contractId));
 
-  // Always include the contract's organization, plus any from projects
+  // Always include the contract's company, plus any from projects
   const allOrganizations = new Map();
-  allOrganizations.set(result[0].organization.id, result[0].organization);
+  allOrganizations.set(result[0].company.id, result[0].company);
   projectAssociations.forEach((a) => {
-    allOrganizations.set(a.organization.id, a.organization);
+    allOrganizations.set(a.company.id, a.company);
   });
 
   // If no projects from junction table but has legacy projectId, use that
@@ -3406,14 +3489,14 @@ export async function getContractById(contractId: string) {
     return {
       ...result[0],
       projects: [result[0].project],
-      organizations: Array.from(allOrganizations.values()),
+      companies: Array.from(allOrganizations.values()),
     };
   }
 
   return {
     ...result[0],
     projects: projectAssociations.map((a) => a.project),
-    organizations: Array.from(allOrganizations.values()),
+    companies: Array.from(allOrganizations.values()),
   };
 }
 
@@ -3428,7 +3511,7 @@ export async function getAllContractsPaginated(options?: {
     .select({
       contract: {
         id: contracts.id,
-        organizationId: contracts.organizationId,
+        companyId: contracts.companyId,
         name: contracts.name,
         type: contracts.type,
         fileStoragePath: contracts.fileStoragePath,
@@ -3441,9 +3524,9 @@ export async function getAllContractsPaginated(options?: {
         signedBy: contracts.signedBy,
         createdAt: contracts.createdAt,
       },
-      organization: {
-        id: organizations.id,
-        name: organizations.name,
+      company: {
+        id: companies.id,
+        name: companies.name,
       },
       project: {
         id: projects.id,
@@ -3456,7 +3539,7 @@ export async function getAllContractsPaginated(options?: {
       },
     })
     .from(contracts)
-    .innerJoin(organizations, eq(contracts.organizationId, organizations.id))
+    .innerJoin(companies, eq(contracts.companyId, companies.id))
     .leftJoin(projects, eq(contracts.projectId, projects.id))
     .leftJoin(users, eq(contracts.signedBy, users.id));
 
@@ -3472,7 +3555,7 @@ export async function getAllContractsPaginated(options?: {
     conditions.push(
       or(
         like(sql`LOWER(${contracts.name})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${companies.name})`, searchTerm),
         like(sql`LOWER(${projects.title})`, searchTerm)
       )!
     );
@@ -3502,17 +3585,14 @@ export async function getAllContractsPaginated(options?: {
               id: projects.id,
               title: projects.title,
             },
-            organization: {
-              id: organizations.id,
-              name: organizations.name,
+            company: {
+              id: companies.id,
+              name: companies.name,
             },
           })
           .from(contractProjects)
           .innerJoin(projects, eq(contractProjects.projectId, projects.id))
-          .innerJoin(
-            organizations,
-            eq(projects.organizationId, organizations.id)
-          )
+          .innerJoin(companies, eq(projects.companyId, companies.id))
           .where(inArray(contractProjects.contractId, allContractProjectIds))
       : [];
 
@@ -3534,23 +3614,23 @@ export async function getAllContractsPaginated(options?: {
       return {
         ...contract,
         projects: [contract.project],
-        organizations: [contract.organization],
+        companies: [contract.company],
       };
     }
 
-    // Get unique organizations from projects
-    const allOrganizations = new Map<string, typeof contract.organization>();
-    allOrganizations.set(contract.organization.id, contract.organization);
+    // Get unique companies from projects
+    const allOrganizations = new Map<string, typeof contract.company>();
+    allOrganizations.set(contract.company.id, contract.company);
     associatedProjects.forEach((assoc) => {
-      if (!allOrganizations.has(assoc.organization.id)) {
-        allOrganizations.set(assoc.organization.id, assoc.organization);
+      if (!allOrganizations.has(assoc.company.id)) {
+        allOrganizations.set(assoc.company.id, assoc.company);
       }
     });
 
     return {
       ...contract,
       projects: associatedProjects.map((a) => a.project),
-      organizations: Array.from(allOrganizations.values()),
+      companies: Array.from(allOrganizations.values()),
     };
   });
 }
@@ -3565,10 +3645,7 @@ export async function getAllContractsCount(filters?: {
     ? db
         .select({ count: sql<number>`count(*)` })
         .from(contracts)
-        .innerJoin(
-          organizations,
-          eq(contracts.organizationId, organizations.id)
-        )
+        .innerJoin(companies, eq(contracts.companyId, companies.id))
         .leftJoin(projects, eq(contracts.projectId, projects.id))
     : db.select({ count: sql<number>`count(*)` }).from(contracts);
 
@@ -3586,7 +3663,7 @@ export async function getAllContractsCount(filters?: {
     conditions.push(
       or(
         like(sql`LOWER(${contracts.name})`, searchTerm),
-        like(sql`LOWER(${organizations.name})`, searchTerm),
+        like(sql`LOWER(${companies.name})`, searchTerm),
         like(sql`LOWER(${projects.title})`, searchTerm)
       )!
     );
@@ -3599,7 +3676,7 @@ export async function getAllContractsCount(filters?: {
 }
 
 export async function createContract(data: {
-  organizationId: string;
+  companyId: string;
   projectIds?: string[];
   name: string;
   fileStoragePath?: string | null; // Path in Supabase Storage
@@ -3621,7 +3698,7 @@ export async function createContract(data: {
   const [contract] = await db
     .insert(contracts)
     .values({
-      organizationId: data.organizationId,
+      companyId: data.companyId,
       projectId: firstProjectId,
       name: data.name,
       type: "contract",
@@ -3659,7 +3736,7 @@ export async function updateContract(
     signedAt: Date | null;
     signature: string | null;
     signedBy: string | null;
-    organizationId?: string;
+    companyId?: string;
     projectIds?: string[];
   }>
 ) {

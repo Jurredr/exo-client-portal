@@ -4,7 +4,7 @@ import {
   getAllUsers,
   getAllUsersPaginated,
   getAllUsersCount,
-  isUserInEXOOrganization,
+  isUserInEXOCompany,
   updateUser,
   deleteUser,
 } from "@/lib/db/queries";
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -168,7 +168,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -217,7 +217,7 @@ export async function PATCH(request: Request) {
       ...(imageSizeBytes !== undefined && {
         imageSizeBytes: imageSizeBytes || null,
       }),
-      ...(orgIds !== undefined && { organizationIds: orgIds }),
+      ...(orgIds !== undefined && { companyIds: orgIds }),
     });
 
     return NextResponse.json(updatedUser);
@@ -241,7 +241,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

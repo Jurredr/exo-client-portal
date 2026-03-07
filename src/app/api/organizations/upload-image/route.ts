@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { isUserInEXOOrganization } from "@/lib/db/queries";
-import { uploadOrganizationImage } from "@/lib/utils/image-storage";
+import { isUserInEXOCompany } from "@/lib/db/queries";
+import { uploadCompanyImage } from "@/lib/utils/image-storage";
 import { NextResponse } from "next/server";
 
 /**
@@ -17,14 +17,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const organizationId = formData.get("organizationId") as string;
+    const companyId =
+      (formData.get("companyId") as string) ||
+      (formData.get("organizationId") as string);
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -47,15 +49,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!organizationId) {
+    if (!companyId) {
       return NextResponse.json(
-        { error: "Organization ID is required" },
+        { error: "Company ID is required" },
         { status: 400 }
       );
     }
 
     // Upload and compress the image
-    const result = await uploadOrganizationImage(file, organizationId);
+    const result = await uploadCompanyImage(file, companyId);
 
     if (!result) {
       return NextResponse.json(

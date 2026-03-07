@@ -5,8 +5,8 @@ import Link from "next/link";
 import {
   ensureUserExists,
   getUserByEmail,
-  getOrganizationById,
-  isUserInEXOOrganization,
+  getCompanyById,
+  isUserInEXOCompany,
   getProjectsForUser,
 } from "@/lib/db/queries";
 import { ProjectUserMenu } from "@/components/ProjectUserMenu";
@@ -34,15 +34,15 @@ export default async function ProjectsPage() {
     user.user_metadata?.avatar_url || user.user_metadata?.image
   );
 
-  const isInEXO = await isUserInEXOOrganization(user.email);
+  const isInEXO = await isUserInEXOCompany(user.email);
   if (isInEXO) {
     redirect("/dashboard");
   }
 
   const projects = await getProjectsForUser(user.email);
 
-  const userOrganization = dbUser.organizationId
-    ? await getOrganizationById(dbUser.organizationId)
+  const userCompany = dbUser.companyId
+    ? await getCompanyById(dbUser.companyId)
     : null;
 
   const userData = {
@@ -64,7 +64,7 @@ export default async function ProjectsPage() {
     >
       <ProjectUserMenu
         user={userData}
-        organization={userOrganization?.name}
+        organization={userCompany?.name}
         showAdminLink={false}
       />
       <div className="flex flex-1 flex-col items-center px-6 py-10 pt-20">
@@ -97,7 +97,7 @@ export default async function ProjectsPage() {
                   {project.title}
                 </span>
                 <span className="mt-1 text-sm text-gray-500">
-                  {project.organizationName}
+                  {project.companyName}
                 </span>
               </Link>
             ))}

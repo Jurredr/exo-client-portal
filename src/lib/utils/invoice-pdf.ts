@@ -33,7 +33,16 @@ interface InvoiceData {
     subtotal: string | null;
     currency: string;
   } | null;
-  organization: {
+  organization?: {
+    id: string;
+    name: string;
+    address?: string | null;
+    kvkNumber?: string | null;
+    btwNumber?: string | null;
+    email?: string | null;
+    telephone?: string | null;
+  };
+  company?: {
     id: string;
     name: string;
     address?: string | null;
@@ -69,7 +78,10 @@ export async function generateInvoicePDF(
     });
     doc.on("error", reject);
 
-    const { invoice, project, organization, lineItems = [] } = invoiceData;
+    const { invoice, project, lineItems = [] } = invoiceData;
+    const org = invoiceData.company ?? invoiceData.organization;
+    if (!org)
+      throw new Error("Invoice data must include company or organization");
     const currency = invoice.currency || project?.currency || "EUR";
     const isCredit = invoice.transactionType === "credit";
     const isKOR = invoice.isKOR || false;
@@ -260,13 +272,13 @@ export async function generateInvoicePDF(
       .text(isCredit ? "Credit To:" : "Billed To:", billedToX, startY);
     let billedToY = startY + 20;
     doc.fontSize(10).font("Helvetica");
-    doc.text(organization.name, billedToX, billedToY, { width: sectionWidth });
+    doc.text(org.name, billedToX, billedToY, { width: sectionWidth });
     billedToY += 20;
 
     // Add organization contact information under "Billed To"
     // Format similar to Pay To section
-    if (organization.address) {
-      const addressLines = organization.address
+    if (org.address) {
+      const addressLines = org.address
         .split(/\n|, /)
         .filter((line) => line.trim());
       addressLines.forEach((line) => {
@@ -282,29 +294,29 @@ export async function generateInvoicePDF(
 
     // Render organization details in same format as Pay To section
     doc.fontSize(9);
-    if (organization.kvkNumber) {
-      doc.text(`KVK-number: ${organization.kvkNumber}`, billedToX, billedToY, {
+    if (org.kvkNumber) {
+      doc.text(`KVK-number: ${org.kvkNumber}`, billedToX, billedToY, {
         width: sectionWidth,
       });
       billedToY += 12;
     }
 
-    if (organization.btwNumber) {
-      doc.text(`BTW-number: ${organization.btwNumber}`, billedToX, billedToY, {
+    if (org.btwNumber) {
+      doc.text(`BTW-number: ${org.btwNumber}`, billedToX, billedToY, {
         width: sectionWidth,
       });
       billedToY += 12;
     }
 
-    if (organization.email) {
-      doc.text(`Email: ${organization.email}`, billedToX, billedToY, {
+    if (org.email) {
+      doc.text(`Email: ${org.email}`, billedToX, billedToY, {
         width: sectionWidth,
       });
       billedToY += 12;
     }
 
-    if (organization.telephone) {
-      doc.text(`Phone: ${organization.telephone}`, billedToX, billedToY, {
+    if (org.telephone) {
+      doc.text(`Phone: ${org.telephone}`, billedToX, billedToY, {
         width: sectionWidth,
       });
       billedToY += 12;

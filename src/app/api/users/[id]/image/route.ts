@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getUserById, isUserInEXOOrganization } from "@/lib/db/queries";
+import { getUserById, isUserInEXOCompany } from "@/lib/db/queries";
 import { getUserImageUrl } from "@/lib/utils/image-storage";
 import { NextResponse } from "next/server";
 
@@ -20,7 +20,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

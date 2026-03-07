@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getAllInvoicesPaginated,
   getAllInvoicesCount,
-  isUserInEXOOrganization,
+  isUserInEXOCompany,
   createInvoice,
   getNextInvoiceNumber,
   deleteInvoice,
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -138,9 +138,10 @@ export async function POST(request: Request) {
         ? expenseId.trim()
         : null;
 
-    if (!organizationId || typeof organizationId !== "string") {
+    const companyId = body.companyId ?? organizationId;
+    if (!companyId || typeof companyId !== "string") {
       return NextResponse.json(
-        { error: "Organization ID is required" },
+        { error: "Company ID is required" },
         { status: 400 }
       );
     }
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
         const invoice = await createInvoice({
           invoiceNumber,
           projectId: projectId || null,
-          organizationId,
+          companyId,
           expenseId: normalizedExpenseId,
           amount: finalAmount,
           currency: finalCurrency,
@@ -272,7 +273,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -309,7 +310,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -388,8 +389,8 @@ export async function PATCH(request: Request) {
 
     const invoice = await updateInvoice(id, {
       ...(reimbursementOverride || {}),
-      ...(updateData.organizationId && {
-        organizationId: updateData.organizationId,
+      ...((updateData.companyId ?? updateData.organizationId) && {
+        companyId: updateData.companyId ?? updateData.organizationId,
       }),
       ...(updateData.projectId !== undefined && {
         projectId: updateData.projectId || null,
@@ -458,7 +459,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

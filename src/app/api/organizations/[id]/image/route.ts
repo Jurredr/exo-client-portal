@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { getOrganizationById, isUserInEXOOrganization } from "@/lib/db/queries";
-import { getOrganizationImageUrl } from "@/lib/utils/image-storage";
+import { getCompanyById, isUserInEXOCompany } from "@/lib/db/queries";
+import { getCompanyImageUrl } from "@/lib/utils/image-storage";
 import { NextResponse } from "next/server";
 
 /**
@@ -20,25 +20,22 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOOrganization(user.email);
+    const isInEXO = await isUserInEXOCompany(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const org = await getOrganizationById(id);
+    const company = await getCompanyById(id);
 
-    if (!org) {
-      return NextResponse.json(
-        { error: "Organization not found" },
-        { status: 404 }
-      );
+    if (!company) {
+      return NextResponse.json({ error: "Company not found" }, { status: 404 });
     }
 
     // Check if there's a Storage image
-    if (org.imageStoragePath) {
+    if (company.imageStoragePath) {
       try {
-        const signedUrl = await getOrganizationImageUrl(org.imageStoragePath);
+        const signedUrl = await getCompanyImageUrl(company.imageStoragePath);
         if (signedUrl) {
           return NextResponse.redirect(signedUrl);
         }

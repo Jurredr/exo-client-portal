@@ -64,28 +64,29 @@ export async function uploadUserImage(
 }
 
 /**
- * Upload a compressed organization image to Supabase Storage
+ * Upload a compressed company image to Supabase Storage
+ * (Storage bucket remains "organizations" for backward compatibility)
  * @param file - The image file to upload
- * @param organizationId - The organization ID to use in the filename
+ * @param companyId - The company ID to use in the filename
  * @returns The storage path and size if successful, null if failed
  */
-export async function uploadOrganizationImage(
+export async function uploadCompanyImage(
   file: File,
-  organizationId: string
+  companyId: string
 ): Promise<{ path: string; sizeBytes: number; mimeType: string } | null> {
   try {
     // Compress the image first
     const compressed = await compressOrganizationImage(file);
     if (!compressed) {
-      console.error("Failed to compress organization image");
+      console.error("Failed to compress company image");
       return null;
     }
 
     const supabase = await createClient();
 
-    // Generate a unique filename: organizations/{organizationId}-{timestamp}.jpg
+    // Generate a unique filename: organizations/{companyId}-{timestamp}.jpg
     const timestamp = Date.now();
-    const storagePath = `${ORGANIZATIONS_FOLDER}/${organizationId}-${timestamp}.jpg`;
+    const storagePath = `${ORGANIZATIONS_FOLDER}/${companyId}-${timestamp}.jpg`;
 
     // Upload compressed image to Supabase Storage
     const { data, error } = await supabase.storage
@@ -96,7 +97,7 @@ export async function uploadOrganizationImage(
       });
 
     if (error) {
-      console.error("Error uploading organization image to Storage:", error);
+      console.error("Error uploading company image to Storage:", error);
       return null;
     }
 
@@ -106,7 +107,7 @@ export async function uploadOrganizationImage(
       mimeType: compressed.mimeType,
     };
   } catch (error) {
-    console.error("Error uploading organization image:", error);
+    console.error("Error uploading company image:", error);
     return null;
   }
 }
@@ -136,10 +137,11 @@ export async function deleteUserImage(storagePath: string): Promise<boolean> {
 }
 
 /**
- * Delete an organization image from Supabase Storage
+ * Delete a company image from Supabase Storage
+ * (Storage bucket remains "organizations" for backward compatibility)
  * @param storagePath - The storage path of the file to delete
  */
-export async function deleteOrganizationImage(
+export async function deleteCompanyImage(
   storagePath: string
 ): Promise<boolean> {
   try {
@@ -150,7 +152,7 @@ export async function deleteOrganizationImage(
       .remove([storagePath]);
 
     if (error) {
-      console.error("Error deleting organization image from Storage:", error);
+      console.error("Error deleting company image from Storage:", error);
       return false;
     }
 
@@ -191,12 +193,12 @@ export async function getUserImageUrl(
 }
 
 /**
- * Get a signed URL for an organization image
+ * Get a signed URL for a company image
  * @param storagePath - The storage path of the image
  * @param expiresIn - Expiration time in seconds (default: 1 hour)
  * @returns The signed URL if successful, null if failed
  */
-export async function getOrganizationImageUrl(
+export async function getCompanyImageUrl(
   storagePath: string,
   expiresIn: number = 3600
 ): Promise<string | null> {
@@ -208,13 +210,13 @@ export async function getOrganizationImageUrl(
       .createSignedUrl(storagePath, expiresIn);
 
     if (error) {
-      console.error("Error creating signed URL for organization image:", error);
+      console.error("Error creating signed URL for company image:", error);
       return null;
     }
 
     return data.signedUrl;
   } catch (error) {
-    console.error("Error getting organization image URL:", error);
+    console.error("Error getting company image URL:", error);
     return null;
   }
 }

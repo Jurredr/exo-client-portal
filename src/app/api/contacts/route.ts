@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import {
-  createCompany,
-  getAllCompanies,
+  createContact,
+  getAllContacts,
   isUserInEXOCompany,
-  deleteCompany,
-  updateCompany,
+  deleteContact,
+  updateContact,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
@@ -24,16 +24,16 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companies = await getAllCompanies();
-    return NextResponse.json(companies, {
+    const contactsList = await getAllContacts();
+    return NextResponse.json(contactsList, {
       headers: {
-        "Cache-Control": "no-cache, no-store, must-revalidate", // Don't cache to ensure fresh data
+        "Cache-Control": "no-cache, no-store, must-revalidate",
         Pragma: "no-cache",
         Expires: "0",
       },
     });
   } catch (error) {
-    console.error("Error fetching organizations:", error);
+    console.error("Error fetching contacts:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -58,37 +58,42 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const {
-      name,
-      imageStoragePath, // Path in Supabase Storage
-      imageSizeBytes,
-      address,
-      kvkNumber,
-      btwNumber,
-      email,
-      telephone,
-    } = body;
+    const { firstName, lastName, email, phone, photo, companyId, type } = body;
 
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
+    if (
+      !firstName ||
+      typeof firstName !== "string" ||
+      firstName.trim().length === 0
+    ) {
       return NextResponse.json(
-        { error: "Organization name is required" },
+        { error: "First name is required" },
         { status: 400 }
       );
     }
 
-    const company = await createCompany({
-      name: name.trim(),
-      imageStoragePath: imageStoragePath || null,
-      imageSizeBytes: imageSizeBytes || null,
-      address: address?.trim() || null,
-      kvkNumber: kvkNumber?.trim() || null,
-      btwNumber: btwNumber?.trim() || null,
+    if (
+      !lastName ||
+      typeof lastName !== "string" ||
+      lastName.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "Last name is required" },
+        { status: 400 }
+      );
+    }
+
+    const contact = await createContact({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       email: email?.trim() || null,
-      telephone: telephone?.trim() || null,
+      phone: phone?.trim() || null,
+      photo: photo || null,
+      companyId: companyId || null,
+      type: type || "client",
     });
-    return NextResponse.json(company, { status: 201 });
+    return NextResponse.json(contact, { status: 201 });
   } catch (error) {
-    console.error("Error creating organization:", error);
+    console.error("Error creating contact:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -113,19 +118,19 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get("id");
+    const contactId = searchParams.get("id");
 
-    if (!companyId) {
+    if (!contactId) {
       return NextResponse.json(
-        { error: "Company ID is required" },
+        { error: "Contact ID is required" },
         { status: 400 }
       );
     }
 
-    await deleteCompany(companyId);
+    await deleteContact(contactId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting organization:", error);
+    console.error("Error deleting contact:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -150,46 +155,51 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const {
-      id,
-      name,
-      imageStoragePath, // Path in Supabase Storage
-      imageSizeBytes,
-      address,
-      kvkNumber,
-      btwNumber,
-      email,
-      telephone,
-    } = body;
+    const { id, firstName, lastName, email, phone, photo, companyId, type } =
+      body;
 
     if (!id) {
       return NextResponse.json(
-        { error: "Organization ID is required" },
+        { error: "Contact ID is required" },
         { status: 400 }
       );
     }
 
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
+    if (
+      !firstName ||
+      typeof firstName !== "string" ||
+      firstName.trim().length === 0
+    ) {
       return NextResponse.json(
-        { error: "Organization name is required" },
+        { error: "First name is required" },
         { status: 400 }
       );
     }
 
-    const company = await updateCompany(id, {
-      name: name.trim(),
-      imageStoragePath: imageStoragePath || null,
-      imageSizeBytes: imageSizeBytes || null,
-      address: address?.trim() || null,
-      kvkNumber: kvkNumber?.trim() || null,
-      btwNumber: btwNumber?.trim() || null,
+    if (
+      !lastName ||
+      typeof lastName !== "string" ||
+      lastName.trim().length === 0
+    ) {
+      return NextResponse.json(
+        { error: "Last name is required" },
+        { status: 400 }
+      );
+    }
+
+    const contact = await updateContact(id, {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       email: email?.trim() || null,
-      telephone: telephone?.trim() || null,
+      phone: phone?.trim() || null,
+      photo: photo || null,
+      companyId: companyId || null,
+      type: type || "client",
     });
 
-    return NextResponse.json(company);
+    return NextResponse.json(contact);
   } catch (error) {
-    console.error("Error updating organization:", error);
+    console.error("Error updating contact:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

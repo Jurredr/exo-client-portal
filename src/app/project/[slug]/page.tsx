@@ -1,13 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import {
-  getProjectWithOrganizationBySlug,
-  getProjectWithOrganization,
+  getProjectWithCompanyBySlug,
+  getProjectWithCompany,
   canUserAccessProject,
   ensureUserExists,
-  isUserInEXOOrganization,
+  isUserInEXOCompany,
   getUserByEmail,
-  getOrganizationById,
+  getCompanyById,
 } from "@/lib/db/queries";
 import { ProjectUserMenu } from "@/components/ProjectUserMenu";
 import ProjectDetails from "@/components/ProjectDetails";
@@ -47,34 +47,34 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       slug
     );
-  const projectWithOrg = isUuid
-    ? await getProjectWithOrganization(slug)
-    : await getProjectWithOrganizationBySlug(slug);
+  const projectWithCompany = isUuid
+    ? await getProjectWithCompany(slug)
+    : await getProjectWithCompanyBySlug(slug);
 
-  if (!projectWithOrg) {
+  if (!projectWithCompany) {
     redirect("/not-found");
   }
 
   // EXO Labs projects are internal - no public client pages
-  if (projectWithOrg.project.type === "labs") {
+  if (projectWithCompany.project.type === "labs") {
     redirect("/not-found");
   }
 
   // Check if user can access this project
   const hasAccess = await canUserAccessProject(
     user.email,
-    projectWithOrg.project.id
+    projectWithCompany.project.id
   );
 
   if (!hasAccess) {
     redirect("/projects");
   }
 
-  const isInEXO = await isUserInEXOOrganization(user.email);
+  const isInEXO = await isUserInEXOCompany(user.email);
 
-  // Get user's organization (not the project's)
-  const userOrganization = dbUser?.organizationId
-    ? await getOrganizationById(dbUser.organizationId)
+  // Get user's company (not the project's)
+  const userCompany = dbUser?.companyId
+    ? await getCompanyById(dbUser.companyId)
     : null;
 
   // Prepare user data for the menu
@@ -107,7 +107,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       {/* Fixed User Menu - always in top right */}
       <ProjectUserMenu
         user={userData}
-        organization={userOrganization?.name}
+        organization={userCompany?.name}
         showAdminLink={isInEXO}
       />
 
@@ -124,11 +124,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       {/* Main Content - scrolls over background */}
       <div className="relative z-10 pt-14 pl-10 pb-12">
         <ProjectDetails
-          project={projectWithOrg.project}
-          organizationName={projectWithOrg.organization.name}
+          project={projectWithCompany.project}
+          organizationName={projectWithCompany.company.name}
           organizationImageUrl={
-            projectWithOrg.organization.imageStoragePath
-              ? `/api/projects/${projectWithOrg.project.id}/organization-image`
+            projectWithCompany.company.imageStoragePath
+              ? `/api/projects/${projectWithCompany.project.id}/organization-image`
               : undefined
           }
           isInEXO={isInEXO}

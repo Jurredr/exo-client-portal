@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         const rows = updated
           .map(
             (i) =>
-              `<tr><td>${i.invoiceNumber}</td><td>${i.organizationName}</td><td>${formatDate(i.dueDate)}</td></tr>`
+              `<tr><td>${i.invoiceNumber}</td><td>${i.companyName}</td><td>${formatDate(i.dueDate)}</td></tr>`
           )
           .join("");
         await resend.emails.send({

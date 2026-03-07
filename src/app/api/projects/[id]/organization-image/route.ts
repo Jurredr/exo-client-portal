@@ -1,9 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  canUserAccessProject,
-  getProjectWithOrganization,
-} from "@/lib/db/queries";
-import { getOrganizationImageUrl } from "@/lib/utils/image-storage";
+import { canUserAccessProject, getProjectWithCompany } from "@/lib/db/queries";
+import { getCompanyImageUrl } from "@/lib/utils/image-storage";
 import { NextResponse } from "next/server";
 
 /**
@@ -31,13 +28,13 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const projectWithOrg = await getProjectWithOrganization(projectId);
-    if (!projectWithOrg?.organization?.imageStoragePath) {
+    const projectWithCompany = await getProjectWithCompany(projectId);
+    if (!projectWithCompany?.company?.imageStoragePath) {
       return NextResponse.json({ error: "Image not found" }, { status: 404 });
     }
 
-    const signedUrl = await getOrganizationImageUrl(
-      projectWithOrg.organization.imageStoragePath
+    const signedUrl = await getCompanyImageUrl(
+      projectWithCompany.company.imageStoragePath
     );
     if (!signedUrl) {
       return NextResponse.json({ error: "Image not found" }, { status: 404 });

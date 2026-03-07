@@ -62,17 +62,17 @@
 
 ## Phase 2 – Hour Registration Improvements
 
-### 2.1 – Contact-first selection flow
+### 2.1 – Contact-first selection flow ✅
 
-- [ ] In the hour registration form, show **Contact** as the first selection (optional)
-- [ ] If a contact is selected, show **Project** filtered to only projects linked to that contact's company
-- [ ] If no contact is selected, Project dropdown shows all active projects
-- [ ] It must be possible to register hours for just a contact (no project), just a project, or both
+- [x] In the hour registration form, show **Contact** as the first selection (optional)
+- [x] If a contact is selected, show **Project** filtered to only projects linked to that contact's company
+- [x] If no contact is selected, Project dropdown shows all active projects
+- [x] It must be possible to register hours for just a contact (no project), just a project, or both
 
-### 2.2 – Hide project selection for non-project categories
+### 2.2 – Hide project selection for non-project categories ✅
 
-- [ ] Categories that should NOT show a project/contact selector: `content_creation`, `administration`, `brainstorming`, `research`
-- [ ] Categories that SHOULD show contact + project: `client`, `labs`, `client_acquisition`, `traveling`
+- [x] Categories that should NOT show a project/contact selector: `content_creation`, `administration`, `brainstorming`, `research`
+- [x] Categories that SHOULD show contact + project: `client`, `labs`, `client_acquisition`, `traveling`
 
 ---
 

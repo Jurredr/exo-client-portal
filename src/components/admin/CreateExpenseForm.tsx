@@ -8,7 +8,10 @@ import {
   type UpdateExpenseData,
 } from "@/hooks/use-expenses";
 import { useCurrentUser } from "@/hooks/use-users";
-import { useOrganizations } from "@/hooks/use-organizations";
+import {
+  useOrganizations,
+  useCreateOrganization,
+} from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +62,7 @@ interface Expense {
   date: string;
   category: string | null;
   vendor: string | null;
+  companyId: string | null;
   invoiceStoragePath: string | null; // Path in Supabase Storage
   invoiceFileName: string | null;
   invoiceSizeBytes: number | null;
@@ -84,7 +88,6 @@ export function CreateExpenseForm({
     expense?.date ? new Date(expense.date).toISOString().split("T")[0] : ""
   );
   const [category, setCategory] = useState<string>(expense?.category || "");
-  const [vendor, setVendor] = useState<string>(expense?.vendor || "");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   // Preview is only for newly selected image files
   // For existing files in Storage, we just show the filename
@@ -97,9 +100,17 @@ export function CreateExpenseForm({
     SuggestedCompany[]
   >([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
-    null
+    expense?.companyId ?? null
   );
+  const [addingNewCompany, setAddingNewCompany] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [newCompanyAddress, setNewCompanyAddress] = useState("");
+  const [newCompanyKvk, setNewCompanyKvk] = useState("");
+  const [newCompanyBtw, setNewCompanyBtw] = useState("");
+  const [newCompanyEmail, setNewCompanyEmail] = useState("");
+  const [newCompanyPhone, setNewCompanyPhone] = useState("");
   const { data: companies = [] } = useOrganizations();
+  const createOrganizationMutation = useCreateOrganization();
   const [originalDescription, setOriginalDescription] = useState<string>("");
   const [originalAmount, setOriginalAmount] = useState<string>("");
   const [originalCurrency, setOriginalCurrency] = useState<"USD" | "EUR">(
@@ -107,7 +118,6 @@ export function CreateExpenseForm({
   );
   const [originalDate, setOriginalDate] = useState<string>("");
   const [originalCategory, setOriginalCategory] = useState<string>("");
-  const [originalVendor, setOriginalVendor] = useState<string>("");
   const [, setOriginalInvoiceStoragePath] = useState<string | null>(null);
   const { data: currentUser } = useCurrentUser();
   const createExpenseMutation = useCreateExpense();
@@ -117,6 +127,14 @@ export function CreateExpenseForm({
     isSubmittingLocal ||
     createExpenseMutation.isPending ||
     updateExpenseMutation.isPending;
+
+  // Sync selectedCompanyId when expense changes (e.g. when opening edit)
+  useEffect(() => {
+    if (expense?.companyId !== undefined) {
+      setSelectedCompanyId(expense.companyId);
+      setAddingNewCompany(false);
+    }
+  }, [expense?.companyId]);
 
   // Store original values when editing
   useEffect(() => {
@@ -128,7 +146,6 @@ export function CreateExpenseForm({
         ? new Date(expense.date).toISOString().split("T")[0]
         : "";
       const cat = expense.category || "";
-      const vend = expense.vendor || "";
       const invPath = expense.invoiceStoragePath;
 
       setOriginalDescription(desc);
@@ -136,7 +153,6 @@ export function CreateExpenseForm({
       setOriginalCurrency(curr);
       setOriginalDate(dt);
       setOriginalCategory(cat);
-      setOriginalVendor(vend);
       setOriginalInvoiceStoragePath(invPath);
     } else {
       // Reset original values when not editing
@@ -145,7 +161,6 @@ export function CreateExpenseForm({
       setOriginalCurrency("EUR");
       setOriginalDate("");
       setOriginalCategory("");
-      setOriginalVendor("");
       setOriginalInvoiceStoragePath(null);
     }
   }, [expense]);
@@ -160,7 +175,7 @@ export function CreateExpenseForm({
       currency !== originalCurrency ||
       date !== originalDate ||
       category !== originalCategory ||
-      vendor.trim() !== originalVendor ||
+      selectedCompanyId !== (expense.companyId ?? null) ||
       invoiceFile !== null ||
       removeInvoice
     );
@@ -176,8 +191,8 @@ export function CreateExpenseForm({
     originalDate,
     category,
     originalCategory,
-    vendor,
-    originalVendor,
+    selectedCompanyId,
+    expense?.companyId,
     invoiceFile,
     removeInvoice,
   ]);
@@ -196,7 +211,6 @@ export function CreateExpenseForm({
         throw new Error(err.error || "Failed to extract invoice");
       }
       const data = await res.json();
-      if (data.vendor) setVendor(data.vendor);
       if (data.amount) setAmount(data.amount);
       if (data.currency)
         setCurrency(
@@ -206,7 +220,21 @@ export function CreateExpenseForm({
         );
       if (data.date) setDate(data.date);
       if (data.description) setDescription(data.description);
+      if (data.category) setCategory(data.category);
       setSuggestedCompanies(data.suggestedCompanies ?? []);
+      setSelectedCompanyId(null);
+      setAddingNewCompany(false);
+      if ((data.suggestedCompanies ?? []).length > 0) {
+        setSelectedCompanyId(data.suggestedCompanies[0].id);
+      } else if (data.vendor) {
+        setAddingNewCompany(true);
+        setNewCompanyName(data.vendor);
+        setNewCompanyAddress(data.vendorAddress ?? "");
+        setNewCompanyKvk(data.kvkNumber ?? "");
+        setNewCompanyBtw(data.btwNumber ?? "");
+        setNewCompanyEmail(data.vendorEmail ?? "");
+        setNewCompanyPhone(data.vendorPhone ?? "");
+      }
       setShowForm(true);
       toast.success("Invoice data extracted");
     } catch (err) {
@@ -218,9 +246,8 @@ export function CreateExpenseForm({
     }
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const processFile = useCallback(
+    (file: File) => {
       if (file.size > 10 * 1024 * 1024) {
         toast.error("File size must be less than 10MB");
         return;
@@ -235,8 +262,43 @@ export function CreateExpenseForm({
       if (!expense) {
         extractAndPreFill(file);
       }
-    }
+    },
+    [expense, extractAndPreFill]
+  );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
   };
+
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!isExtracting) setIsDragging(true);
+    },
+    [isExtracting]
+  );
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      if (isExtracting) return;
+      const file = e.dataTransfer.files?.[0];
+      if (file) processFile(file);
+    },
+    [processFile, isExtracting]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,6 +315,11 @@ export function CreateExpenseForm({
 
     if (!date) {
       toast.error("Date is required");
+      return;
+    }
+
+    if (!expense && addingNewCompany && !newCompanyName.trim()) {
+      toast.error("Company name is required when adding a new company");
       return;
     }
 
@@ -308,7 +375,8 @@ export function CreateExpenseForm({
           currency,
           ...(date ? { date } : {}),
           category: category || null,
-          vendor: vendor.trim() || null,
+          vendor: expense.vendor ?? null,
+          companyId: selectedCompanyId,
           // Only include file fields if they're explicitly set (new file or removal)
           ...(invoiceFile || removeInvoice
             ? {
@@ -329,6 +397,18 @@ export function CreateExpenseForm({
           onSettled: () => setIsSubmittingLocal(false),
         });
       } else {
+        let finalCompanyId = selectedCompanyId;
+        if (addingNewCompany && newCompanyName.trim()) {
+          const newCompany = await createOrganizationMutation.mutateAsync({
+            name: newCompanyName.trim(),
+            address: newCompanyAddress.trim() || null,
+            kvkNumber: newCompanyKvk.trim() || null,
+            btwNumber: newCompanyBtw.trim() || null,
+            email: newCompanyEmail.trim() || null,
+            telephone: newCompanyPhone.trim() || null,
+          });
+          finalCompanyId = newCompany.id;
+        }
         const createData: CreateExpenseData = {
           userId: currentUser?.user.id || "", // Required by interface, but API gets it from session
           description: description.trim(),
@@ -336,8 +416,14 @@ export function CreateExpenseForm({
           currency,
           date: date, // date is validated above, so it's guaranteed to be a string
           category: category || null,
-          vendor: vendor.trim() || null,
-          companyId: selectedCompanyId || null,
+          vendor: finalCompanyId
+            ? addingNewCompany
+              ? newCompanyName.trim()
+              : (companies.find((c) => c.id === finalCompanyId)?.name ??
+                suggestedCompanies.find((c) => c.id === finalCompanyId)?.name ??
+                null)
+            : null,
+          companyId: finalCompanyId,
           invoiceStoragePath,
           invoiceFileName,
           invoiceSizeBytes,
@@ -353,11 +439,17 @@ export function CreateExpenseForm({
             setCurrency("EUR");
             setDate("");
             setCategory("");
-            setVendor("");
             setInvoiceFile(null);
             setInvoicePreview(null);
             setSuggestedCompanies([]);
             setSelectedCompanyId(null);
+            setAddingNewCompany(false);
+            setNewCompanyName("");
+            setNewCompanyAddress("");
+            setNewCompanyKvk("");
+            setNewCompanyBtw("");
+            setNewCompanyEmail("");
+            setNewCompanyPhone("");
           },
           onError: (error: Error) => {
             toast.error(error.message || "Failed to create expense");
@@ -380,11 +472,21 @@ export function CreateExpenseForm({
   if (!expense && !showForm) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-dashed p-6 text-center">
+        <div
+          className={`rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+            isDragging
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/25 hover:border-muted-foreground/50"
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <Scan className="mx-auto h-10 w-10 text-muted-foreground" />
           <h3 className="mt-2 font-medium">Upload invoice to auto-fill</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upload a PDF invoice to extract vendor, amount, date and more.
+            Upload a PDF invoice to extract vendor, amount, date and more. Drag
+            and drop or click to browse.
           </p>
           <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
             <Label
@@ -505,67 +607,125 @@ export function CreateExpenseForm({
           onChange={(e) => setDate(e.target.value)}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="expense-category">Category</Label>
-          <Select
-            value={category || undefined}
-            onValueChange={(value) => setCategory(value || "")}
-          >
-            <SelectTrigger id="expense-category" className="w-full">
-              <SelectValue placeholder="Select a category (optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXPENSE_CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="expense-vendor">Vendor / Where</Label>
-          <Input
-            id="expense-vendor"
-            value={vendor}
-            onChange={(e) => setVendor(e.target.value)}
-            placeholder="Amazon, Office Depot, etc."
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="expense-category">Category</Label>
+        <Select
+          value={category || undefined}
+          onValueChange={(value) => setCategory(value || "")}
+        >
+          <SelectTrigger id="expense-category" className="w-full">
+            <SelectValue placeholder="Select a category (optional)" />
+          </SelectTrigger>
+          <SelectContent>
+            {EXPENSE_CATEGORIES.map((cat) => (
+              <SelectItem key={cat} value={cat}>
+                {cat}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      {(suggestedCompanies.length > 0 || companies.length > 0) && (
-        <div className="space-y-2">
-          <Label htmlFor="expense-company" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Link to company
-          </Label>
-          <Select
-            value={selectedCompanyId || "none"}
-            onValueChange={(v) => setSelectedCompanyId(v === "none" ? null : v)}
-          >
-            <SelectTrigger id="expense-company">
-              <SelectValue placeholder="No company" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No company</SelectItem>
-              {suggestedCompanies.map((c) => (
+      <div className="space-y-2">
+        <Label htmlFor="expense-company" className="flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Company
+        </Label>
+        <Select
+          value={addingNewCompany ? "__new__" : selectedCompanyId || "none"}
+          onValueChange={(v) => {
+            if (v === "__new__") {
+              setAddingNewCompany(true);
+              setSelectedCompanyId(null);
+            } else {
+              setAddingNewCompany(false);
+              setSelectedCompanyId(v === "none" ? null : v);
+            }
+          }}
+        >
+          <SelectTrigger id="expense-company">
+            <SelectValue placeholder="Select company" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No company</SelectItem>
+            {suggestedCompanies.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+                {c.btwNumber ? ` (${c.btwNumber})` : ""}
+              </SelectItem>
+            ))}
+            {companies
+              .filter((c) => !suggestedCompanies.some((s) => s.id === c.id))
+              .map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
-                  {c.btwNumber ? ` (${c.btwNumber})` : ""}
                 </SelectItem>
               ))}
-              {companies
-                .filter((c) => !suggestedCompanies.some((s) => s.id === c.id))
-                .map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+            <SelectItem value="__new__">Add new company</SelectItem>
+          </SelectContent>
+        </Select>
+        {addingNewCompany && (
+          <div className="mt-3 space-y-3 rounded-lg border p-4 bg-muted/30">
+            <Label className="text-sm font-medium">New company details</Label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-4 sm:col-span-2">
+                <Label htmlFor="new-company-name">Name *</Label>
+                <Input
+                  id="new-company-name"
+                  value={newCompanyName}
+                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  placeholder="Company name"
+                />
+              </div>
+              <div className="space-y-4 sm:col-span-2">
+                <Label htmlFor="new-company-address">Address</Label>
+                <Input
+                  id="new-company-address"
+                  value={newCompanyAddress}
+                  onChange={(e) => setNewCompanyAddress(e.target.value)}
+                  placeholder="Street, city, postal code"
+                />
+              </div>
+              <div className="space-y-4">
+                <Label htmlFor="new-company-kvk">KVK number</Label>
+                <Input
+                  id="new-company-kvk"
+                  value={newCompanyKvk}
+                  onChange={(e) => setNewCompanyKvk(e.target.value)}
+                  placeholder="12345678"
+                />
+              </div>
+              <div className="space-y-4">
+                <Label htmlFor="new-company-btw">BTW number</Label>
+                <Input
+                  id="new-company-btw"
+                  value={newCompanyBtw}
+                  onChange={(e) => setNewCompanyBtw(e.target.value)}
+                  placeholder="NL123456789B01"
+                />
+              </div>
+              <div className="space-y-4">
+                <Label htmlFor="new-company-email">Email</Label>
+                <Input
+                  id="new-company-email"
+                  type="email"
+                  value={newCompanyEmail}
+                  onChange={(e) => setNewCompanyEmail(e.target.value)}
+                  placeholder="contact@company.com"
+                />
+              </div>
+              <div className="space-y-4">
+                <Label htmlFor="new-company-phone">Phone</Label>
+                <Input
+                  id="new-company-phone"
+                  value={newCompanyPhone}
+                  onChange={(e) => setNewCompanyPhone(e.target.value)}
+                  placeholder="+31 20 123 4567"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       <div className="space-y-2">
         <Label htmlFor="expense-invoice" className="flex items-center gap-2">
           <Upload className="h-4 w-4" />

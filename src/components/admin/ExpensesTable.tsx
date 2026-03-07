@@ -80,6 +80,7 @@ interface ExpenseData {
     date: string;
     category: string | null;
     vendor: string | null;
+    companyId: string | null;
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
     invoiceSizeBytes: number | null;

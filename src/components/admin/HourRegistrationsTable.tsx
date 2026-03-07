@@ -9,6 +9,7 @@ import {
   useDeleteHourRegistration,
 } from "@/hooks/use-hour-registrations";
 import { useAllProjects } from "@/hooks/use-projects";
+import { shouldShowProjectContact } from "@/lib/constants/hour-registration";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -465,15 +466,7 @@ export function HourRegistrationsTable() {
 
   // Projects filtered by category - computed with useMemo
   const projects = useMemo(() => {
-    const nonProjectCategories = [
-      "administration",
-      "brainstorming",
-      "research",
-      "client_acquisition",
-      "content_creation",
-    ];
-
-    if (nonProjectCategories.includes(manualEntry.category)) {
+    if (!shouldShowProjectContact(manualEntry.category)) {
       return [];
     } else if (manualEntry.category === "labs") {
       return allProjects
@@ -493,20 +486,12 @@ export function HourRegistrationsTable() {
     }
   }, [manualEntry.category, allProjects]);
 
-  // Clear projectId when category changes
+  // Clear projectId when category changes to non-project category
   const prevCategoryRef = useRef(manualEntry.category);
   useEffect(() => {
-    const nonProjectCategories = [
-      "administration",
-      "brainstorming",
-      "research",
-      "client_acquisition",
-      "content_creation",
-    ];
     if (
       prevCategoryRef.current !== manualEntry.category &&
-      (nonProjectCategories.includes(manualEntry.category) ||
-        manualEntry.category === "client")
+      !shouldShowProjectContact(manualEntry.category)
     ) {
       // Use setTimeout to avoid synchronous setState in effect
       setTimeout(() => {
@@ -652,17 +637,9 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation, traveling) should not have a project
-    const nonProjectCategories = [
-      "administration",
-      "brainstorming",
-      "research",
-      "client_acquisition",
-      "content_creation",
-      "traveling",
-    ];
+    // Validate: non-project categories should not have a project
     if (
-      nonProjectCategories.includes(manualEntry.category) &&
+      !shouldShowProjectContact(manualEntry.category) &&
       manualEntry.projectId
     ) {
       toast.error(
@@ -759,17 +736,9 @@ export function HourRegistrationsTable() {
       return;
     }
 
-    // Validate: non-project categories (administration, brainstorming, research, client_acquisition, content_creation, traveling) should not have a project
-    const nonProjectCategories = [
-      "administration",
-      "brainstorming",
-      "research",
-      "client_acquisition",
-      "content_creation",
-      "traveling",
-    ];
+    // Validate: non-project categories should not have a project
     if (
-      nonProjectCategories.includes(manualEntry.category) &&
+      !shouldShowProjectContact(manualEntry.category) &&
       manualEntry.projectId
     ) {
       toast.error(
@@ -957,9 +926,7 @@ export function HourRegistrationsTable() {
                     </SelectContent>
                   </Select>
                 </div>
-                {(manualEntry.category === "client" ||
-                  manualEntry.category === "labs" ||
-                  manualEntry.category === "content_creation") && (
+                {shouldShowProjectContact(manualEntry.category) && (
                   <div className="space-y-2">
                     <Label htmlFor="manual-project">
                       Project{" "}

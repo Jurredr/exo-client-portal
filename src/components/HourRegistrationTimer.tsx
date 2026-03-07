@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAllProjects } from "@/hooks/use-projects";
+import { shouldShowProjectContact } from "@/lib/constants/hour-registration";
 import { useCreateHourRegistration } from "@/hooks/use-hour-registrations";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,16 +100,7 @@ export function HourRegistrationTimer() {
 
   // Filter projects based on category
   const projects = (() => {
-    const nonProjectCategories = [
-      "administration",
-      "brainstorming",
-      "research",
-      "client_acquisition",
-      "content_creation",
-      "traveling",
-    ];
-
-    if (nonProjectCategories.includes(category)) {
+    if (!shouldShowProjectContact(category)) {
       return [];
     } else if (category === "labs") {
       return allProjects
@@ -350,9 +342,7 @@ export function HourRegistrationTimer() {
             description: description.trim(),
             category,
             projectId:
-              (category === "client" ||
-                category === "labs" ||
-                category === "content_creation") &&
+              shouldShowProjectContact(category) &&
               projectId &&
               projectId !== "none"
                 ? projectId
@@ -375,7 +365,7 @@ export function HourRegistrationTimer() {
           description: description.trim(),
           category,
           projectId:
-            (category === "client" || category === "labs") &&
+            shouldShowProjectContact(category) &&
             projectId &&
             projectId !== "none"
               ? projectId
@@ -443,7 +433,7 @@ export function HourRegistrationTimer() {
           hours,
           category: split.category,
           projectId:
-            (split.category === "client" || split.category === "labs") &&
+            shouldShowProjectContact(split.category) &&
             split.projectId &&
             split.projectId !== "none"
               ? split.projectId
@@ -501,30 +491,18 @@ export function HourRegistrationTimer() {
   };
 
   // Clear projectId when category changes to non-project category
-  // Reset projectId when category changes to a non-project category
-  const nonProjectCategories = [
-    "administration",
-    "brainstorming",
-    "research",
-    "client_acquisition",
-    "content_creation",
-    "traveling",
-  ];
-  const shouldResetProjectId =
-    nonProjectCategories.includes(category) ||
-    category === "client" ||
-    category === "labs";
-
-  // Use a ref to track the previous category to avoid unnecessary resets
   const prevCategoryRef = useRef(category);
   useEffect(() => {
-    if (prevCategoryRef.current !== category && shouldResetProjectId) {
+    if (
+      prevCategoryRef.current !== category &&
+      !shouldShowProjectContact(category)
+    ) {
       setTimeout(() => {
         setProjectId(undefined);
       }, 0);
     }
     prevCategoryRef.current = category;
-  }, [category, shouldResetProjectId]);
+  }, [category]);
 
   // Close split dialog handler
   const handleCloseSplitDialog = (open: boolean) => {
@@ -923,7 +901,7 @@ export function HourRegistrationTimer() {
                 </SelectContent>
               </Select>
             </div>
-            {(category === "client" || category === "labs") && (
+            {shouldShowProjectContact(category) && (
               <div className="space-y-2">
                 <Label htmlFor="project">
                   Project {category === "client" ? "(Optional)" : ""}

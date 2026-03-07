@@ -143,6 +143,7 @@ export function useCreateHourRegistration() {
     mutationFn: async (data: {
       description: string;
       hours: number;
+      contactId?: string | null;
       projectId?: string | null;
       date?: string;
       category?: string;
@@ -193,6 +194,7 @@ export function useUpdateHourRegistration() {
       id: string;
       description?: string;
       hours?: number;
+      contactId?: string | null;
       projectId?: string | null;
       date?: string;
       category?: string;

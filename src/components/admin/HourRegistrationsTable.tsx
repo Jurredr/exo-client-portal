@@ -9,6 +9,7 @@ import {
   useDeleteHourRegistration,
 } from "@/hooks/use-hour-registrations";
 import { useAllProjects } from "@/hooks/use-projects";
+import { useContacts } from "@/hooks/use-contacts";
 import { shouldShowProjectContact } from "@/lib/constants/hour-registration";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -73,6 +74,7 @@ interface HourRegistration {
   id: string;
   userId: string;
   projectId: string | null;
+  contactId: string | null;
   description: string;
   hours: string;
   category: string;
@@ -391,6 +393,7 @@ export function HourRegistrationsTable() {
     refetch,
   } = useHourRegistrations(page, pageSize, debouncedSearch || undefined, true);
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
+  const { data: contactsData = [] } = useContacts();
   const createMutation = useCreateHourRegistration();
   const updateMutation = useUpdateHourRegistration();
   const deleteMutation = useDeleteHourRegistration();
@@ -419,6 +422,7 @@ export function HourRegistrationsTable() {
       | "client_acquisition"
       | "content_creation"
       | "traveling",
+    contactId: undefined as string | undefined,
     projectId: undefined as string | undefined,
   });
   const [originalManualEntry, setOriginalManualEntry] = useState({
@@ -435,6 +439,7 @@ export function HourRegistrationsTable() {
       | "client_acquisition"
       | "content_creation"
       | "traveling",
+    contactId: undefined as string | undefined,
     projectId: undefined as string | undefined,
   });
 
@@ -448,43 +453,61 @@ export function HourRegistrationsTable() {
       manualEntry.minutes !== originalManualEntry.minutes ||
       manualEntry.description.trim() !== originalManualEntry.description ||
       manualEntry.category !== originalManualEntry.category ||
+      manualEntry.contactId !== originalManualEntry.contactId ||
       manualEntry.projectId !== originalManualEntry.projectId
     );
   }, [editingRegistration, manualEntry, originalManualEntry]);
 
-  // Process projects data
+  // Process projects data (include companyId for contact filtering)
   const allProjects = useMemo(() => {
     if (!projectsData) return [];
     return projectsData.map(
-      (item: { project: Project & { type?: string } }) => ({
+      (item: { project: Project & { type?: string; companyId?: string } }) => ({
         id: item.project.id,
         title: item.project.title,
         type: item.project.type || "client",
+        companyId: item.project.companyId,
       })
     );
   }, [projectsData]);
 
-  // Projects filtered by category - computed with useMemo
+  // Selected contact's companyId (for filtering projects)
+  const selectedContactCompanyId = useMemo(() => {
+    if (!manualEntry.contactId) return null;
+    const contact = contactsData.find((c) => c.id === manualEntry.contactId);
+    return contact?.companyId ?? null;
+  }, [manualEntry.contactId, contactsData]);
+
+  // Projects filtered by category and optionally by contact's company
   const projects = useMemo(() => {
     if (!shouldShowProjectContact(manualEntry.category)) {
       return [];
-    } else if (manualEntry.category === "labs") {
-      return allProjects
+    }
+    let filtered = allProjects;
+    // If contact selected, filter to projects linked to that contact's company
+    if (selectedContactCompanyId) {
+      filtered = allProjects.filter(
+        (p: Project & { type?: string; companyId?: string }) =>
+          p.companyId === selectedContactCompanyId
+      );
+    }
+    if (manualEntry.category === "labs") {
+      return filtered
         .filter((p: Project & { type?: string }) => p.type === "labs")
         .map((p: Project & { type?: string }) => ({
           id: p.id,
           title: p.title,
         }));
-    } else {
-      // client
-      return allProjects
-        .filter((p: Project & { type?: string }) => p.type === "client")
-        .map((p: Project & { type?: string }) => ({
-          id: p.id,
-          title: p.title,
-        }));
     }
-  }, [manualEntry.category, allProjects]);
+    return filtered
+      .filter((p: Project & { type?: string }) => p.type === "client")
+      .map((p: Project & { type?: string }) => ({ id: p.id, title: p.title }));
+  }, [
+    manualEntry.category,
+    manualEntry.contactId,
+    allProjects,
+    selectedContactCompanyId,
+  ]);
 
   // Clear projectId when category changes to non-project category
   const prevCategoryRef = useRef(manualEntry.category);
@@ -493,13 +516,21 @@ export function HourRegistrationsTable() {
       prevCategoryRef.current !== manualEntry.category &&
       !shouldShowProjectContact(manualEntry.category)
     ) {
-      // Use setTimeout to avoid synchronous setState in effect
       setTimeout(() => {
         setManualEntry((prev) => ({ ...prev, projectId: undefined }));
       }, 0);
       prevCategoryRef.current = manualEntry.category;
     }
   }, [manualEntry.category]);
+
+  // Clear projectId when contact changes (project list may change)
+  const prevContactIdRef = useRef(manualEntry.contactId);
+  useEffect(() => {
+    if (prevContactIdRef.current !== manualEntry.contactId) {
+      prevContactIdRef.current = manualEntry.contactId;
+      setManualEntry((prev) => ({ ...prev, projectId: undefined }));
+    }
+  }, [manualEntry.contactId]);
 
   // Listen for hour registration saved events (for components not using React Query)
   useEffect(() => {
@@ -660,6 +691,7 @@ export function HourRegistrationsTable() {
       minutes: "",
       description: "",
       category: "client",
+      contactId: undefined,
       projectId: undefined,
     });
 
@@ -667,6 +699,10 @@ export function HourRegistrationsTable() {
       {
         description: manualEntry.description.trim(),
         hours: totalHours,
+        contactId:
+          manualEntry.contactId && manualEntry.contactId !== "none"
+            ? manualEntry.contactId
+            : null,
         projectId:
           manualEntry.projectId && manualEntry.projectId !== "none"
             ? manualEntry.projectId
@@ -711,6 +747,7 @@ export function HourRegistrationsTable() {
         | "client_acquisition"
         | "content_creation"
         | "traveling",
+      contactId: registration.contactId || undefined,
       projectId: registration.projectId || undefined,
     };
 
@@ -760,6 +797,10 @@ export function HourRegistrationsTable() {
         id: editingRegistration.id,
         description: manualEntry.description.trim(),
         hours: totalHours,
+        contactId:
+          manualEntry.contactId && manualEntry.contactId !== "none"
+            ? manualEntry.contactId
+            : null,
         projectId:
           manualEntry.projectId && manualEntry.projectId !== "none"
             ? manualEntry.projectId
@@ -872,6 +913,31 @@ export function HourRegistrationsTable() {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleManualEntry} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="manual-contact">Contact (optional)</Label>
+                  <Select
+                    value={manualEntry.contactId || "none"}
+                    onValueChange={(value) =>
+                      setManualEntry({
+                        ...manualEntry,
+                        contactId: value === "none" ? undefined : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="manual-contact" className="w-full">
+                      <SelectValue placeholder="Select contact" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {contactsData.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.firstName} {c.lastName}
+                          {c.email ? ` (${c.email})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="manual-date">Date *</Label>
                   <Input
@@ -1177,6 +1243,31 @@ export function HourRegistrationsTable() {
           </DialogHeader>
           <form onSubmit={handleUpdate} className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="edit-contact">Contact (optional)</Label>
+              <Select
+                value={manualEntry.contactId || "none"}
+                onValueChange={(value) =>
+                  setManualEntry({
+                    ...manualEntry,
+                    contactId: value === "none" ? undefined : value,
+                  })
+                }
+              >
+                <SelectTrigger id="edit-contact" className="w-full">
+                  <SelectValue placeholder="Select contact" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {contactsData.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.firstName} {c.lastName}
+                      {c.email ? ` (${c.email})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-date">Date *</Label>
               <Input
                 id="edit-date"
@@ -1226,9 +1317,7 @@ export function HourRegistrationsTable() {
                 </SelectContent>
               </Select>
             </div>
-            {(manualEntry.category === "client" ||
-              manualEntry.category === "labs" ||
-              manualEntry.category === "content_creation") && (
+            {shouldShowProjectContact(manualEntry.category) && (
               <div className="space-y-2">
                 <Label htmlFor="edit-project">
                   Project{" "}

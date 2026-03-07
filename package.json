@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push",
+    "db:backup": "dotenv -e .env.local -- pg_dump $DATABASE_URL > src/db/backups/backup_exo_$(date +%Y%m%d_%H%M%S).sql",
     "prepare": "husky"
   },
   "dependencies": {
@@ -71,6 +72,7 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "^19",
     "dotenv": "^17.2.3",
+    "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.7",
     "eslint": "^9",
     "eslint-config-next": "16.0.4",

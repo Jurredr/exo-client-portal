@@ -502,12 +502,7 @@ export function HourRegistrationsTable() {
     return filtered
       .filter((p: Project & { type?: string }) => p.type === "client")
       .map((p: Project & { type?: string }) => ({ id: p.id, title: p.title }));
-  }, [
-    manualEntry.category,
-    manualEntry.contactId,
-    allProjects,
-    selectedContactCompanyId,
-  ]);
+  }, [manualEntry.category, allProjects, selectedContactCompanyId]);
 
   // Clear projectId when category changes to non-project category
   const prevCategoryRef = useRef(manualEntry.category);

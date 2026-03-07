@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAllProjects } from "@/hooks/use-projects";
+import { useContacts } from "@/hooks/use-contacts";
 import { shouldShowProjectContact } from "@/lib/constants/hour-registration";
 import { useCreateHourRegistration } from "@/hooks/use-hour-registrations";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ interface SplitEntry {
     | "client_acquisition"
     | "content_creation"
     | "traveling";
+  contactId?: string;
   projectId?: string;
   duration: number; // in seconds
   isBreak: boolean;
@@ -84,40 +86,55 @@ export function HourRegistrationTimer() {
     | "content_creation"
     | "traveling"
   >("client");
+  const [contactId, setContactId] = useState<string | undefined>(undefined);
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
 
   // TanStack Query hooks
   const { data: projectsData } = useAllProjects();
+  const { data: contactsData = [] } = useContacts();
   const createMutation = useCreateHourRegistration();
 
-  // Process projects data
+  // Process projects data (include companyId for contact filtering)
   const allProjects =
-    projectsData?.map((item: { project: Project & { type?: string } }) => ({
-      id: item.project.id,
-      title: item.project.title,
-      type: item.project.type || "client",
-    })) || [];
+    projectsData?.map(
+      (item: { project: Project & { type?: string; companyId?: string } }) => ({
+        id: item.project.id,
+        title: item.project.title,
+        type: item.project.type || "client",
+        companyId: item.project.companyId,
+      })
+    ) || [];
 
-  // Filter projects based on category
+  const selectedContactCompanyId = contactId
+    ? (contactsData.find((c) => c.id === contactId)?.companyId ?? null)
+    : null;
+
+  // Filter projects based on category and contact's company
   const projects = (() => {
     if (!shouldShowProjectContact(category)) {
       return [];
-    } else if (category === "labs") {
-      return allProjects
+    }
+    let filtered = allProjects;
+    if (selectedContactCompanyId) {
+      filtered = allProjects.filter(
+        (p: Project & { type?: string; companyId?: string }) =>
+          p.companyId === selectedContactCompanyId
+      );
+    }
+    if (category === "labs") {
+      return filtered
         .filter((p: Project & { type?: string }) => p.type === "labs")
         .map((p: Project & { type?: string }) => ({
           id: p.id,
           title: p.title,
         }));
-    } else {
-      // client
-      return allProjects
-        .filter((p: Project & { type?: string }) => p.type === "client")
-        .map((p: Project & { type?: string }) => ({
-          id: p.id,
-          title: p.title,
-        }));
     }
+    return filtered
+      .filter((p: Project & { type?: string }) => p.type === "client")
+      .map((p: Project & { type?: string }) => ({
+        id: p.id,
+        title: p.title,
+      }));
   })();
 
   // const isSaving = createMutation.isPending; // Unused but kept for potential future use
@@ -341,6 +358,12 @@ export function HourRegistrationTimer() {
             id: `split-${Date.now()}`,
             description: description.trim(),
             category,
+            contactId:
+              shouldShowProjectContact(category) &&
+              contactId &&
+              contactId !== "none"
+                ? contactId
+                : undefined,
             projectId:
               shouldShowProjectContact(category) &&
               projectId &&
@@ -364,6 +387,12 @@ export function HourRegistrationTimer() {
           id: `split-${Date.now()}`,
           description: description.trim(),
           category,
+          contactId:
+            shouldShowProjectContact(category) &&
+            contactId &&
+            contactId !== "none"
+              ? contactId
+              : undefined,
           projectId:
             shouldShowProjectContact(category) &&
             projectId &&
@@ -386,6 +415,7 @@ export function HourRegistrationTimer() {
     // Reset form
     setDescription("");
     setCategory("client");
+    setContactId(undefined);
     setProjectId(undefined);
     setShowSplitDialog(false);
     setEditingSplitId(null);
@@ -401,6 +431,7 @@ export function HourRegistrationTimer() {
     setEditingSplitId(split.id);
     setDescription(split.description);
     setCategory(split.category);
+    setContactId(split.contactId);
     setProjectId(split.projectId);
     setShowSplitDialog(true);
   };
@@ -432,6 +463,12 @@ export function HourRegistrationTimer() {
           description: split.description,
           hours,
           category: split.category,
+          contactId:
+            shouldShowProjectContact(split.category) &&
+            split.contactId &&
+            split.contactId !== "none"
+              ? split.contactId
+              : null,
           projectId:
             shouldShowProjectContact(split.category) &&
             split.projectId &&
@@ -459,6 +496,7 @@ export function HourRegistrationTimer() {
       setSplits([]);
       setDescription("");
       setCategory("client");
+      setContactId(undefined);
       setProjectId(undefined);
 
       // Trigger refresh of hour registrations table (for components not using React Query)
@@ -487,6 +525,7 @@ export function HourRegistrationTimer() {
     setShowCancelDialog(false);
     setDescription("");
     setCategory("client");
+    setContactId(undefined);
     setProjectId(undefined);
   };
 
@@ -498,6 +537,7 @@ export function HourRegistrationTimer() {
       !shouldShowProjectContact(category)
     ) {
       setTimeout(() => {
+        setContactId(undefined);
         setProjectId(undefined);
       }, 0);
     }
@@ -511,6 +551,7 @@ export function HourRegistrationTimer() {
       setEditingSplitId(null);
       setDescription("");
       setCategory("client");
+      setContactId(undefined);
       setProjectId(undefined);
       // Resume timer if it was running before opening dialog
       if (!isRunning && !isBreakMode && splitStartTimeRef.current) {
@@ -902,29 +943,54 @@ export function HourRegistrationTimer() {
               </Select>
             </div>
             {shouldShowProjectContact(category) && (
-              <div className="space-y-2">
-                <Label htmlFor="project">
-                  Project {category === "client" ? "(Optional)" : ""}
-                </Label>
-                <Select
-                  value={projectId || "none"}
-                  onValueChange={(value) =>
-                    setProjectId(value === "none" ? undefined : value)
-                  }
-                >
-                  <SelectTrigger id="project" className="w-full">
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="contact">Contact (optional)</Label>
+                  <Select
+                    value={contactId || "none"}
+                    onValueChange={(value) => {
+                      setContactId(value === "none" ? undefined : value);
+                      setProjectId(undefined);
+                    }}
+                  >
+                    <SelectTrigger id="contact" className="w-full">
+                      <SelectValue placeholder="Select contact" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {contactsData.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.firstName} {c.lastName}
+                          {c.email ? ` (${c.email})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project">
+                    Project {category === "client" ? "(Optional)" : ""}
+                  </Label>
+                  <Select
+                    value={projectId || "none"}
+                    onValueChange={(value) =>
+                      setProjectId(value === "none" ? undefined : value)
+                    }
+                  >
+                    <SelectTrigger id="project" className="w-full">
+                      <SelectValue placeholder="Select a project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
             <div className="space-y-2">
               <Label htmlFor="description">Description *</Label>

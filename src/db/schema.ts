@@ -51,6 +51,9 @@ export const users = pgTable("users", {
   imageStoragePath: text("image_storage_path"), // Path in Supabase Storage (e.g., "users/user-123.jpg")
   imageSizeBytes: integer("image_size_bytes"), // File size in bytes
   companyId: uuid("company_id").references(() => companies.id),
+  contactId: uuid("contact_id")
+    .references(() => contacts.id, { onDelete: "set null" })
+    .unique(), // One-to-one: user = portal login, optionally linked to a contact
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -101,6 +104,9 @@ export const contracts = pgTable("contracts", {
   companyId: uuid("company_id")
     .references(() => companies.id)
     .notNull(),
+  contactId: uuid("contact_id").references(() => contacts.id, {
+    onDelete: "set null",
+  }),
   projectId: uuid("project_id").references(() => projects.id), // Deprecated: kept for backward compatibility, use contractProjects junction table
   name: text("name").notNull(),
   type: text("type").notNull(), // 'agreement', 'nda', 'contract', etc.
@@ -134,6 +140,9 @@ export const hourRegistrations = pgTable("hour_registrations", {
     .references(() => users.id)
     .notNull(),
   projectId: uuid("project_id").references(() => projects.id),
+  contactId: uuid("contact_id").references(() => contacts.id, {
+    onDelete: "set null",
+  }),
   description: text("description").notNull(),
   hours: decimal("hours", { precision: 10, scale: 2 }).notNull(), // Stored as decimal for precision
   category: text("category").notNull().default("client"), // client, administration, brainstorming, research, labs, client_acquisition, content_creation
@@ -169,7 +178,13 @@ export const expenses = pgTable("expenses", {
   currency: text("currency").notNull().default("EUR"), // USD, EUR
   date: timestamp("date").defaultNow().notNull(),
   category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
-  vendor: text("vendor"), // Where the expense was made (store, company, etc.)
+  vendor: text("vendor"), // Where the expense was made (store, company, etc.) — kept for backward compatibility
+  companyId: uuid("company_id").references(() => companies.id, {
+    onDelete: "set null",
+  }),
+  contactId: uuid("contact_id").references(() => contacts.id, {
+    onDelete: "set null",
+  }),
   invoiceStoragePath: text("invoice_storage_path"), // Path in Supabase Storage (e.g., "expenses/expense-123.pdf")
   invoiceFileName: text("invoice_file_name"), // Original filename
   invoiceSizeBytes: integer("invoice_size_bytes"), // File size in bytes
@@ -186,6 +201,9 @@ export const invoices = pgTable("invoices", {
   companyId: uuid("company_id")
     .references(() => companies.id)
     .notNull(),
+  contactId: uuid("contact_id").references(() => contacts.id, {
+    onDelete: "set null",
+  }),
   expenseId: uuid("expense_id")
     .references(() => expenses.id, {
       onDelete: "set null",
@@ -215,6 +233,12 @@ export type OfferStatus = (typeof OFFER_STATUSES)[number];
 export const offers = pgTable("offers", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
+  companyId: uuid("company_id").references(() => companies.id, {
+    onDelete: "set null",
+  }),
+  contactId: uuid("contact_id").references(() => contacts.id, {
     onDelete: "set null",
   }),
   note: text("note"),

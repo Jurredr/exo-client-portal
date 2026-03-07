@@ -103,6 +103,12 @@ interface UserData {
     name: string;
     imageStoragePath?: string | null;
   }[];
+  contact?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+  } | null;
 }
 
 export function UsersTable() {
@@ -268,6 +274,39 @@ export function UsersTable() {
         ) => {
           const nameA = rowA.original.user.name || "";
           const nameB = rowB.original.user.name || "";
+          return nameA.localeCompare(nameB);
+        },
+      },
+      {
+        accessorFn: (row: UserData) =>
+          row.contact
+            ? `${row.contact.firstName || ""} ${row.contact.lastName || ""}`.trim()
+            : null,
+        id: "contact",
+        header: "Contact",
+        cell: ({ row }: { row: { original: UserData } }) => {
+          const c = row.original.contact;
+          if (!c) return <div className="text-muted-foreground">—</div>;
+          const name = `${c.firstName || ""} ${c.lastName || ""}`.trim();
+          return (
+            <div className="text-muted-foreground">
+              {name || c.email || "—"}
+            </div>
+          );
+        },
+        enableSorting: true,
+        sortingFn: (
+          rowA: { original: UserData },
+          rowB: { original: UserData }
+        ) => {
+          const nameA =
+            rowA.original.contact?.firstName && rowA.original.contact?.lastName
+              ? `${rowA.original.contact.firstName} ${rowA.original.contact.lastName}`
+              : rowA.original.contact?.email || "";
+          const nameB =
+            rowB.original.contact?.firstName && rowB.original.contact?.lastName
+              ? `${rowB.original.contact.firstName} ${rowB.original.contact.lastName}`
+              : rowB.original.contact?.email || "";
           return nameA.localeCompare(nameB);
         },
       },

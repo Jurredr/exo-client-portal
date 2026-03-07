@@ -42,6 +42,7 @@ interface CreateUserData {
   note?: string | null;
   organizationId?: string | null;
   organizationIds?: string[];
+  contactId?: string | null; // When granting access to a contact
 }
 
 interface UpdateUserData {

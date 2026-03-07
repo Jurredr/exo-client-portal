@@ -95,6 +95,7 @@ export async function POST(request: Request) {
     const {
       organizationId,
       companyId: bodyCompanyId,
+      contactId,
       projectIds,
       projectId,
       name,
@@ -124,6 +125,7 @@ export async function POST(request: Request) {
 
     const contract = await createContract({
       companyId,
+      contactId: contactId || null,
       projectIds: finalProjectIds.length > 0 ? finalProjectIds : undefined,
       name: name.trim(),
       fileStoragePath: fileStoragePath || null,
@@ -164,6 +166,7 @@ export async function PATCH(request: Request) {
       id,
       organizationId,
       companyId: bodyCompanyId,
+      contactId,
       projectIds,
       name,
       fileStoragePath, // Path in Supabase Storage
@@ -190,6 +193,7 @@ export async function PATCH(request: Request) {
 
     const updateData: {
       companyId?: string;
+      contactId?: string | null;
       name?: string;
       fileStoragePath?: string | null; // Path in Supabase Storage
       fileName?: string | null;
@@ -199,6 +203,7 @@ export async function PATCH(request: Request) {
     } = {};
     const companyIdForUpdate = bodyCompanyId ?? organizationId;
     if (companyIdForUpdate) updateData.companyId = companyIdForUpdate;
+    if (contactId !== undefined) updateData.contactId = contactId || null;
     if (name !== undefined) updateData.name = name.trim();
     if (fileStoragePath !== undefined)
       updateData.fileStoragePath = fileStoragePath || null;

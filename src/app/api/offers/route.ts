@@ -93,6 +93,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       projectId,
+      companyId,
+      contactId,
       note,
       fileStoragePath,
       fileName,
@@ -102,6 +104,8 @@ export async function POST(request: Request) {
 
     const offer = await createOffer({
       projectId: projectId || null,
+      companyId: companyId || null,
+      contactId: contactId || null,
       note: note?.trim() || null,
       fileStoragePath: fileStoragePath || null,
       fileName: fileName || null,

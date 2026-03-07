@@ -102,15 +102,26 @@ export async function ensureUserExists(
   // Check if user exists
   const existing = await getUserByEmail(email);
   if (existing) {
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+
     // Update image if provided and different
     if (imageStoragePath && existing.imageStoragePath !== imageStoragePath) {
+      updates.imageStoragePath = imageStoragePath;
+      updates.imageSizeBytes = imageSizeBytes || null;
+    }
+
+    // On first login: if user has no contactId, match email to existing contact and link
+    if (!existing.contactId) {
+      const contact = await getContactByEmail(email);
+      if (contact) {
+        updates.contactId = contact.id;
+      }
+    }
+
+    if (Object.keys(updates).length > 1) {
       const [updated] = await db
         .update(users)
-        .set({
-          imageStoragePath,
-          imageSizeBytes: imageSizeBytes || null,
-          updatedAt: new Date(),
-        })
+        .set(updates as Parameters<typeof db.update<typeof users>>[1])
         .where(eq(users.id, existing.id))
         .returning();
       return updated;
@@ -125,6 +136,13 @@ export async function ensureUserExists(
     companyId = exoCompany.id;
   }
 
+  // Check for matching contact (e.g. when granting access was done via contact)
+  const contact = await getContactByEmail(email);
+  const contactId = contact?.id ?? null;
+  if (contact && !companyId) {
+    companyId = contact.companyId;
+  }
+
   // Create user
   const [newUser] = await db
     .insert(users)
@@ -134,6 +152,7 @@ export async function ensureUserExists(
       imageStoragePath: imageStoragePath || null,
       imageSizeBytes: imageSizeBytes || null,
       companyId,
+      contactId,
     })
     .returning();
 
@@ -286,6 +305,7 @@ export async function createHourRegistration(
   description: string,
   hours: number,
   projectId?: string | null,
+  contactId?: string | null,
   date?: Date,
   category:
     | "client"
@@ -302,6 +322,7 @@ export async function createHourRegistration(
     .values({
       userId,
       projectId: projectId || null,
+      contactId: contactId || null,
       description,
       hours: hours.toString(),
       category,
@@ -352,6 +373,7 @@ export async function getHourRegistrationsByUser(
       id: hourRegistrations.id,
       userId: hourRegistrations.userId,
       projectId: hourRegistrations.projectId,
+      contactId: hourRegistrations.contactId,
       description: hourRegistrations.description,
       hours: hourRegistrations.hours,
       category: hourRegistrations.category,
@@ -471,6 +493,7 @@ export async function getAllHourRegistrations(options?: {
       id: hourRegistrations.id,
       userId: hourRegistrations.userId,
       projectId: hourRegistrations.projectId,
+      contactId: hourRegistrations.contactId,
       description: hourRegistrations.description,
       hours: hourRegistrations.hours,
       category: hourRegistrations.category,
@@ -572,6 +595,7 @@ export async function updateHourRegistration(
     description?: string;
     hours?: number;
     projectId?: string | null;
+    contactId?: string | null;
     date?: Date;
     category?:
       | "client"
@@ -587,6 +611,7 @@ export async function updateHourRegistration(
     description?: string;
     hours?: string;
     projectId?: string | null;
+    contactId?: string | null;
     date?: Date;
     category?: string;
     updatedAt?: Date;
@@ -596,6 +621,7 @@ export async function updateHourRegistration(
   if (data.description !== undefined) updateData.description = data.description;
   if (data.hours !== undefined) updateData.hours = data.hours.toString();
   if (data.projectId !== undefined) updateData.projectId = data.projectId;
+  if (data.contactId !== undefined) updateData.contactId = data.contactId;
   if (data.date !== undefined) updateData.date = data.date;
   if (data.category !== undefined) updateData.category = data.category;
 
@@ -822,6 +848,16 @@ export async function deleteContact(contactId: string) {
   await db.delete(contacts).where(eq(contacts.id, contactId));
 }
 
+export async function getContactByEmail(email: string) {
+  const contact = await db
+    .select()
+    .from(contacts)
+    .where(eq(contacts.email, email))
+    .limit(1);
+
+  return contact[0] || null;
+}
+
 export async function createUser(
   email: string,
   name: string | null,
@@ -829,11 +865,21 @@ export async function createUser(
   imageStoragePath?: string | null, // Path in Supabase Storage
   imageSizeBytes?: number | null,
   phone?: string | null,
-  note?: string | null
+  note?: string | null,
+  contactId?: string | null
 ) {
   // Create user with first company as primary (for backward compatibility)
-  const primaryCompanyId =
+  let primaryCompanyId =
     companyIds && companyIds.length > 0 ? companyIds[0] : null;
+
+  // If contactId provided, derive company from contact if not set
+  if (contactId && !primaryCompanyId) {
+    const contact = await getContactById(contactId);
+    if (contact?.companyId) {
+      primaryCompanyId = contact.companyId;
+      companyIds = companyIds || [contact.companyId];
+    }
+  }
 
   const [newUser] = await db
     .insert(users)
@@ -845,6 +891,7 @@ export async function createUser(
       imageStoragePath: imageStoragePath || null,
       imageSizeBytes: imageSizeBytes || null,
       companyId: primaryCompanyId,
+      contactId: contactId || null,
     })
     .returning();
 
@@ -867,6 +914,7 @@ export async function updateUser(
     name: string | null;
     companyId: string | null;
     companyIds?: string[] | null;
+    contactId: string | null;
     imageStoragePath?: string | null; // Path in Supabase Storage
     imageSizeBytes?: number | null;
     phone: string | null;
@@ -897,6 +945,7 @@ export async function updateUser(
   const updateData: Partial<{
     name: string | null;
     companyId: string | null;
+    contactId: string | null;
     imageStoragePath: string | null;
     imageSizeBytes: number | null;
     phone: string | null;
@@ -906,6 +955,9 @@ export async function updateUser(
     ...(data.name !== undefined && { name: data.name }),
     ...(data.companyId !== undefined && {
       companyId: data.companyId,
+    }),
+    ...(data.contactId !== undefined && {
+      contactId: data.contactId,
     }),
     ...(data.imageStoragePath !== undefined && {
       imageStoragePath: data.imageStoragePath,
@@ -929,7 +981,7 @@ export async function updateUser(
 
 export async function getAllUsers() {
   // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
-  // Get all users with their primary company (for backward compatibility)
+  // Get all users with their primary company and linked contact
   const usersWithPrimaryCompany = await db
     .select({
       user: {
@@ -941,6 +993,7 @@ export async function getAllUsers() {
         imageStoragePath: users.imageStoragePath, // Path string is safe to include
         imageSizeBytes: users.imageSizeBytes,
         companyId: users.companyId,
+        contactId: users.contactId,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       },
@@ -948,9 +1001,16 @@ export async function getAllUsers() {
         id: companies.id,
         name: companies.name,
       },
+      contact: {
+        id: contacts.id,
+        firstName: contacts.firstName,
+        lastName: contacts.lastName,
+        email: contacts.email,
+      },
     })
     .from(users)
     .leftJoin(companies, eq(users.companyId, companies.id))
+    .leftJoin(contacts, eq(users.contactId, contacts.id))
     .orderBy(users.email);
 
   // Get all user-company relationships
@@ -981,6 +1041,7 @@ export async function getAllUsers() {
   return usersWithPrimaryCompany.map((row) => ({
     user: row.user,
     company: row.company,
+    contact: row.contact,
     companies: companiesByUserId[row.user.id] || [],
   }));
 }
@@ -993,7 +1054,7 @@ export async function getAllUsersPaginated(options?: {
   search?: string;
 }) {
   // CRITICAL: Exclude image Base64 data from list queries to avoid transferring large data
-  // Get paginated users with their primary company
+  // Get paginated users with their primary company and linked contact
   let query = db
     .select({
       user: {
@@ -1012,9 +1073,16 @@ export async function getAllUsersPaginated(options?: {
         id: companies.id,
         name: companies.name,
       },
+      contact: {
+        id: contacts.id,
+        firstName: contacts.firstName,
+        lastName: contacts.lastName,
+        email: contacts.email,
+      },
     })
     .from(users)
-    .leftJoin(companies, eq(users.companyId, companies.id));
+    .leftJoin(companies, eq(users.companyId, companies.id))
+    .leftJoin(contacts, eq(users.contactId, contacts.id));
 
   // Apply filters
   const conditions = [];
@@ -1042,7 +1110,10 @@ export async function getAllUsersPaginated(options?: {
       or(
         like(sql`LOWER(${users.email})`, searchTerm),
         like(sql`LOWER(${users.name})`, searchTerm),
-        like(sql`LOWER(${companies.name})`, searchTerm)
+        like(sql`LOWER(${companies.name})`, searchTerm),
+        like(sql`LOWER(${contacts.firstName})`, searchTerm),
+        like(sql`LOWER(${contacts.lastName})`, searchTerm),
+        like(sql`LOWER(${contacts.email})`, searchTerm)
       )!
     );
   }
@@ -1087,11 +1158,22 @@ export async function getAllUsersPaginated(options?: {
     orgsByUserId[row.userId].push(row.company);
   });
 
-  // Combine results
+  // Combine results - use organization/organizations for API compatibility with frontend
   return usersWithPrimaryOrg.map((row) => ({
     user: row.user,
-    company: row.company,
-    companies: orgsByUserId[row.user.id] || [],
+    organization: row.company,
+    organizations: (orgsByUserId[row.user.id] || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+    })),
+    contact: row.contact?.id
+      ? {
+          id: row.contact.id,
+          firstName: row.contact.firstName,
+          lastName: row.contact.lastName,
+          email: row.contact.email,
+        }
+      : null,
   }));
 }
 
@@ -1103,7 +1185,8 @@ export async function getAllUsersCount(filters?: {
   let query = db
     .select({ count: sql<number>`count(*)` })
     .from(users)
-    .leftJoin(companies, eq(users.companyId, companies.id));
+    .leftJoin(companies, eq(users.companyId, companies.id))
+    .leftJoin(contacts, eq(users.contactId, contacts.id));
 
   const conditions = [];
   if (filters?.companyId) {
@@ -1130,7 +1213,10 @@ export async function getAllUsersCount(filters?: {
       or(
         like(sql`LOWER(${users.email})`, searchTerm),
         like(sql`LOWER(${users.name})`, searchTerm),
-        like(sql`LOWER(${companies.name})`, searchTerm)
+        like(sql`LOWER(${companies.name})`, searchTerm),
+        like(sql`LOWER(${contacts.firstName})`, searchTerm),
+        like(sql`LOWER(${contacts.lastName})`, searchTerm),
+        like(sql`LOWER(${contacts.email})`, searchTerm)
       )!
     );
   }
@@ -3094,6 +3180,7 @@ export async function createInvoice(data: {
   invoiceNumber: string;
   projectId?: string | null;
   companyId: string;
+  contactId?: string | null;
   expenseId?: string | null;
   amount: string;
   currency?: string;
@@ -3125,6 +3212,7 @@ export async function createInvoice(data: {
       invoiceNumber: data.invoiceNumber,
       projectId: data.projectId || null,
       companyId: data.companyId,
+      contactId: data.contactId || null,
       expenseId: data.expenseId ?? null,
       amount: data.amount,
       currency: data.currency || "EUR",
@@ -3164,6 +3252,7 @@ export async function updateInvoice(
   invoiceId: string,
   data: Partial<{
     companyId: string;
+    contactId: string | null;
     projectId: string | null;
     status: string;
     expenseId: string | null;
@@ -3677,6 +3766,7 @@ export async function getAllContractsCount(filters?: {
 
 export async function createContract(data: {
   companyId: string;
+  contactId?: string | null;
   projectIds?: string[];
   name: string;
   fileStoragePath?: string | null; // Path in Supabase Storage
@@ -3699,6 +3789,7 @@ export async function createContract(data: {
     .insert(contracts)
     .values({
       companyId: data.companyId,
+      contactId: data.contactId || null,
       projectId: firstProjectId,
       name: data.name,
       type: "contract",
@@ -3737,6 +3828,7 @@ export async function updateContract(
     signature: string | null;
     signedBy: string | null;
     companyId?: string;
+    contactId?: string | null;
     projectIds?: string[];
   }>
 ) {
@@ -3811,6 +3903,8 @@ export async function createExpense(data: {
   date?: Date;
   category?: string | null;
   vendor?: string | null;
+  companyId?: string | null;
+  contactId?: string | null;
   invoiceUrl?: string | null; // DEPRECATED: Base64 data URL (will be migrated to Storage)
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceFileName?: string | null;
@@ -3826,6 +3920,8 @@ export async function createExpense(data: {
       date: data.date || new Date(),
       category: data.category || null,
       vendor: data.vendor || null,
+      companyId: data.companyId || null,
+      contactId: data.contactId || null,
       invoiceStoragePath: data.invoiceStoragePath || null,
       invoiceFileName: data.invoiceFileName || null,
       invoiceSizeBytes: data.invoiceSizeBytes || null,
@@ -3847,6 +3943,8 @@ export async function getAllExpenses() {
         date: expenses.date,
         category: expenses.category,
         vendor: expenses.vendor,
+        companyId: expenses.companyId,
+        contactId: expenses.contactId,
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
@@ -3882,6 +3980,8 @@ export async function getAllExpensesPaginated(options?: {
         date: expenses.date,
         category: expenses.category,
         vendor: expenses.vendor,
+        companyId: expenses.companyId,
+        contactId: expenses.contactId,
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
@@ -4011,6 +4111,8 @@ export async function getExpenseById(expenseId: string) {
         date: expenses.date,
         category: expenses.category,
         vendor: expenses.vendor,
+        companyId: expenses.companyId,
+        contactId: expenses.contactId,
         invoiceStoragePath: expenses.invoiceStoragePath,
         invoiceFileName: expenses.invoiceFileName,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
@@ -4040,6 +4142,8 @@ export async function updateExpense(
     date: Date;
     category: string | null;
     vendor: string | null;
+    companyId: string | null;
+    contactId: string | null;
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
     invoiceSizeBytes: number | null;
@@ -4083,6 +4187,8 @@ export async function deleteExpense(expenseId: string) {
 // Offer queries
 export async function createOffer(data: {
   projectId?: string | null;
+  companyId?: string | null;
+  contactId?: string | null;
   note?: string | null;
   fileStoragePath?: string | null;
   fileName?: string | null;
@@ -4093,6 +4199,8 @@ export async function createOffer(data: {
     .insert(offers)
     .values({
       projectId: data.projectId || null,
+      companyId: data.companyId || null,
+      contactId: data.contactId || null,
       note: data.note || null,
       fileStoragePath: data.fileStoragePath || null,
       fileName: data.fileName || null,
@@ -4109,6 +4217,8 @@ export async function updateOffer(
   data: Partial<{
     status: string;
     projectId: string | null;
+    companyId: string | null;
+    contactId: string | null;
     note: string | null;
     fileStoragePath: string | null;
     fileName: string | null;

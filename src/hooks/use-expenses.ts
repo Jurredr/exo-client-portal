@@ -11,6 +11,8 @@ interface ExpenseData {
     date: string;
     category: string | null;
     vendor: string | null;
+    companyId: string | null;
+    contactId: string | null;
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceSizeBytes: number | null;
     invoiceFileName: string | null;
@@ -43,6 +45,8 @@ export interface CreateExpenseData {
   date: Date | string;
   category?: string | null;
   vendor?: string | null;
+  companyId?: string | null;
+  contactId?: string | null;
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;
@@ -57,6 +61,8 @@ export interface UpdateExpenseData {
   date?: Date | string;
   category?: string | null;
   vendor?: string | null;
+  companyId?: string | null;
+  contactId?: string | null;
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;

@@ -105,6 +105,8 @@ export async function POST(request: Request) {
       date,
       category,
       vendor,
+      companyId,
+      contactId,
       invoiceStoragePath, // Path in Supabase Storage
       invoiceFileName,
       invoiceSizeBytes,
@@ -138,6 +140,8 @@ export async function POST(request: Request) {
       date: expenseDate,
       category: category?.trim() || null,
       vendor: vendor?.trim() || null,
+      companyId: companyId || null,
+      contactId: contactId || null,
       invoiceStoragePath: invoiceStoragePath || null,
       invoiceFileName: invoiceFileName || null,
       invoiceSizeBytes: invoiceSizeBytes || null,
@@ -197,6 +201,12 @@ export async function PATCH(request: Request) {
       }),
       ...(updateData.vendor !== undefined && {
         vendor: updateData.vendor?.trim() || null,
+      }),
+      ...(updateData.companyId !== undefined && {
+        companyId: updateData.companyId || null,
+      }),
+      ...(updateData.contactId !== undefined && {
+        contactId: updateData.contactId || null,
       }),
       ...(updateData.invoiceStoragePath !== undefined && {
         invoiceStoragePath: updateData.invoiceStoragePath || null,

@@ -199,6 +199,7 @@ export async function POST(request: Request) {
           invoiceNumber,
           projectId: projectId || null,
           companyId,
+          contactId: body.contactId || null,
           expenseId: normalizedExpenseId,
           amount: finalAmount,
           currency: finalCurrency,
@@ -391,6 +392,9 @@ export async function PATCH(request: Request) {
       ...(reimbursementOverride || {}),
       ...((updateData.companyId ?? updateData.organizationId) && {
         companyId: updateData.companyId ?? updateData.organizationId,
+      }),
+      ...(updateData.contactId !== undefined && {
+        contactId: updateData.contactId || null,
       }),
       ...(updateData.projectId !== undefined && {
         projectId: updateData.projectId || null,

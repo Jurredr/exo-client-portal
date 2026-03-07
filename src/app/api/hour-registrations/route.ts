@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { description, hours, projectId, date, category } = body;
+    const { description, hours, projectId, contactId, date, category } = body;
 
     if (!description || typeof hours !== "number" || hours <= 0) {
       return NextResponse.json(
@@ -182,6 +182,7 @@ export async function POST(request: Request) {
       description,
       hours,
       projectId || null,
+      contactId || null,
       registrationDate,
       validCategory
     );
@@ -213,7 +214,8 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, description, hours, projectId, date, category } = body;
+    const { id, description, hours, projectId, contactId, date, category } =
+      body;
 
     if (!id) {
       return NextResponse.json(
@@ -290,6 +292,7 @@ export async function PATCH(request: Request) {
       description?: string;
       hours?: number;
       projectId?: string | null;
+      contactId?: string | null;
       date?: Date;
       category?:
         | "client"
@@ -311,6 +314,7 @@ export async function PATCH(request: Request) {
       updateData.hours = hours;
     }
     if (finalProjectId !== undefined) updateData.projectId = finalProjectId;
+    if (contactId !== undefined) updateData.contactId = contactId || null;
     if (date !== undefined) updateData.date = new Date(date);
     if (category !== undefined) updateData.category = validCategory;
 

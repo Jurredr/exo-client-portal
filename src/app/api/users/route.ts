@@ -39,7 +39,7 @@ export async function GET(request: Request) {
       const offset = (page - 1) * limit;
 
       const filters = {
-        ...(organizationId && { organizationId }),
+        ...(organizationId && { companyId: organizationId }),
         ...(search && { search }),
       };
 
@@ -108,6 +108,7 @@ export async function POST(request: Request) {
       note,
       organizationId,
       organizationIds,
+      contactId,
       imageStoragePath, // Path in Supabase Storage
       imageSizeBytes,
     } = body;
@@ -144,7 +145,8 @@ export async function POST(request: Request) {
       imageStoragePath || null,
       imageSizeBytes || null,
       phone?.trim() || null,
-      note?.trim() || null
+      note?.trim() || null,
+      contactId || null
     );
 
     return NextResponse.json(newUser, { status: 201 });

@@ -28,22 +28,35 @@
 - Migration `0044_add_contacts_table.sql` creates contacts table with RLS (staff only).
 - API at `/api/contacts` with GET, POST, PATCH, DELETE. Dashboard at `/dashboard/contacts` with ContactsTable and CreateContactForm.
 
-### 1.3 – Decouple `users` from contacts
+### 1.3 – Decouple `users` from contacts ✅
 
-- [ ] Add optional FK `contactId` on `users` table (one-to-one)
-- [ ] A user = someone with portal login access
-- [ ] When granting portal access to a contact, create a `user` record linked to that contact
-- [ ] Update auth flow: on first login, match email to existing contact if possible and link automatically
-- [ ] Update `UsersTable` and `CreateUserForm` to reflect this — you now "grant access" to a contact rather than creating a standalone user
+- [x] Add optional FK `contactId` on `users` table (one-to-one)
+- [x] A user = someone with portal login access
+- [x] When granting portal access to a contact, create a `user` record linked to that contact
+- [x] Update auth flow: on first login, match email to existing contact if possible and link automatically
+- [x] Update `UsersTable` and `CreateUserForm` to reflect this — you now "grant access" to a contact rather than creating a standalone user
 
-### 1.4 – Update relations throughout the app
+**Implementation notes:**
 
-- [ ] `projects` → link to `companies` (not organizations)
-- [ ] `expenses` → replace vendor string with optional FK to `companies` or `contacts`
-- [ ] `invoices` → link to `companies` or `contacts`
-- [ ] `hourRegistrations` → link to `contacts` (optional) and `projects` (optional, filtered by contact)
-- [ ] `offers` → link to `companies` or `contacts`
-- [ ] `contracts` → link to `companies` or `contacts`
+- Migration `0045_add_user_contact_id.sql` adds `contact_id` column to users.
+- CreateUserForm: contact selector pre-fills email, name, phone, and company; sends `contactId` when creating user.
+- UsersTable: Contact column shows linked contact name.
+- Auth callback: `ensureUserExists` links user to contact by email on first login if contact exists.
+- `getAllUsersPaginated` and `getAllUsersCount` include contact join and search by contact name/email.
+
+### 1.4 – Update relations throughout the app ✅
+
+- [x] `projects` → link to `companies` (not organizations)
+- [x] `expenses` → replace vendor string with optional FK to `companies` or `contacts`
+- [x] `invoices` → link to `companies` or `contacts`
+- [x] `hourRegistrations` → link to `contacts` (optional) and `projects` (optional, filtered by contact)
+- [x] `offers` → link to `companies` or `contacts`
+- [x] `contracts` → link to `companies` or `contacts`
+
+**Implementation notes:**
+
+- Migration `0046_phase_relations_company_contact.sql` adds: expenses (company_id, contact_id), invoices (contact_id), hour_registrations (contact_id), offers (company_id, contact_id), contracts (contact_id).
+- Schema, queries, and API routes updated for all entities. Vendor text on expenses kept for backward compatibility.
 
 ---
 

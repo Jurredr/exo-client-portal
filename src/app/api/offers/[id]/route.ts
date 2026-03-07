@@ -26,6 +26,8 @@ export async function PATCH(
     const {
       status,
       projectId,
+      companyId,
+      contactId,
       note,
       fileStoragePath,
       fileName,
@@ -35,6 +37,8 @@ export async function PATCH(
     const updateData: {
       status?: string;
       projectId?: string | null;
+      companyId?: string | null;
+      contactId?: string | null;
       note?: string | null;
       fileStoragePath?: string | null;
       fileName?: string | null;
@@ -48,6 +52,14 @@ export async function PATCH(
     if (projectId !== undefined) {
       updateData.projectId =
         projectId === null || projectId === "" ? null : projectId;
+    }
+    if (companyId !== undefined) {
+      updateData.companyId =
+        companyId === null || companyId === "" ? null : companyId;
+    }
+    if (contactId !== undefined) {
+      updateData.contactId =
+        contactId === null || contactId === "" ? null : contactId;
     }
     if (note !== undefined) {
       updateData.note = note === null || note === "" ? null : note;
@@ -73,7 +85,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           error:
-            "At least one of status, projectId, note, or file fields must be provided",
+            "At least one of status, projectId, companyId, contactId, note, or file fields must be provided",
         },
         { status: 400 }
       );

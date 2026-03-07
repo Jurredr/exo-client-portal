@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { useContacts } from "@/hooks/use-contacts";
 import { useCreateUser } from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,15 +19,14 @@ import {
   FileText,
   Loader2,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { OrganizationCombobox } from "@/components/organization-combobox";
-
-// interface Organization {
-//   id: string;
-//   name: string;
-//   image?: string | null;
-//   createdAt: Date;
-//   updatedAt: Date;
-// }
 
 export function CreateUserForm({
   onSuccess,
@@ -35,6 +35,7 @@ export function CreateUserForm({
   onSuccess?: () => void;
   onError?: () => void;
 }) {
+  const [selectedContactId, setSelectedContactId] = useState<string>("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,11 +43,31 @@ export function CreateUserForm({
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
     string[]
   >([]);
-  // TanStack Query hooks
   const { data: organizationsData, isLoading: isLoadingOrgs } =
     useOrganizations();
+  const { data: contactsData = [] } = useContacts();
   const createUserMutation = useCreateUser();
   const organizations = organizationsData || [];
+  const contacts = contactsData.filter((c) => c.email); // Only contacts with email can get access
+
+  // Pre-fill from contact when selected
+  useEffect(() => {
+    if (selectedContactId) {
+      const contact = contacts.find((c) => c.id === selectedContactId);
+      if (contact) {
+        setEmail(contact.email || "");
+        setName(`${contact.firstName} ${contact.lastName}`.trim());
+        setPhone(contact.phone || "");
+        setSelectedOrganizationIds(
+          contact.companyId ? [contact.companyId] : []
+        );
+      }
+    } else {
+      setEmail("");
+      setName("");
+      setPhone("");
+    }
+  }, [selectedContactId, contacts]);
 
   const isSubmitting = createUserMutation.isPending;
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -134,6 +155,7 @@ export function CreateUserForm({
             selectedOrganizationIds.length > 0
               ? selectedOrganizationIds
               : undefined,
+          contactId: selectedContactId || undefined,
           imageStoragePath,
           imageSizeBytes,
         },
@@ -144,6 +166,7 @@ export function CreateUserForm({
             setName("");
             setPhone("");
             setNote("");
+            setSelectedContactId("");
             setSelectedOrganizationIds([]);
             setImagePreview(null);
             setImageFile(null);
@@ -163,6 +186,30 @@ export function CreateUserForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label>Grant access to contact (optional)</Label>
+        <Select
+          value={selectedContactId || "none"}
+          onValueChange={(v) => setSelectedContactId(v === "none" ? "" : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select contact or create standalone user" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Create standalone user</SelectItem>
+            {contacts.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.firstName} {c.lastName}
+                {c.email ? ` (${c.email})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Select a contact to grant portal access — fields will pre-fill from
+          the contact.
+        </p>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="user-email" className="flex items-center gap-2">
           <Mail className="h-4 w-4" />

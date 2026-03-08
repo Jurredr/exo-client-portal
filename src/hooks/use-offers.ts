@@ -37,7 +37,10 @@ interface PaginatedResponse<T> {
 
 export interface CreateOfferData {
   projectId?: string | null;
+  companyId?: string | null;
+  contactId?: string | null;
   note?: string | null;
+  content?: string | null;
   fileStoragePath?: string | null;
   fileName?: string | null;
   fileSizeBytes?: number | null;
@@ -128,7 +131,10 @@ export function useUpdateOffer() {
       id: string;
       status?: string;
       projectId?: string | null;
+      companyId?: string | null;
+      contactId?: string | null;
       note?: string | null;
+      content?: string | null;
       fileStoragePath?: string | null;
       fileName?: string | null;
       fileSizeBytes?: number | null;

@@ -33,6 +33,7 @@ export async function PATCH(
       fileName,
       fileSizeBytes,
     } = body;
+    const { content } = body;
 
     const updateData: {
       status?: string;
@@ -40,6 +41,7 @@ export async function PATCH(
       companyId?: string | null;
       contactId?: string | null;
       note?: string | null;
+      content?: string | null;
       fileStoragePath?: string | null;
       fileName?: string | null;
       fileSizeBytes?: number | null;
@@ -63,6 +65,9 @@ export async function PATCH(
     }
     if (note !== undefined) {
       updateData.note = note === null || note === "" ? null : note;
+    }
+    if (content !== undefined) {
+      updateData.content = content === null || content === "" ? null : content;
     }
     if (fileStoragePath !== undefined) {
       updateData.fileStoragePath =

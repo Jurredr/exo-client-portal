@@ -98,14 +98,21 @@
 
 ## Phase 4 – Offers: AI-powered quote generation
 
-### 4.1 – AI offer generation based on consistent template
+### 4.1 – AI offer generation based on consistent template ✅
 
-- [ ] Add a "Generate with AI" flow in CreateOfferForm
-- [ ] Inputs: description, contact/company selector, language (NL/EN), prijssuggestie
-- [ ] AI generates offer following exact markdown structure and EXO tone
-- [ ] User can edit in rich text / markdown editor before PDF generation
-- [ ] Output rendered as PDF using pdfkit
-- [ ] Save as draft offer, linkable to a project
+- [x] Add a "Generate with AI" flow in CreateOfferForm
+- [x] Inputs: description, contact/company selector, language (NL/EN), prijssuggestie
+- [x] AI generates offer following exact markdown structure and EXO tone
+- [x] User can edit in rich text / markdown editor before PDF generation
+- [x] Output rendered as PDF using pdfkit
+- [x] Save as draft offer, linkable to a project
+
+**Implementation notes:**
+
+- Migration `0048_offers_content.sql` adds `content` column to offers table.
+- API route `/api/offers/generate` uses OpenAI gpt-4.1-mini to generate offer markdown from description, contact/company, language, and prijssuggestie.
+- API route `/api/offers/generate-pdf` converts markdown to PDF via pdfkit and uploads to Supabase Storage.
+- CreateOfferForm: toggle between "Upload file" and "Generate with AI". AI flow: fill inputs → Generate → edit markdown → Save as draft.
 
 ---
 

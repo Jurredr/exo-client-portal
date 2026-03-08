@@ -457,9 +457,10 @@ export function OffersTable() {
             </DrawerTrigger>
             <DrawerContent>
               <DrawerHeader>
-                <DrawerTitle>Upload Offer</DrawerTitle>
+                <DrawerTitle>Add Offer</DrawerTitle>
                 <DrawerDescription>
-                  Upload an offer and link it to a project
+                  Upload an offer or generate one with AI, then link it to a
+                  project
                 </DrawerDescription>
               </DrawerHeader>
               <div className="px-4">
@@ -480,9 +481,10 @@ export function OffersTable() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
               <DialogHeader>
-                <DialogTitle>Upload Offer</DialogTitle>
+                <DialogTitle>Add Offer</DialogTitle>
                 <DialogDescription>
-                  Upload an offer and link it to a project
+                  Upload an offer or generate one with AI, then link it to a
+                  project
                 </DialogDescription>
               </DialogHeader>
               <CreateOfferForm

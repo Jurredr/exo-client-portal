@@ -259,6 +259,7 @@ export const offers = pgTable("offers", {
     onDelete: "set null",
   }),
   note: text("note"),
+  content: text("content"), // Markdown content (for AI-generated offers, before PDF)
   fileStoragePath: text("file_storage_path"), // Path in Supabase Storage
   fileName: text("file_name"), // Original filename
   fileSizeBytes: integer("file_size_bytes"), // File size in bytes

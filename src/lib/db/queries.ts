@@ -4357,6 +4357,7 @@ export async function createOffer(data: {
   companyId?: string | null;
   contactId?: string | null;
   note?: string | null;
+  content?: string | null;
   fileStoragePath?: string | null;
   fileName?: string | null;
   fileSizeBytes?: number | null;
@@ -4369,6 +4370,7 @@ export async function createOffer(data: {
       companyId: data.companyId || null,
       contactId: data.contactId || null,
       note: data.note || null,
+      content: data.content || null,
       fileStoragePath: data.fileStoragePath || null,
       fileName: data.fileName || null,
       fileSizeBytes: data.fileSizeBytes || null,
@@ -4387,6 +4389,7 @@ export async function updateOffer(
     companyId: string | null;
     contactId: string | null;
     note: string | null;
+    content: string | null;
     fileStoragePath: string | null;
     fileName: string | null;
     fileSizeBytes: number | null;
@@ -4416,6 +4419,7 @@ export async function getAllOffersPaginated(options?: {
         id: offers.id,
         projectId: offers.projectId,
         note: offers.note,
+        content: offers.content,
         fileStoragePath: offers.fileStoragePath,
         fileName: offers.fileName,
         fileSizeBytes: offers.fileSizeBytes,

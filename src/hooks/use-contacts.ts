@@ -8,9 +8,12 @@ export interface ContactData {
   phone: string | null;
   photo: string | null;
   companyId: string | null;
+  companyIds?: string[];
+  companies?: Array<{ id: string; name: string }>;
   type: string;
   createdAt: string;
   companyName?: string | null;
+  hasImage?: boolean;
 }
 
 interface CreateContactData {
@@ -20,6 +23,7 @@ interface CreateContactData {
   phone?: string | null;
   photo?: string | null;
   companyId?: string | null;
+  companyIds?: string[] | null;
   type?: string | null;
 }
 
@@ -31,6 +35,7 @@ interface UpdateContactData {
   phone?: string | null;
   photo?: string | null;
   companyId?: string | null;
+  companyIds?: string[] | null;
   type?: string | null;
 }
 

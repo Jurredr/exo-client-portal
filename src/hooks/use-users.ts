@@ -35,6 +35,7 @@ interface PaginatedResponse<T> {
 
 interface CreateUserData {
   email: string;
+  contactId: string; // Required: users must be linked to a contact
   name?: string | null;
   imageStoragePath?: string | null; // Path in Supabase Storage
   imageSizeBytes?: number | null;
@@ -42,7 +43,6 @@ interface CreateUserData {
   note?: string | null;
   organizationId?: string | null;
   organizationIds?: string[];
-  contactId?: string | null; // When granting access to a contact
 }
 
 interface UpdateUserData {

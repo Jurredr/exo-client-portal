@@ -192,7 +192,6 @@ export function CreateExpenseForm({
     category,
     originalCategory,
     selectedCompanyId,
-    expense?.companyId,
     invoiceFile,
     removeInvoice,
   ]);
@@ -780,7 +779,6 @@ export function CreateExpenseForm({
           )}
           {invoicePreview && invoiceFile && (
             <div className="mt-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={invoicePreview}
                 alt="Invoice preview"

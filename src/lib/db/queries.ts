@@ -4,6 +4,7 @@ import {
   users,
   companies,
   contacts,
+  contactCompanies,
   hourRegistrations,
   userCompanies,
   invoices,
@@ -110,18 +111,28 @@ export async function ensureUserExists(
       updates.imageSizeBytes = imageSizeBytes || null;
     }
 
-    // On first login: if user has no contactId, match email to existing contact and link
+    // On first login: if user has no contactId, ensure they get one (link or create)
     if (!existing.contactId) {
-      const contact = await getContactByEmail(email);
-      if (contact) {
-        updates.contactId = contact.id;
+      let contact = await getContactByEmail(email);
+      if (!contact) {
+        const nameParts = (name || email || "").trim().split(/\s+/);
+        const firstName = nameParts[0] || email.split("@")[0] || "User";
+        const lastName = nameParts.slice(1).join(" ") || "";
+        contact = await createContact({
+          firstName,
+          lastName: lastName || firstName,
+          email,
+          companyId: existing.companyId,
+          type: "client",
+        });
       }
+      updates.contactId = contact.id;
     }
 
     if (Object.keys(updates).length > 1) {
       const [updated] = await db
         .update(users)
-        .set(updates as Parameters<typeof db.update<typeof users>>[1])
+        .set(updates as Partial<typeof users.$inferInsert>)
         .where(eq(users.id, existing.id))
         .returning();
       return updated;
@@ -136,10 +147,22 @@ export async function ensureUserExists(
     companyId = exoCompany.id;
   }
 
-  // Check for matching contact (e.g. when granting access was done via contact)
-  const contact = await getContactByEmail(email);
-  const contactId = contact?.id ?? null;
-  if (contact && !companyId) {
+  // Check for matching contact, or create one so every user has a contact
+  let contact = await getContactByEmail(email);
+  if (!contact) {
+    const nameParts = (name || email || "").trim().split(/\s+/);
+    const firstName = nameParts[0] || email.split("@")[0] || "User";
+    const lastName = nameParts.slice(1).join(" ") || "";
+    contact = await createContact({
+      firstName,
+      lastName: lastName || firstName,
+      email,
+      companyId: companyId || null,
+      type: "client",
+    });
+  }
+  const contactId = contact.id;
+  if (!companyId && contact.companyId) {
     companyId = contact.companyId;
   }
 
@@ -194,6 +217,16 @@ export async function getUserById(userId: string) {
     .select()
     .from(users)
     .where(eq(users.id, userId))
+    .limit(1);
+
+  return user[0] || null;
+}
+
+export async function getUserByContactId(contactId: string) {
+  const user = await db
+    .select()
+    .from(users)
+    .where(eq(users.contactId, contactId))
     .limit(1);
 
   return user[0] || null;
@@ -727,27 +760,25 @@ export async function getAllCompanies() {
     .from(companies)
     .orderBy(companies.name);
 
-  // Get user counts for each company from the junction table
-  const userCounts = await db
+  // Get contact counts for each company (from contact_companies junction)
+  const contactCounts = await db
     .select({
-      companyId: userCompanies.companyId,
-      count: sql<number>`COUNT(DISTINCT ${userCompanies.userId})::int`.as(
-        "count"
-      ),
+      companyId: contactCompanies.companyId,
+      count: sql<number>`COUNT(*)::int`.as("count"),
     })
-    .from(userCompanies)
-    .groupBy(userCompanies.companyId);
+    .from(contactCompanies)
+    .groupBy(contactCompanies.companyId);
 
-  const countMap: Record<string, number> = {};
-  userCounts.forEach((row) => {
+  const contactCountMap: Record<string, number> = {};
+  contactCounts.forEach((row) => {
     if (row.companyId) {
-      countMap[row.companyId] = row.count;
+      contactCountMap[row.companyId] = row.count;
     }
   });
 
   return companyList.map((company) => ({
     ...company,
-    userCount: countMap[company.id] || 0,
+    contactCount: contactCountMap[company.id] || 0,
   }));
 }
 
@@ -799,8 +830,17 @@ export async function createContact(data: {
   phone?: string | null;
   photo?: string | null;
   companyId?: string | null;
+  companyIds?: string[] | null;
   type?: string | null;
 }) {
+  const companyIds =
+    data.companyIds && data.companyIds.length > 0
+      ? data.companyIds
+      : data.companyId
+        ? [data.companyId]
+        : [];
+  const primaryCompanyId = companyIds[0] || data.companyId || null;
+
   const [contact] = await db
     .insert(contacts)
     .values({
@@ -809,10 +849,19 @@ export async function createContact(data: {
       email: data.email || null,
       phone: data.phone || null,
       photo: data.photo || null,
-      companyId: data.companyId || null,
+      companyId: primaryCompanyId,
       type: data.type || "client",
     })
     .returning();
+
+  if (companyIds.length > 0) {
+    await db.insert(contactCompanies).values(
+      companyIds.map((companyId) => ({
+        contactId: contact.id,
+        companyId,
+      }))
+    );
+  }
 
   return contact;
 }
@@ -826,9 +875,24 @@ export async function updateContact(
     phone?: string | null;
     photo?: string | null;
     companyId?: string | null;
+    companyIds?: string[] | null;
     type?: string | null;
   }
 ) {
+  if (data.companyIds !== undefined) {
+    await db
+      .delete(contactCompanies)
+      .where(eq(contactCompanies.contactId, contactId));
+    const ids =
+      data.companyIds && data.companyIds.length > 0 ? data.companyIds : [];
+    if (ids.length > 0) {
+      await db
+        .insert(contactCompanies)
+        .values(ids.map((companyId) => ({ contactId, companyId })));
+    }
+    data.companyId = ids[0] || null;
+  }
+
   const [updatedContact] = await db
     .update(contacts)
     .set({
@@ -847,7 +911,7 @@ export async function updateContact(
 }
 
 export async function getAllContacts() {
-  return db
+  const contactRows = await db
     .select({
       id: contacts.id,
       firstName: contacts.firstName,
@@ -858,11 +922,83 @@ export async function getAllContacts() {
       companyId: contacts.companyId,
       type: contacts.type,
       createdAt: contacts.createdAt,
-      companyName: companies.name,
     })
     .from(contacts)
-    .leftJoin(companies, eq(contacts.companyId, companies.id))
     .orderBy(contacts.lastName, contacts.firstName);
+
+  if (contactRows.length === 0) return [];
+
+  const contactIds = contactRows.map((c) => c.id);
+  const userImageRows = await db
+    .select({
+      contactId: users.contactId,
+      imageStoragePath: users.imageStoragePath,
+    })
+    .from(users)
+    .where(inArray(users.contactId, contactIds));
+  const imageByContactId = Object.fromEntries(
+    userImageRows
+      .filter((r) => r.contactId && r.imageStoragePath)
+      .map((r) => [r.contactId!, r.imageStoragePath!])
+  );
+
+  const ccRows = await db
+    .select({
+      contactId: contactCompanies.contactId,
+      companyId: contactCompanies.companyId,
+      companyName: companies.name,
+    })
+    .from(contactCompanies)
+    .innerJoin(companies, eq(contactCompanies.companyId, companies.id))
+    .where(inArray(contactCompanies.contactId, contactIds));
+
+  // Fallback: contacts with companyId but not in contact_companies (legacy)
+  const legacyCompanyIds = contactRows
+    .filter((c) => c.companyId)
+    .map((c) => c.companyId as string);
+  const legacyCompanies =
+    legacyCompanyIds.length > 0
+      ? await db
+          .select({ id: companies.id, name: companies.name })
+          .from(companies)
+          .where(inArray(companies.id, legacyCompanyIds))
+      : [];
+
+  const companiesByContactId: Record<
+    string,
+    Array<{ id: string; name: string }>
+  > = {};
+  ccRows.forEach((row) => {
+    if (!companiesByContactId[row.contactId]) {
+      companiesByContactId[row.contactId] = [];
+    }
+    companiesByContactId[row.contactId].push({
+      id: row.companyId,
+      name: row.companyName,
+    });
+  });
+
+  const legacyMap = Object.fromEntries(
+    legacyCompanies.map((c) => [c.id, c.name])
+  );
+
+  return contactRows.map((c) => {
+    const companiesList = companiesByContactId[c.id];
+    const companiesArray =
+      companiesList && companiesList.length > 0
+        ? companiesList
+        : c.companyId && legacyMap[c.companyId]
+          ? [{ id: c.companyId, name: legacyMap[c.companyId] }]
+          : [];
+    const hasImage = !!(c.photo || imageByContactId[c.id]);
+    return {
+      ...c,
+      companyName: companiesArray[0]?.name ?? null,
+      companies: companiesArray,
+      companyIds: companiesArray.map((x) => x.id),
+      hasImage,
+    };
+  });
 }
 
 export async function getContactById(contactId: string) {

@@ -120,6 +120,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!contactId || typeof contactId !== "string" || !contactId.trim()) {
+      return NextResponse.json(
+        { error: "Contact is required. A user must be linked to a contact." },
+        { status: 400 }
+      );
+    }
+
     // Check if user already exists
     const existing = await getAllUsers();
     if (existing.some((u) => u.user.email === email)) {
@@ -146,7 +153,7 @@ export async function POST(request: Request) {
       imageSizeBytes || null,
       phone?.trim() || null,
       note?.trim() || null,
-      contactId || null
+      contactId.trim()
     );
 
     return NextResponse.json(newUser, { status: 201 });

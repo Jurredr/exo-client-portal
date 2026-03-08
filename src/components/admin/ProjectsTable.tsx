@@ -101,14 +101,13 @@ interface ProjectData {
     subtotal: string | null;
     currency: string;
     type: string;
-    organizationId: string;
+    organizationId?: string;
+    companyId?: string;
     createdAt: string;
     updatedAt: string;
   };
-  organization: {
-    id: string;
-    name: string;
-  };
+  organization?: { id: string; name: string };
+  company?: { id: string; name: string };
   totalHours?: number;
 }
 
@@ -262,7 +261,7 @@ export function ProjectsTable() {
         },
       },
       {
-        accessorKey: "organization.name",
+        accessorKey: "company.name",
         id: "organization",
         header: ({ column }) => {
           return (
@@ -278,16 +277,19 @@ export function ProjectsTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {row.original.organization.name}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const org = row.original.company ?? row.original.organization;
+          return (
+            <div className="text-muted-foreground">{org?.name ?? "—"}</div>
+          );
+        },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.organization.name.localeCompare(
-            rowB.original.organization.name
-          );
+          const nameA =
+            (rowA.original.company ?? rowA.original.organization)?.name ?? "";
+          const nameB =
+            (rowB.original.company ?? rowB.original.organization)?.name ?? "";
+          return nameA.localeCompare(nameB);
         },
       },
       {
@@ -514,7 +516,6 @@ export function ProjectsTable() {
     { id: "title", desc: false },
   ]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table returns non-memoizable functions
   const clientTable = useReactTable({
     data: clientProjects,
     columns,

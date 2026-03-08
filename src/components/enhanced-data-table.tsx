@@ -137,13 +137,22 @@ export function EnhancedDataTable<TData, TValue>({
     }
 
     return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, searchQuery, searchableFields, activeFilters, filterConfig]);
+  }, [
+    data,
+    searchQuery,
+    searchableFields,
+    searchFn,
+    activeFilters,
+    filterConfig,
+  ]);
 
   const table = useReactTable({
     data: filteredData,
     columns,
-    pageCount: Math.ceil((filteredData?.length || 0) / pagination.pageSize),
+    pageCount: Math.max(
+      1,
+      Math.ceil((filteredData?.length || 0) / pagination.pageSize)
+    ),
     state: {
       pagination,
       sorting,

@@ -97,15 +97,14 @@ interface InvoiceData {
     pdfSizeBytes: number | null;
     createdAt: string;
     updatedAt: string;
+    companyId?: string; // Fallback when company/org not loaded
   };
   project: {
     id: string;
     title: string;
   } | null;
-  organization: {
-    id: string;
-    name: string;
-  };
+  organization?: { id: string; name: string };
+  company?: { id: string; name: string };
   lineItems?: Array<{
     id: string;
     description: string;
@@ -227,7 +226,7 @@ export function InvoicesTable() {
         },
       },
       {
-        accessorKey: "organization.name",
+        accessorKey: "company.name",
         id: "organization",
         header: ({ column }) => {
           return (
@@ -243,16 +242,19 @@ export function InvoicesTable() {
             </Button>
           );
         },
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">
-            {row.original.organization.name}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const org = row.original.company ?? row.original.organization;
+          return (
+            <div className="text-muted-foreground">{org?.name ?? "—"}</div>
+          );
+        },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.organization.name.localeCompare(
-            rowB.original.organization.name
-          );
+          const nameA =
+            (rowA.original.company ?? rowA.original.organization)?.name ?? "";
+          const nameB =
+            (rowB.original.company ?? rowB.original.organization)?.name ?? "";
+          return nameA.localeCompare(nameB);
         },
       },
       {
@@ -576,7 +578,7 @@ export function InvoicesTable() {
 
   const table = useReactTable({
     data: invoices,
-    columns,
+    columns: columns as never,
     pageCount: pagination?.totalPages ?? 1,
     state: {
       sorting,
@@ -939,7 +941,11 @@ export function InvoicesTable() {
                   invoice={{
                     id: editingInvoice.invoice.id,
                     invoiceNumber: editingInvoice.invoice.invoiceNumber,
-                    organizationId: editingInvoice.organization.id,
+                    organizationId:
+                      (editingInvoice.company ?? editingInvoice.organization)
+                        ?.id ??
+                      editingInvoice.invoice.companyId ??
+                      "",
                     projectId: editingInvoice.project?.id || null,
                     expenseId: editingInvoice.invoice.expenseId ?? null,
                     amount: editingInvoice.invoice.amount,
@@ -981,7 +987,11 @@ export function InvoicesTable() {
                 invoice={{
                   id: editingInvoice.invoice.id,
                   invoiceNumber: editingInvoice.invoice.invoiceNumber,
-                  organizationId: editingInvoice.organization.id,
+                  organizationId:
+                    (editingInvoice.company ?? editingInvoice.organization)
+                      ?.id ??
+                    editingInvoice.invoice.companyId ??
+                    "",
                   projectId: editingInvoice.project?.id || null,
                   expenseId: editingInvoice.invoice.expenseId ?? null,
                   amount: editingInvoice.invoice.amount,

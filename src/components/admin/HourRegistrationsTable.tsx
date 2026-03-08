@@ -9,7 +9,7 @@ import {
   useDeleteHourRegistration,
 } from "@/hooks/use-hour-registrations";
 import { useAllProjects } from "@/hooks/use-projects";
-import { useContacts } from "@/hooks/use-contacts";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { shouldShowProjectContact } from "@/lib/constants/hour-registration";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -393,7 +393,7 @@ export function HourRegistrationsTable() {
     refetch,
   } = useHourRegistrations(page, pageSize, debouncedSearch || undefined, true);
   const { data: projectsData, isLoading: isLoadingProjects } = useAllProjects();
-  const { data: contactsData = [] } = useContacts();
+  const { data: companiesData = [] } = useOrganizations();
   const createMutation = useCreateHourRegistration();
   const updateMutation = useUpdateHourRegistration();
   const deleteMutation = useDeleteHourRegistration();
@@ -422,7 +422,7 @@ export function HourRegistrationsTable() {
       | "client_acquisition"
       | "content_creation"
       | "traveling",
-    contactId: undefined as string | undefined,
+    companyId: undefined as string | undefined,
     projectId: undefined as string | undefined,
   });
   const [originalManualEntry, setOriginalManualEntry] = useState({
@@ -439,7 +439,7 @@ export function HourRegistrationsTable() {
       | "client_acquisition"
       | "content_creation"
       | "traveling",
-    contactId: undefined as string | undefined,
+    companyId: undefined as string | undefined,
     projectId: undefined as string | undefined,
   });
 
@@ -453,7 +453,7 @@ export function HourRegistrationsTable() {
       manualEntry.minutes !== originalManualEntry.minutes ||
       manualEntry.description.trim() !== originalManualEntry.description ||
       manualEntry.category !== originalManualEntry.category ||
-      manualEntry.contactId !== originalManualEntry.contactId ||
+      manualEntry.companyId !== originalManualEntry.companyId ||
       manualEntry.projectId !== originalManualEntry.projectId
     );
   }, [editingRegistration, manualEntry, originalManualEntry]);
@@ -471,25 +471,20 @@ export function HourRegistrationsTable() {
     );
   }, [projectsData]);
 
-  // Selected contact's companyId (for filtering projects)
-  const selectedContactCompanyId = useMemo(() => {
-    if (!manualEntry.contactId) return null;
-    const contact = contactsData.find((c) => c.id === manualEntry.contactId);
-    return contact?.companyId ?? null;
-  }, [manualEntry.contactId, contactsData]);
-
-  // Projects filtered by category and optionally by contact's company
+  // Projects filtered by category and by selected company
   const projects = useMemo(() => {
     if (!shouldShowProjectContact(manualEntry.category)) {
       return [];
     }
     let filtered = allProjects;
-    // If contact selected, filter to projects linked to that contact's company
-    if (selectedContactCompanyId) {
+    // If company selected, filter to projects for that company
+    if (manualEntry.companyId) {
       filtered = allProjects.filter(
         (p: Project & { type?: string; companyId?: string }) =>
-          p.companyId === selectedContactCompanyId
+          p.companyId === manualEntry.companyId
       );
+    } else {
+      return []; // Only show projects when company is selected
     }
     if (manualEntry.category === "labs") {
       return filtered
@@ -502,7 +497,7 @@ export function HourRegistrationsTable() {
     return filtered
       .filter((p: Project & { type?: string }) => p.type === "client")
       .map((p: Project & { type?: string }) => ({ id: p.id, title: p.title }));
-  }, [manualEntry.category, allProjects, selectedContactCompanyId]);
+  }, [manualEntry.category, manualEntry.companyId, allProjects]);
 
   // Clear projectId when category changes to non-project category
   const prevCategoryRef = useRef(manualEntry.category);
@@ -518,14 +513,14 @@ export function HourRegistrationsTable() {
     }
   }, [manualEntry.category]);
 
-  // Clear projectId when contact changes (project list may change)
-  const prevContactIdRef = useRef(manualEntry.contactId);
+  // Clear projectId when company changes (project list may change)
+  const prevCompanyIdRef = useRef(manualEntry.companyId);
   useEffect(() => {
-    if (prevContactIdRef.current !== manualEntry.contactId) {
-      prevContactIdRef.current = manualEntry.contactId;
+    if (prevCompanyIdRef.current !== manualEntry.companyId) {
+      prevCompanyIdRef.current = manualEntry.companyId;
       setManualEntry((prev) => ({ ...prev, projectId: undefined }));
     }
-  }, [manualEntry.contactId]);
+  }, [manualEntry.companyId]);
 
   // Listen for hour registration saved events (for components not using React Query)
   useEffect(() => {
@@ -686,7 +681,7 @@ export function HourRegistrationsTable() {
       minutes: "",
       description: "",
       category: "client",
-      contactId: undefined,
+      companyId: undefined,
       projectId: undefined,
     });
 
@@ -694,10 +689,7 @@ export function HourRegistrationsTable() {
       {
         description: manualEntry.description.trim(),
         hours: totalHours,
-        contactId:
-          manualEntry.contactId && manualEntry.contactId !== "none"
-            ? manualEntry.contactId
-            : null,
+        contactId: null,
         projectId:
           manualEntry.projectId && manualEntry.projectId !== "none"
             ? manualEntry.projectId
@@ -721,35 +713,43 @@ export function HourRegistrationsTable() {
     );
   };
 
-  const handleEdit = useCallback((registration: HourRegistration) => {
-    setEditingRegistration(registration);
-    // Convert hours to hours and minutes
-    const totalHours = parseFloat(registration.hours);
-    const hours = Math.floor(totalHours);
-    const minutes = Math.round((totalHours - hours) * 60);
+  const handleEdit = useCallback(
+    (registration: HourRegistration) => {
+      setEditingRegistration(registration);
+      // Convert hours to hours and minutes
+      const totalHours = parseFloat(registration.hours);
+      const hours = Math.floor(totalHours);
+      const minutes = Math.round((totalHours - hours) * 60);
 
-    const entry = {
-      date: new Date(registration.date).toISOString().split("T")[0],
-      hours: hours.toString(),
-      minutes: minutes.toString(),
-      description: registration.description,
-      category: (registration.category || "client") as
-        | "client"
-        | "administration"
-        | "brainstorming"
-        | "research"
-        | "labs"
-        | "client_acquisition"
-        | "content_creation"
-        | "traveling",
-      contactId: registration.contactId || undefined,
-      projectId: registration.projectId || undefined,
-    };
+      const entry = {
+        date: new Date(registration.date).toISOString().split("T")[0],
+        hours: hours.toString(),
+        minutes: minutes.toString(),
+        description: registration.description,
+        category: (registration.category || "client") as
+          | "client"
+          | "administration"
+          | "brainstorming"
+          | "research"
+          | "labs"
+          | "client_acquisition"
+          | "content_creation"
+          | "traveling",
+        companyId: registration.projectId
+          ? allProjects.find(
+              (p: Project & { companyId?: string }) =>
+                p.id === registration.projectId
+            )?.companyId
+          : undefined,
+        projectId: registration.projectId || undefined,
+      };
 
-    setManualEntry(entry);
-    setOriginalManualEntry(entry);
-    setIsEditOpen(true);
-  }, []);
+      setManualEntry(entry);
+      setOriginalManualEntry(entry);
+      setIsEditOpen(true);
+    },
+    [allProjects]
+  );
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -792,10 +792,7 @@ export function HourRegistrationsTable() {
         id: editingRegistration.id,
         description: manualEntry.description.trim(),
         hours: totalHours,
-        contactId:
-          manualEntry.contactId && manualEntry.contactId !== "none"
-            ? manualEntry.contactId
-            : null,
+        contactId: null,
         projectId:
           manualEntry.projectId && manualEntry.projectId !== "none"
             ? manualEntry.projectId
@@ -813,7 +810,7 @@ export function HourRegistrationsTable() {
             minutes: "",
             description: "",
             category: "client",
-            contactId: undefined,
+            companyId: undefined,
             projectId: undefined,
           });
           window.dispatchEvent(new Event("hour-registration-saved"));
@@ -842,7 +839,7 @@ export function HourRegistrationsTable() {
 
   const table = useReactTable({
     data: registrations,
-    columns,
+    columns: columns as never,
     pageCount: pagination?.totalPages ?? 1,
     state: {
       sorting,
@@ -910,31 +907,6 @@ export function HourRegistrationsTable() {
               </DialogHeader>
               <form onSubmit={handleManualEntry} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="manual-contact">Contact (optional)</Label>
-                  <Select
-                    value={manualEntry.contactId || "none"}
-                    onValueChange={(value) =>
-                      setManualEntry({
-                        ...manualEntry,
-                        contactId: value === "none" ? undefined : value,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="manual-contact" className="w-full">
-                      <SelectValue placeholder="Select contact" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {contactsData.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.firstName} {c.lastName}
-                          {c.email ? ` (${c.email})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="manual-date">Date *</Label>
                   <Input
                     id="manual-date"
@@ -989,33 +961,60 @@ export function HourRegistrationsTable() {
                   </Select>
                 </div>
                 {shouldShowProjectContact(manualEntry.category) && (
-                  <div className="space-y-2">
-                    <Label htmlFor="manual-project">
-                      Project{" "}
-                      {manualEntry.category === "client" ? "(Optional)" : ""}
-                    </Label>
-                    <Select
-                      value={manualEntry.projectId || "none"}
-                      onValueChange={(value) =>
-                        setManualEntry({
-                          ...manualEntry,
-                          projectId: value === "none" ? undefined : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger id="manual-project" className="w-full">
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {projects.map((project: Project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-company">Company (Optional)</Label>
+                      <Select
+                        value={manualEntry.companyId || "none"}
+                        onValueChange={(value) =>
+                          setManualEntry({
+                            ...manualEntry,
+                            companyId: value === "none" ? undefined : value,
+                          })
+                        }
+                      >
+                        <SelectTrigger id="manual-company" className="w-full">
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {companiesData.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {manualEntry.companyId && (
+                      <div className="space-y-2">
+                        <Label htmlFor="manual-project">
+                          Project (Optional)
+                        </Label>
+                        <Select
+                          value={manualEntry.projectId || "none"}
+                          onValueChange={(value) =>
+                            setManualEntry({
+                              ...manualEntry,
+                              projectId: value === "none" ? undefined : value,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="manual-project" className="w-full">
+                            <SelectValue placeholder="Select a project" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {projects.map((project: Project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1239,31 +1238,6 @@ export function HourRegistrationsTable() {
           </DialogHeader>
           <form onSubmit={handleUpdate} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-contact">Contact (optional)</Label>
-              <Select
-                value={manualEntry.contactId || "none"}
-                onValueChange={(value) =>
-                  setManualEntry({
-                    ...manualEntry,
-                    contactId: value === "none" ? undefined : value,
-                  })
-                }
-              >
-                <SelectTrigger id="edit-contact" className="w-full">
-                  <SelectValue placeholder="Select contact" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {contactsData.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName}
-                      {c.email ? ` (${c.email})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="edit-date">Date *</Label>
               <Input
                 id="edit-date"
@@ -1314,33 +1288,58 @@ export function HourRegistrationsTable() {
               </Select>
             </div>
             {shouldShowProjectContact(manualEntry.category) && (
-              <div className="space-y-2">
-                <Label htmlFor="edit-project">
-                  Project{" "}
-                  {manualEntry.category === "client" ? "(Optional)" : ""}
-                </Label>
-                <Select
-                  value={manualEntry.projectId || "none"}
-                  onValueChange={(value) =>
-                    setManualEntry({
-                      ...manualEntry,
-                      projectId: value === "none" ? undefined : value,
-                    })
-                  }
-                >
-                  <SelectTrigger id="edit-project" className="w-full">
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {projects.map((project: Project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-company">Company (Optional)</Label>
+                  <Select
+                    value={manualEntry.companyId || "none"}
+                    onValueChange={(value) =>
+                      setManualEntry({
+                        ...manualEntry,
+                        companyId: value === "none" ? undefined : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="edit-company" className="w-full">
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {companiesData.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {manualEntry.companyId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-project">Project (Optional)</Label>
+                    <Select
+                      value={manualEntry.projectId || "none"}
+                      onValueChange={(value) =>
+                        setManualEntry({
+                          ...manualEntry,
+                          projectId: value === "none" ? undefined : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="edit-project" className="w-full">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {projects.map((project: Project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1414,6 +1413,7 @@ export function HourRegistrationsTable() {
                     minutes: "",
                     description: "",
                     category: "client",
+                    companyId: undefined,
                     projectId: undefined,
                   });
                 }}

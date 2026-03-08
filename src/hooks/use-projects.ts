@@ -14,14 +14,13 @@ interface ProjectData {
     subtotal: string | null;
     currency: string;
     type: "client" | "labs";
-    organizationId: string;
+    organizationId?: string;
+    companyId?: string;
     createdAt: string;
     updatedAt: string;
   };
-  organization: {
-    id: string;
-    name: string;
-  };
+  organization?: { id: string; name: string };
+  company?: { id: string; name: string };
   totalHours?: number;
 }
 

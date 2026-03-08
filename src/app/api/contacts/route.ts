@@ -58,7 +58,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { firstName, lastName, email, phone, photo, companyId, type } = body;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      photo,
+      companyId,
+      companyIds,
+      type,
+    } = body;
 
     if (
       !firstName ||
@@ -89,6 +98,10 @@ export async function POST(request: Request) {
       phone: phone?.trim() || null,
       photo: photo || null,
       companyId: companyId || null,
+      companyIds:
+        companyIds && Array.isArray(companyIds)
+          ? companyIds.filter((id: unknown) => typeof id === "string")
+          : undefined,
       type: type || "client",
     });
     return NextResponse.json(contact, { status: 201 });
@@ -155,8 +168,17 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, firstName, lastName, email, phone, photo, companyId, type } =
-      body;
+    const {
+      id,
+      firstName,
+      lastName,
+      email,
+      phone,
+      photo,
+      companyId,
+      companyIds,
+      type,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -194,6 +216,10 @@ export async function PATCH(request: Request) {
       phone: phone?.trim() || null,
       photo: photo || null,
       companyId: companyId || null,
+      companyIds:
+        companyIds !== undefined && Array.isArray(companyIds)
+          ? companyIds.filter((cid: unknown) => typeof cid === "string")
+          : undefined,
       type: type || "client",
     });
 

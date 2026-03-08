@@ -13,6 +13,7 @@ interface OrganizationData {
   createdAt: string;
   updatedAt: string;
   userCount?: number;
+  contactCount?: number;
 }
 
 interface CreateOrganizationData {

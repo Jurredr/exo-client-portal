@@ -33,7 +33,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -41,7 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
   UserPlus,
@@ -50,15 +48,15 @@ import {
   Pencil,
   MoreVertical,
   ArrowUpDown,
-  Phone,
-  FileText,
   Search,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { CreateUserForm } from "./CreateUserForm";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { createClient } from "@/lib/supabase/client";
@@ -164,57 +162,15 @@ export function UsersTable() {
   const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [removeImage, setRemoveImage] = useState<boolean>(false);
-  const [name, setName] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
-  const [note, setNote] = useState<string>("");
-  const [originalName, setOriginalName] = useState<string>("");
-  const [originalPhone, setOriginalPhone] = useState<string>("");
-  const [originalNote, setOriginalNote] = useState<string>("");
   const [originalOrganizationIds, setOriginalOrganizationIds] = useState<
     string[]
   >([]);
-  const [, setOriginalImageStoragePath] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const prevSelectedUserIdRef = useRef<string | null>(null);
 
   const columns = useMemo(
     () => [
-      {
-        id: "avatar",
-        header: "",
-        accessorFn: (row: UserData) => row.user.id, // Avatar column doesn't need sorting
-        cell: ({ row }: { row: { original: UserData } }) => {
-          const user = row.original.user;
-          const getInitials = (name: string | null) => {
-            if (!name) return user.email?.charAt(0).toUpperCase() || "U";
-            return name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2);
-          };
-          return (
-            <Avatar className="h-8 w-8">
-              <AvatarImage
-                src={
-                  user.imageStoragePath
-                    ? `/api/users/${user.id}/image`
-                    : undefined
-                }
-                alt={user.name || user.email}
-              />
-              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-            </Avatar>
-          );
-        },
-        enableSorting: false,
-        size: 50,
-      },
       {
         accessorFn: (row: UserData) => row.user.email,
         id: "email",
@@ -246,52 +202,32 @@ export function UsersTable() {
         },
       },
       {
-        accessorFn: (row: UserData) => row.user.name,
-        id: "name",
-        header: ({ column }: { column: Column<UserData, unknown> }) => {
-          return (
-            <Button
-              variant="ghost"
-              onClick={() =>
-                column.toggleSorting(column.getIsSorted() === "asc")
-              }
-              className="-ml-3 h-8"
-            >
-              Name
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
-        cell: ({ row }: { row: { original: UserData } }) => (
-          <div className="text-muted-foreground">
-            {row.original.user.name || "—"}
-          </div>
-        ),
-        enableSorting: true,
-        sortingFn: (
-          rowA: { original: UserData },
-          rowB: { original: UserData }
-        ) => {
-          const nameA = rowA.original.user.name || "";
-          const nameB = rowB.original.user.name || "";
-          return nameA.localeCompare(nameB);
-        },
-      },
-      {
         accessorFn: (row: UserData) =>
           row.contact
             ? `${row.contact.firstName || ""} ${row.contact.lastName || ""}`.trim()
             : null,
         id: "contact",
-        header: "Contact",
+        header: ({ column }: { column: Column<UserData, unknown> }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="-ml-3 h-8"
+          >
+            Contact
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
         cell: ({ row }: { row: { original: UserData } }) => {
           const c = row.original.contact;
           if (!c) return <div className="text-muted-foreground">—</div>;
           const name = `${c.firstName || ""} ${c.lastName || ""}`.trim();
           return (
-            <div className="text-muted-foreground">
+            <Link
+              href={`/dashboard/contacts`}
+              className="text-primary hover:underline font-medium"
+            >
               {name || c.email || "—"}
-            </div>
+            </Link>
           );
         },
         enableSorting: true,
@@ -457,38 +393,19 @@ export function UsersTable() {
   // Check if form has changes
   const hasChanges = useMemo(() => {
     if (!selectedUser || !isEditOpen) return false;
-
-    // Compare organization IDs (order doesn't matter)
     const currentOrgIds = [...selectedOrganizationIds].sort().join(",");
     const originalOrgIds = [...originalOrganizationIds].sort().join(",");
-
-    return (
-      name.trim() !== originalName ||
-      phone.trim() !== originalPhone ||
-      note.trim() !== originalNote ||
-      currentOrgIds !== originalOrgIds ||
-      imageFile !== null ||
-      removeImage
-    );
+    return currentOrgIds !== originalOrgIds;
   }, [
     selectedUser,
     isEditOpen,
-    name,
-    originalName,
-    phone,
-    originalPhone,
-    note,
-    originalNote,
     selectedOrganizationIds,
     originalOrganizationIds,
-    imageFile,
-    removeImage,
   ]);
 
   const table = useReactTable({
     data: users,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    columns: columns as any,
+    columns: columns as never,
     pageCount: pagination?.totalPages ?? 1,
     state: {
       sorting,
@@ -533,138 +450,34 @@ export function UsersTable() {
     }
     // Reset and set image preview when modal opens or user changes
     if (selectedUser && isEditOpen) {
-      // Reset image-related state when opening modal
-      setImageFile(null);
-      setRemoveImage(false);
-
-      // Store original values for change detection
-      const userName = selectedUser.user.name || "";
-      const userPhone = selectedUser.user.phone || "";
-      const userNote = selectedUser.user.note || "";
       const orgs =
         selectedUser.organizations ||
         (selectedUser.organization ? [selectedUser.organization] : []);
       const orgIds = orgs.map((org) => org.id);
-
-      setOriginalName(userName);
-      setOriginalPhone(userPhone);
-      setOriginalNote(userNote);
       setOriginalOrganizationIds(orgIds);
-      setOriginalImageStoragePath(selectedUser.user.imageStoragePath);
-
-      // Set form values
-      setName(userName);
-      setPhone(userPhone);
-      setNote(userNote);
       setSelectedOrganizationIds(orgIds);
-
-      // Set image preview from existing image
-      setTimeout(() => {
-        // For Storage images, we'll fetch them via the API endpoint
-        if (selectedUser.user.imageStoragePath) {
-          setImagePreview(`/api/users/${selectedUser.user.id}/image`);
-        } else {
-          setImagePreview(null);
-        }
-      }, 0);
     } else {
       setSelectedOrganizationIds([]);
     }
   }, [selectedUser, isEditOpen]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        toast.error("Please select an image file");
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Image size must be less than 5MB");
-        return;
-      }
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      setImageFile(file);
-      setRemoveImage(false); // Reset remove flag when new file is selected
-    }
-  };
-
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
-
-    // Set submitting state immediately for instant UI feedback
     setIsSubmitting(true);
-
-    // Upload image to Storage if a new file is provided
-    let imageStoragePath: string | null = null;
-    let imageSizeBytes: number | null = null;
-
-    if (imageFile) {
-      try {
-        const uploadFormData = new FormData();
-        uploadFormData.append("file", imageFile);
-        uploadFormData.append("userId", selectedUser.user.id);
-
-        const uploadResponse = await fetch("/api/users/upload-image", {
-          method: "POST",
-          body: uploadFormData,
-        });
-
-        if (!uploadResponse.ok) {
-          const error = await uploadResponse.json();
-          throw new Error(error.error || "Failed to upload image");
-        }
-
-        const uploadResult = await uploadResponse.json();
-        imageStoragePath = uploadResult.storagePath;
-        imageSizeBytes = uploadResult.sizeBytes;
-      } catch (error) {
-        console.error("Error uploading image:", error);
-        toast.error("Failed to upload image. Please try again.");
-        setIsSubmitting(false);
-        return;
-      }
-    }
 
     updateMutation.mutate(
       {
         id: selectedUser.user.id,
-        name: name.trim() || null,
-        phone: phone.trim() || null,
-        note: note.trim() || null,
         organizationIds:
           selectedOrganizationIds.length > 0
             ? selectedOrganizationIds
             : undefined,
-        // Preserve existing image if no new file and not removing, otherwise use new/removed values
-        imageStoragePath: removeImage
-          ? null
-          : imageFile
-            ? (imageStoragePath ?? null)
-            : (selectedUser.user.imageStoragePath ?? null),
-        imageSizeBytes: removeImage
-          ? null
-          : imageFile
-            ? (imageSizeBytes ?? null)
-            : (selectedUser.user.imageSizeBytes ?? null),
       },
       {
         onSuccess: () => {
           toast.success("User updated successfully");
           setIsEditOpen(false);
-          setImagePreview(null);
-          setImageFile(null);
-          setRemoveImage(false);
           setIsSubmitting(false);
           // Refresh sidebar user data
           window.dispatchEvent(new Event("user-updated"));
@@ -712,7 +525,9 @@ export function UsersTable() {
             </span>
           )}
         </div>
-        <p className="text-muted-foreground">Manage user accounts</p>
+        <p className="text-muted-foreground">
+          People who can log into the portal. Person details live in Contacts
+        </p>
       </div>
 
       {/* Server-side filters */}
@@ -962,50 +777,25 @@ export function UsersTable() {
                       className="bg-muted"
                     />
                   </div>
-                  <div className="flex flex-col gap-3">
-                    <Label htmlFor="edit-name">Name</Label>
-                    <Input
-                      id="edit-name"
-                      name="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <Label
-                      htmlFor="edit-phone"
-                      className="flex items-center gap-2"
-                    >
-                      <Phone className="h-4 w-4" />
-                      Phone
-                    </Label>
-                    <Input
-                      id="edit-phone"
-                      name="phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 234 567 8900"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <Label
-                      htmlFor="edit-note"
-                      className="flex items-center gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Note
-                    </Label>
-                    <Textarea
-                      id="edit-note"
-                      name="note"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Add any notes about this user..."
-                      rows={3}
-                      className="resize-none"
-                    />
-                  </div>
+                  {selectedUser.contact && (
+                    <div className="flex flex-col gap-2">
+                      <Label>Contact</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        asChild
+                        className="w-fit"
+                      >
+                        <Link
+                          href="/dashboard/contacts"
+                          className="flex items-center gap-2"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Edit contact (phone, notes, etc.)
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-3">
                     <Label htmlFor="edit-org">Organizations</Label>
                     <OrganizationCombobox
@@ -1014,74 +804,6 @@ export function UsersTable() {
                       onSelectionChange={setSelectedOrganizationIds}
                       placeholder="Select organizations..."
                     />
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <Label>Profile Image</Label>
-                    <div className="flex items-center gap-4">
-                      {imagePreview && (
-                        <Avatar className="h-16 w-16">
-                          <AvatarImage src={imagePreview} alt="Profile" />
-                          <AvatarFallback>
-                            {selectedUser.user.name
-                              ?.split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()
-                              .slice(0, 2) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div className="flex-1">
-                        <Input
-                          id="edit-image"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="cursor-pointer"
-                        />
-                        {selectedUser?.user.imageStoragePath &&
-                          !imageFile &&
-                          !removeImage && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Current file:{" "}
-                              {selectedUser.user.imageStoragePath
-                                .split("/")
-                                .pop() || "profile.png"}
-                            </p>
-                          )}
-                        {imageFile && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            New file: {imageFile.name}
-                          </p>
-                        )}
-                        {!selectedUser?.user.imageStoragePath && !imageFile && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Max 5MB. Image will be converted to base64.
-                          </p>
-                        )}
-                      </div>
-                      {imagePreview && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setImagePreview(null);
-                            setImageFile(null);
-                            setRemoveImage(true);
-                            // Reset file input
-                            const fileInput = document.getElementById(
-                              "edit-image"
-                            ) as HTMLInputElement;
-                            if (fileInput) {
-                              fileInput.value = "";
-                            }
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
                   </div>
                 </form>
                 <DrawerFooter>
@@ -1133,50 +855,25 @@ export function UsersTable() {
                       className="bg-muted"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-name">Name</Label>
-                    <Input
-                      id="edit-name"
-                      name="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="edit-phone"
-                      className="flex items-center gap-2"
-                    >
-                      <Phone className="h-4 w-4" />
-                      Phone
-                    </Label>
-                    <Input
-                      id="edit-phone"
-                      name="phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 234 567 8900"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="edit-note"
-                      className="flex items-center gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Note
-                    </Label>
-                    <Textarea
-                      id="edit-note"
-                      name="note"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Add any notes about this user..."
-                      rows={3}
-                      className="resize-none"
-                    />
-                  </div>
+                  {selectedUser.contact && (
+                    <div className="space-y-2">
+                      <Label>Contact</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        asChild
+                        className="w-fit"
+                      >
+                        <Link
+                          href="/dashboard/contacts"
+                          className="flex items-center gap-2"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Edit contact (phone, notes, etc.)
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="edit-org">Organizations</Label>
                     <OrganizationCombobox
@@ -1186,84 +883,11 @@ export function UsersTable() {
                       placeholder="Select organizations..."
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Profile Image</Label>
-                    <div className="flex items-center gap-4">
-                      {imagePreview && (
-                        <Avatar className="h-16 w-16">
-                          <AvatarImage src={imagePreview} alt="Profile" />
-                          <AvatarFallback>
-                            {selectedUser.user.name
-                              ?.split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()
-                              .slice(0, 2) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div className="flex-1">
-                        <Input
-                          id="edit-image"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="cursor-pointer"
-                        />
-                        {selectedUser?.user.imageStoragePath &&
-                          !imageFile &&
-                          !removeImage && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Current file:{" "}
-                              {selectedUser.user.imageStoragePath
-                                .split("/")
-                                .pop() || "profile.png"}
-                            </p>
-                          )}
-                        {imageFile && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            New file: {imageFile.name}
-                          </p>
-                        )}
-                        {!selectedUser?.user.imageStoragePath && !imageFile && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Max 5MB. Image will be converted to base64.
-                          </p>
-                        )}
-                      </div>
-                      {imagePreview && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setImagePreview(null);
-                            setImageFile(null);
-                            setRemoveImage(true);
-                            // Reset file input
-                            const fileInput = document.getElementById(
-                              "edit-image"
-                            ) as HTMLInputElement;
-                            if (fileInput) {
-                              fileInput.value = "";
-                            }
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
                   <div className="flex justify-end gap-2">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setIsEditOpen(false);
-                        setImagePreview(null);
-                        setImageFile(null);
-                        setRemoveImage(false);
-                      }}
+                      onClick={() => setIsEditOpen(false)}
                     >
                       Cancel
                     </Button>

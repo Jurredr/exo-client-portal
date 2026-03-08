@@ -105,20 +105,27 @@ export function HourRegistrationTimer() {
       })
     ) || [];
 
-  const selectedContactCompanyId = contactId
-    ? (contactsData.find((c) => c.id === contactId)?.companyId ?? null)
+  const selectedContact = contactId
+    ? contactsData.find((c) => c.id === contactId)
+    : null;
+  const selectedContactCompanyIds = selectedContact
+    ? selectedContact.companyIds?.length
+      ? selectedContact.companyIds
+      : selectedContact.companyId
+        ? [selectedContact.companyId]
+        : null
     : null;
 
-  // Filter projects based on category and contact's company
+  // Filter projects based on category and contact's companies
   const projects = (() => {
     if (!shouldShowProjectContact(category)) {
       return [];
     }
     let filtered = allProjects;
-    if (selectedContactCompanyId) {
+    if (selectedContactCompanyIds?.length) {
       filtered = allProjects.filter(
         (p: Project & { type?: string; companyId?: string }) =>
-          p.companyId === selectedContactCompanyId
+          p.companyId && selectedContactCompanyIds.includes(p.companyId)
       );
     }
     if (category === "labs") {

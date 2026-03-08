@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,13 +57,7 @@ export default function ContractPage() {
   const [canSign, setCanSign] = useState(false);
   const signatureRef = useRef<SignatureCanvas>(null);
 
-  useEffect(() => {
-    fetchContract();
-    checkCanSign();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contractId]);
-
-  const fetchContract = async () => {
+  const fetchContract = useCallback(async () => {
     try {
       const response = await fetch(`/api/contracts/${contractId}`);
       if (response.ok) {
@@ -83,9 +77,9 @@ export default function ContractPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [contractId, router]);
 
-  const checkCanSign = async () => {
+  const checkCanSign = useCallback(async () => {
     try {
       const supabase = createClient();
       const {
@@ -99,7 +93,12 @@ export default function ContractPage() {
     } catch (error) {
       console.error("Error checking sign permission:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchContract();
+    checkCanSign();
+  }, [fetchContract, checkCanSign]);
 
   const handleSign = async () => {
     if (!signatureRef.current || signatureRef.current.isEmpty()) {
@@ -273,7 +272,6 @@ export default function ContractPage() {
                   <p className="text-sm text-green-700 dark:text-green-300 mb-2">
                     Signature:
                   </p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={contract.contract.signature}
                     alt="Signature"

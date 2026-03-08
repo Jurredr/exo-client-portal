@@ -499,7 +499,7 @@ export function CreateInvoiceForm({
         .map((p) => ({
           id: p.project.id,
           title: p.project.title,
-          organizationId: p.project.organizationId,
+          organizationId: p.project.organizationId ?? organizationId,
           subtotal: p.project.subtotal,
           currency: p.project.currency,
         })) || [];
@@ -528,8 +528,7 @@ export function CreateInvoiceForm({
       setPdfFile(null);
       setRemovePdf(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoice?.id]);
+  }, [invoice]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

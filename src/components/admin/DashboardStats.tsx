@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -141,20 +141,7 @@ export default function DashboardStats() {
     }
   }, [isMobile]);
 
-  // Fetch exchange rate when USD is selected
-  useEffect(() => {
-    if (currency === "USD") {
-      if (!exchangeRate) {
-        fetchExchangeRate();
-      }
-    } else {
-      // Reset exchange rate when switching back to EUR
-      setExchangeRate(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currency]);
-
-  const fetchExchangeRate = async () => {
+  const fetchExchangeRate = useCallback(async () => {
     try {
       const response = await fetch(
         "https://api.exchangerate-api.com/v4/latest/EUR"
@@ -177,7 +164,19 @@ export default function DashboardStats() {
       // Fallback to approximate rate if API fails
       setExchangeRate(1.08);
     }
-  };
+  }, []);
+
+  // Fetch exchange rate when USD is selected
+  useEffect(() => {
+    if (currency === "USD") {
+      if (!exchangeRate) {
+        fetchExchangeRate();
+      }
+    } else {
+      // Reset exchange rate when switching back to EUR
+      setExchangeRate(null);
+    }
+  }, [currency, exchangeRate, fetchExchangeRate]);
 
   // Convert EUR amount to USD if currency is USD
   const convertAmount = (amountInEUR: number): number => {

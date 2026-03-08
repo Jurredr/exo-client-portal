@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "NODE_OPTIONS='--max-http-header-size=65536' next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_OPTIONS='--max-http-header-size=65536' next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --write .",
@@ -15,6 +15,7 @@
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push",
     "db:backup": "dotenv -e .env.local -- pg_dump $DATABASE_URL > src/db/backups/backup_exo_$(date +%Y%m%d_%H%M%S).sql",
+    "db:apply-contact-companies": "dotenv -e .env.local -- bun run scripts/apply-contact-companies-migration.ts",
     "prepare": "husky"
   },
   "dependencies": {

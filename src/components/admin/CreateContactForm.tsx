@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { OrganizationCombobox } from "@/components/organization-combobox";
 import type { ContactData } from "@/hooks/use-contacts";
 
 interface CreateContactFormProps {
@@ -31,7 +32,13 @@ export function CreateContactForm({
   const [lastName, setLastName] = useState(contact?.lastName || "");
   const [email, setEmail] = useState(contact?.email || "");
   const [phone, setPhone] = useState(contact?.phone || "");
-  const [companyId, setCompanyId] = useState(contact?.companyId || "");
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>(
+    contact?.companyIds?.length
+      ? contact.companyIds
+      : contact?.companyId
+        ? [contact.companyId]
+        : []
+  );
   const [type, setType] = useState(contact?.type || "client");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -62,7 +69,8 @@ export function CreateContactForm({
             lastName: lastName.trim(),
             email: email.trim() || null,
             phone: phone.trim() || null,
-            companyId: companyId || null,
+            companyIds:
+              selectedCompanyIds.length > 0 ? selectedCompanyIds : undefined,
             type,
           }
         : {
@@ -70,7 +78,8 @@ export function CreateContactForm({
             lastName: lastName.trim(),
             email: email.trim() || null,
             phone: phone.trim() || null,
-            companyId: companyId || null,
+            companyIds:
+              selectedCompanyIds.length > 0 ? selectedCompanyIds : undefined,
             type,
           };
 
@@ -144,23 +153,16 @@ export function CreateContactForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="company">Company</Label>
-        <Select
-          value={companyId || "none"}
-          onValueChange={(v) => setCompanyId(v === "none" ? "" : v)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select company" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No company</SelectItem>
-            {companies.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor="companies">Companies</Label>
+        <OrganizationCombobox
+          organizations={companies}
+          selectedIds={selectedCompanyIds}
+          onSelectionChange={setSelectedCompanyIds}
+          placeholder="Select companies..."
+        />
+        <p className="text-xs text-muted-foreground">
+          A contact can belong to multiple companies
+        </p>
       </div>
 
       <div className="space-y-2">

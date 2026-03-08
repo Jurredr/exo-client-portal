@@ -247,13 +247,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       label: "Clients",
       items: [
         {
-          title: "Users",
-          url: "/dashboard/users",
-          icon: IconUsers,
-          isActive: pathname === "/dashboard/users",
-        },
-        {
-          title: "Organizations",
+          title: "Companies",
           url: "/dashboard/organizations",
           icon: IconBuilding,
           isActive: pathname === "/dashboard/organizations",
@@ -263,6 +257,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: "/dashboard/contacts",
           icon: IconAddressBook,
           isActive: pathname === "/dashboard/contacts",
+        },
+        {
+          title: "Users",
+          url: "/dashboard/users",
+          icon: IconUsers,
+          isActive: pathname === "/dashboard/users",
         },
       ],
     },

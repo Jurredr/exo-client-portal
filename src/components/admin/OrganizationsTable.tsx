@@ -64,6 +64,7 @@ interface Organization {
   createdAt: string;
   updatedAt: string;
   userCount?: number;
+  contactCount?: number;
 }
 
 export function OrganizationsTable() {
@@ -187,7 +188,7 @@ export function OrganizationsTable() {
         enableSorting: true,
       },
       {
-        accessorKey: "userCount",
+        accessorKey: "contactCount",
         header: ({ column }) => {
           return (
             <Button
@@ -197,13 +198,13 @@ export function OrganizationsTable() {
               }
               className="-ml-3 h-8"
             >
-              Users
+              Contacts
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           );
         },
         cell: ({ row }) => {
-          const count = row.original.userCount || 0;
+          const count = row.original.contactCount || 0;
           return <div className="font-medium">{count}</div>;
         },
         enableSorting: true,
@@ -375,7 +376,7 @@ export function OrganizationsTable() {
     setIsSubmitting(true);
 
     if (!name.trim()) {
-      toast.error("Organization name is required");
+      toast.error("Company name is required");
       setIsSubmitting(false);
       return;
     }
@@ -434,7 +435,7 @@ export function OrganizationsTable() {
       },
       {
         onSuccess: () => {
-          toast.success("Organization updated successfully");
+          toast.success("Company updated successfully");
           setIsEditOpen(false);
           setImagePreview(null);
           setImageFile(null);
@@ -469,7 +470,7 @@ export function OrganizationsTable() {
 
     deleteMutation.mutate(deleteOrg.id, {
       onSuccess: () => {
-        toast.success("Organization deleted successfully");
+        toast.success("Company deleted successfully");
         setDeleteOrg(null);
       },
       onError: (error: Error) => {
@@ -483,22 +484,22 @@ export function OrganizationsTable() {
     <div className="space-y-4">
       <div>
         <div className="flex items-center gap-2">
-          <h2 className="text-3xl font-bold">Organizations</h2>
+          <h2 className="text-3xl font-bold">Companies</h2>
           <span className="text-sm text-muted-foreground">
             ({organizations.length} total)
           </span>
         </div>
-        <p className="text-muted-foreground">Manage client organizations</p>
+        <p className="text-muted-foreground">Manage client companies</p>
       </div>
 
       <EnhancedDataTable
         columns={columns}
         data={organizations}
-        searchPlaceholder="Search organizations..."
+        searchPlaceholder="Search companies..."
         searchableFields={["name"]}
         initialSorting={[{ id: "name", desc: false }]}
         onRowClick={handleRowClick}
-        emptyMessage="No organizations found."
+        emptyMessage="No companies found."
         isLoading={loading}
         toolbar={
           isMobile ? (
@@ -506,15 +507,13 @@ export function OrganizationsTable() {
               <DrawerTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Organization
+                  Add Company
                 </Button>
               </DrawerTrigger>
               <DrawerContent>
                 <DrawerHeader>
-                  <DrawerTitle>Create Organization</DrawerTitle>
-                  <DrawerDescription>
-                    Create a new organization
-                  </DrawerDescription>
+                  <DrawerTitle>Create Company</DrawerTitle>
+                  <DrawerDescription>Create a new company</DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4">
                   <CreateOrganizationForm
@@ -529,14 +528,14 @@ export function OrganizationsTable() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Organization
+                  Add Company
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Create Organization</DialogTitle>
+                  <DialogTitle>Create Company</DialogTitle>
                   <DialogDescription>
-                    Create a new organization for client accounts
+                    Create a new company for client accounts
                   </DialogDescription>
                 </DialogHeader>
                 <CreateOrganizationForm
@@ -555,10 +554,8 @@ export function OrganizationsTable() {
             {selectedOrg && (
               <>
                 <DrawerHeader className="gap-1">
-                  <DrawerTitle>Edit Organization</DrawerTitle>
-                  <DrawerDescription>
-                    Update organization details
-                  </DrawerDescription>
+                  <DrawerTitle>Edit Company</DrawerTitle>
+                  <DrawerDescription>Update company details</DrawerDescription>
                 </DrawerHeader>
                 <form
                   id="edit-form"
@@ -732,10 +729,8 @@ export function OrganizationsTable() {
             {selectedOrg && (
               <>
                 <DialogHeader>
-                  <DialogTitle>Edit Organization</DialogTitle>
-                  <DialogDescription>
-                    Update organization details
-                  </DialogDescription>
+                  <DialogTitle>Edit Company</DialogTitle>
+                  <DialogDescription>Update company details</DialogDescription>
                 </DialogHeader>
                 <form
                   id="edit-form"
@@ -926,11 +921,11 @@ export function OrganizationsTable() {
         open={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         onConfirm={handleDelete}
-        title="Delete Organization"
+        title="Delete Company"
         description={`Are you sure you want to delete "${deleteOrg?.name}"? This action cannot be undone.`}
-        itemName="Organization"
+        itemName="Company"
         confirmationText={deleteOrg?.name || ""}
-        warningMessage="This will permanently delete the organization and all associated data. Users associated with this organization will lose their organization assignment."
+        warningMessage="This will permanently delete the company and all associated data. Contacts and users associated with this company will lose their assignment."
       />
     </div>
   );

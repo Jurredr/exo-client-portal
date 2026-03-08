@@ -151,6 +151,23 @@ export const hourRegistrations = pgTable("hour_registrations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Many-to-many relationship between contacts and companies
+export const contactCompanies = pgTable(
+  "contact_companies",
+  {
+    contactId: uuid("contact_id")
+      .references(() => contacts.id, { onDelete: "cascade" })
+      .notNull(),
+    companyId: uuid("company_id")
+      .references(() => companies.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.contactId, table.companyId] }),
+  })
+);
+
 // Many-to-many relationship between users and companies
 export const userCompanies = pgTable(
   "user_companies",

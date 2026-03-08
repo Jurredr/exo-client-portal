@@ -352,7 +352,6 @@ export function OffersTable() {
     { id: "createdAt", desc: true },
   ]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table returns non-memoizable functions
   const table = useReactTable({
     data: offers,
     columns,

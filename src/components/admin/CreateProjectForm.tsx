@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useCreateProject } from "@/hooks/use-projects";
 import { Button } from "@/components/ui/button";
@@ -52,29 +52,32 @@ export function CreateProjectForm({
     [organizationsData]
   );
 
-  const [exoOrgId, setExoOrgId] = useState<string | null>(null);
+  const exoOrgId = useMemo(
+    () => organizations.find((o) => o.name === "EXO")?.id ?? null,
+    [organizations]
+  );
   const createProjectMutation = useCreateProject();
   const isSubmitting = createProjectMutation.isPending;
 
-  // Find EXO organization
-  useEffect(() => {
-    const exoOrg = organizations.find((org) => org.name === "EXO");
-    if (exoOrg) {
-      setExoOrgId(exoOrg.id);
-    }
-  }, [organizations]);
-
-  // Auto-select EXO organization when EXO Labs is selected
-  useEffect(() => {
-    if (projectType === "labs" && exoOrgId) {
+  const handleProjectTypeChange = (value: string) => {
+    const newType = value as "client" | "labs";
+    setProjectType(newType);
+    if (newType === "labs" && exoOrgId) {
       setOrganizationId(exoOrgId);
       setStage(getDefaultStage("labs"));
-    } else if (projectType === "client" && organizationId === exoOrgId) {
+    } else if (newType === "client" && organizationId === exoOrgId) {
       setOrganizationId("");
       setStage(getDefaultStage("client"));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectType, exoOrgId]);
+  };
+
+  const handleOrganizationChange = (value: string) => {
+    if (projectType === "client" && value === exoOrgId) {
+      setOrganizationId("");
+    } else {
+      setOrganizationId(value);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,10 +137,7 @@ export function CreateProjectForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="project-type">Project Type *</Label>
-        <Select
-          value={projectType}
-          onValueChange={(value) => setProjectType(value as "client" | "labs")}
-        >
+        <Select value={projectType} onValueChange={handleProjectTypeChange}>
           <SelectTrigger id="project-type" className="w-full">
             <SelectValue placeholder="Select project type" />
           </SelectTrigger>
@@ -173,7 +173,7 @@ export function CreateProjectForm({
         <Label htmlFor="project-org">Organization *</Label>
         <Select
           value={organizationId}
-          onValueChange={setOrganizationId}
+          onValueChange={handleOrganizationChange}
           disabled={isLoadingOrgs || projectType === "labs"}
           required
         >

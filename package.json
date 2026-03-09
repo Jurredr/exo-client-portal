@@ -6,6 +6,7 @@
     "dev": "NODE_OPTIONS='--max-http-header-size=65536' next dev",
     "build": "next build",
     "start": "NODE_OPTIONS='--max-http-header-size=65536' next start",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --write .",

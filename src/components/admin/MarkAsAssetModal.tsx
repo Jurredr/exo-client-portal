@@ -51,7 +51,9 @@ export function MarkAsAssetModal({
   const [usefulLifeYears, setUsefulLifeYears] = useState(5);
   const [category, setCategory] = useState(() => {
     const expCat = expense?.category;
-    return expCat && EXPENSE_CATEGORIES.includes(expCat) ? expCat : "Equipment";
+    const isValid =
+      expCat && (EXPENSE_CATEGORIES as readonly string[]).includes(expCat);
+    return isValid ? expCat : "Equipment";
   });
 
   const createAsset = useCreateAsset();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ interface SendEmailModalProps {
   defaultTo?: string;
   defaultSubject?: string;
   defaultBody?: string;
+  offerId?: string;
   title: string;
   description: string;
   onSend: (data: {
@@ -37,6 +38,7 @@ export function SendEmailModal({
   defaultTo = "",
   defaultSubject = "",
   defaultBody = "",
+  offerId,
   title,
   description,
   onSend,
@@ -45,10 +47,41 @@ export function SendEmailModal({
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState(defaultBody);
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+
+  useEffect(() => {
+    if (open && offerId) {
+      setIsLoadingContext(true);
+      fetch(`/api/offers/${offerId}/send-context`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to load");
+          return res.json();
+        })
+        .then((data) => {
+          setTo(data.defaultTo ?? "");
+          setSubject(data.defaultSubject ?? "");
+          setBody(data.defaultBody ?? "");
+        })
+        .catch(() => {
+          toast.error("Failed to load email context");
+        })
+        .finally(() => {
+          setIsLoadingContext(false);
+        });
+    }
+  }, [open, offerId]);
+
+  useEffect(() => {
+    if (open && !offerId) {
+      setTo(defaultTo);
+      setSubject(defaultSubject);
+      setBody(defaultBody);
+    }
+  }, [open, offerId, defaultTo, defaultSubject, defaultBody]);
 
   const handleSend = async () => {
     if (!to?.trim()) {
-      toast.error("Vul een e-mailadres in");
+      toast.error("Please enter an email address");
       return;
     }
     setIsSending(true);
@@ -58,15 +91,13 @@ export function SendEmailModal({
         subject: subject.trim(),
         body: body.trim(),
       });
-      toast.success("E-mail verzonden");
+      toast.success("Email sent");
       onOpenChange(false);
       setTo("");
       setSubject("");
       setBody("");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Kon e-mail niet verzenden"
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to send email");
     } finally {
       setIsSending(false);
     }
@@ -89,53 +120,63 @@ export function SendEmailModal({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="send-to">Aan (e-mail) *</Label>
-            <Input
-              id="send-to"
-              type="email"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="klant@voorbeeld.nl"
-            />
+        {isLoadingContext ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="send-subject">Onderwerp</Label>
-            <Input
-              id="send-subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Onderwerp van de e-mail"
-            />
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="send-to">To (email) *</Label>
+              <Input
+                id="send-to"
+                type="email"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="client@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="send-subject">Subject</Label>
+              <Input
+                id="send-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Email subject"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="send-body">Message</Label>
+              <Textarea
+                id="send-body"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Optional: edit the message..."
+                rows={6}
+                className="resize-none"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="send-body">Bericht</Label>
-            <Textarea
-              id="send-body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Optioneel: pas het bericht aan..."
-              rows={6}
-              className="resize-none"
-            />
-          </div>
-        </div>
+        )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            Annuleren
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isLoadingContext}
+          >
+            Cancel
           </Button>
-          <Button onClick={handleSend} disabled={isSending}>
+          <Button onClick={handleSend} disabled={isSending || isLoadingContext}>
             {isSending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Verzenden...
+                Sending...
               </>
             ) : (
               <>
                 <Send className="h-4 w-4 mr-2" />
-                Verstuur
+                Send
               </>
             )}
           </Button>

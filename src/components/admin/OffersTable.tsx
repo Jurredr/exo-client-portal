@@ -718,11 +718,12 @@ export function OffersTable() {
         <SendEmailModal
           open={isSendEmailOpen}
           onOpenChange={setIsSendEmailOpen}
+          offerId={sendEmailOffer.offer.id}
           defaultTo=""
-          defaultSubject="Offerte - EXO"
+          defaultSubject=""
           defaultBody=""
-          title="Verstuur offerte per e-mail"
-          description="De offerte wordt als PDF bijgevoegd. Pas het bericht aan indien gewenst."
+          title="Send offer by email"
+          description="The offer will be attached as PDF. Edit the message if you wish."
           onSend={async (data) => {
             const res = await fetch(
               `/api/offers/${sendEmailOffer.offer.id}/send`,

@@ -116,83 +116,103 @@
 
 ---
 
-## Phase 5 – Projects: AI-generated project description
+## Phase 5 – Projects: AI-generated project description ✅
 
 ### 5.1 – Generate project description with AI
 
-- [ ] Add "Genereer beschrijving" button on project detail page
-- [ ] Modal with two options: Obv offerte or Custom input
-- [ ] Language selector: Nederlands or English
-- [ ] Editable textarea before saving
-- [ ] Updates project's description field
+- [x] Add "Genereer beschrijving" button on project detail page
+- [x] Modal with two options: Obv offerte or Custom input
+- [x] Language selector: Nederlands or English
+- [x] Editable textarea before saving
+- [x] Updates project's description field
+
+**Implementation notes:**
+
+- GenerateProjectDescriptionModal in ProjectsTable edit drawer. API `/api/projects/[id]/generate-description` uses OpenAI to summarize offer content or custom input.
 
 ---
 
-## Phase 6 – Email: Send invoices and offers from the portal
+## Phase 6 – Email: Send invoices and offers from the portal ✅
 
 ### 6.1 – Email invoice directly from portal
 
-- [ ] "Send by email" button on invoice detail/table
-- [ ] Modal with pre-filled editable template
-- [ ] Attach invoice PDF, send via Resend
-- [ ] Log sent status + timestamp on invoice record
+- [x] "Send by email" button on invoice detail/table
+- [x] Modal with pre-filled editable template
+- [x] Attach invoice PDF, send via Resend
+- [x] Log sent status + timestamp on invoice record
 
 ### 6.2 – Email offer directly from portal
 
-- [ ] Same as 6.1 but for offers
-- [ ] Log sent status on offer record
+- [x] Same as 6.1 but for offers
+- [x] Log sent status on offer record
+
+**Implementation notes:**
+
+- SendEmailModal used by InvoicesTable and OffersTable. API routes `/api/invoices/[id]/send` and `/api/offers/[id]/send` use Resend, attach PDF, update sentAt and sentToEmail.
 
 ---
 
-## Phase 7 – Financials: Assets & Depreciation
+## Phase 7 – Financials: Assets & Depreciation ✅
 
 ### 7.1 – Introduce `assets` table
 
-- [ ] Fields: id, name, description, purchaseDate, purchasePrice, residualValue, usefulLifeYears, category, linkedExpenseId, createdAt
+- [x] Fields: id, name, description, purchaseDate, purchasePrice, residualValue, usefulLifeYears, category, linkedExpenseId, createdAt
 
 ### 7.2 – Depreciation schedule
 
-- [ ] Auto-calculate yearly and monthly depreciation per asset
-- [ ] Show depreciation schedule table per asset
-- [ ] Show current book value
-- [ ] Total annual depreciation in financials overview
+- [x] Auto-calculate yearly and monthly depreciation per asset
+- [x] Show depreciation schedule table per asset
+- [x] Show current book value
+- [x] Total annual depreciation in financials overview
 
 ### 7.3 – Mark expense as asset
 
-- [ ] "Mark as asset" action on expense record
-- [ ] Creates asset linked to expense
-- [ ] Exclude from direct cost calculations (use depreciation instead)
+- [x] "Mark as asset" action on expense record
+- [x] Creates asset linked to expense
+- [x] Exclude from direct cost calculations (use depreciation instead)
+
+**Implementation notes:**
+
+- API: GET/POST /api/assets, PATCH/DELETE /api/assets/[id]. MarkAsAssetModal creates asset from expense. FinancialsOverview: Assets section with depreciation schedule. getFinancialsStats excludes asset-linked expenses from direct cost, adds depreciation.
 
 ---
 
-## Phase 8 – BTW / VAT Quarterly Overview
+## Phase 8 – BTW / VAT Quarterly Overview ✅
 
 ### 8.1 – BTW aangifte overzicht
 
-- [ ] "BTW Aangifte" tab in Financials
-- [ ] Per quarter: BTW collected, BTW paid, net position
-- [ ] Notice for periods before Q2 2026 (KOR ended 1 April 2026)
-- [ ] Export as PDF
+- [x] "BTW Aangifte" tab in Financials
+- [x] Per quarter: BTW collected, BTW paid, net position
+- [x] Notice for periods before Q2 2026 (KOR ended 1 April 2026)
+- [x] Export as PDF
+
+**Implementation notes:**
+
+- BTW Aangifte tab in FinancialsOverview with year selector, quarterly table, KOR notice, PDF export.
 
 ---
 
-## Phase 9 – General / UX
+## Phase 9 – General / UX ✅
 
 ### 9.1 – BTW aangifte deadline reminders
 
-- [ ] Banner/notification when BTW deadline approaching (within 14 days)
-- [ ] Deadlines: 1 mei, 1 augustus, 1 november, 31 januari
-- [ ] Dismissable per deadline
+- [x] Banner/notification when BTW deadline approaching (within 14 days)
+- [x] Deadlines: 1 mei, 1 augustus, 1 november, 31 januari
+- [x] Dismissable per deadline
 
 ### 9.2 – Historical exchange rate on expenses
 
-- [ ] Fetch and store exchange rate on transaction date for foreign currency expenses
-- [ ] Use api.exchangerate-api.com or similar
-- [ ] Store original amount + currency and EUR equivalent
-- [ ] Use EUR equivalent in all financial calculations
+- [x] Fetch and store exchange rate on transaction date for foreign currency expenses
+- [x] Use api.exchangerate-api.com or similar
+- [x] Store original amount + currency and EUR equivalent
+- [x] Use EUR equivalent in all financial calculations
 
 ### 9.3 – Profit & Loss export
 
-- [ ] "Export jaar P&L" button in Financials
-- [ ] PDF with: revenue, cost of goods/services, gross profit, expenses by category, depreciation, net profit, BTW summary
-- [ ] Per tax year (2025 / 2026 selector)
+- [x] "Export jaar P&L" button in Financials
+- [x] PDF with: revenue, cost of goods/services, gross profit, expenses by category, depreciation, net profit, BTW summary
+- [x] Per tax year (2025 / 2026 selector)
+
+**Implementation notes:**
+
+- 9.1: BTW deadline banner on Financials page, localStorage for dismiss state. 9.2: Migration 0051 adds eurEquivalent, exchangeRate, exchangeRateDate to expenses. CreateExpenseForm fetches historical rate. 9.3: Export jaar P&L PDF in FinancialsOverview.

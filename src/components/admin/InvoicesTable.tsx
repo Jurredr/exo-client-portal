@@ -13,7 +13,9 @@ import {
   useInvoices,
   useDeleteInvoice,
   useUpdateInvoice,
+  invoiceKeys,
 } from "@/hooks/use-invoices";
+import { useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +57,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Mail,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import {
@@ -75,6 +78,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusCombobox } from "@/components/status-combobox";
 import { CreateInvoiceForm } from "./CreateInvoiceForm";
+import { SendEmailModal } from "./SendEmailModal";
 
 interface InvoiceData {
   invoice: {
@@ -104,7 +108,7 @@ interface InvoiceData {
     title: string;
   } | null;
   organization?: { id: string; name: string };
-  company?: { id: string; name: string };
+  company?: { id: string; name: string; email?: string | null };
   lineItems?: Array<{
     id: string;
     description: string;
@@ -178,6 +182,7 @@ export function InvoicesTable() {
       ...(debouncedSearch && { search: debouncedSearch }),
     }
   );
+  const queryClient = useQueryClient();
   const deleteMutation = useDeleteInvoice();
   const updateMutation = useUpdateInvoice();
 
@@ -192,6 +197,10 @@ export function InvoicesTable() {
     null
   );
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [sendEmailInvoice, setSendEmailInvoice] = useState<InvoiceData | null>(
+    null
+  );
+  const [isSendEmailOpen, setIsSendEmailOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const columns: ColumnDef<InvoiceData>[] = useMemo(
@@ -550,6 +559,16 @@ export function InvoicesTable() {
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSendEmailInvoice(row.original);
+                  setIsSendEmailOpen(true);
+                }}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Send by email
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -923,6 +942,34 @@ export function InvoicesTable() {
         confirmationText={deleteInvoice?.invoice.invoiceNumber || ""}
         warningMessage="This will permanently delete the invoice. This action cannot be undone."
       />
+
+      {sendEmailInvoice && (
+        <SendEmailModal
+          open={isSendEmailOpen}
+          onOpenChange={setIsSendEmailOpen}
+          defaultTo={sendEmailInvoice.company?.email || ""}
+          defaultSubject={`Factuur ${sendEmailInvoice.invoice.invoiceNumber} - EXO`}
+          defaultBody=""
+          title="Verstuur factuur per e-mail"
+          description="De factuur wordt als PDF bijgevoegd. Pas het bericht aan indien gewenst."
+          onSend={async (data) => {
+            const res = await fetch(
+              `/api/invoices/${sendEmailInvoice.invoice.id}/send`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+              }
+            );
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || "Failed to send");
+            }
+            setSendEmailInvoice(null);
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+          }}
+        />
+      )}
 
       {isMobile ? (
         <Drawer open={isEditOpen} onOpenChange={setIsEditOpen}>

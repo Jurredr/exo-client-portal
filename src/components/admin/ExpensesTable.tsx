@@ -10,6 +10,8 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useExpenses, useDeleteExpense } from "@/hooks/use-expenses";
+import { useAssets } from "@/hooks/use-assets";
+import { MarkAsAssetModal } from "./MarkAsAssetModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +45,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Package,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import {
@@ -151,8 +154,22 @@ export function ExpensesTable() {
     }
   );
   const deleteMutation = useDeleteExpense();
+  const { data: assets = [] } = useAssets();
 
   const expenses = expensesData?.data || [];
+  const linkedExpenseIds = useMemo(
+    () =>
+      new Set(
+        assets
+          .map((a) => a.linkedExpenseId)
+          .filter((id): id is string => id != null)
+      ),
+    [assets]
+  );
+
+  const [markAsAssetExpense, setMarkAsAssetExpense] =
+    useState<ExpenseData | null>(null);
+  const [isMarkAsAssetOpen, setIsMarkAsAssetOpen] = useState(false);
   const pagination = expensesData?.pagination;
   const loading = isLoadingExpenses;
 
@@ -370,6 +387,19 @@ export function ExpensesTable() {
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMarkAsAssetExpense(row.original);
+                  setIsMarkAsAssetOpen(true);
+                }}
+                disabled={linkedExpenseIds.has(row.original.expense.id)}
+              >
+                <Package className="mr-2 h-4 w-4" />
+                {linkedExpenseIds.has(row.original.expense.id)
+                  ? "Already an asset"
+                  : "Mark as asset"}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
@@ -388,7 +418,7 @@ export function ExpensesTable() {
         enableSorting: false,
       },
     ],
-    []
+    [linkedExpenseIds]
   );
 
   const [sorting, setSorting] = useState<SortingState>([
@@ -722,6 +752,20 @@ export function ExpensesTable() {
         itemName="Expense"
         confirmationText={deleteExpense?.expense.description || ""}
         warningMessage="This will permanently delete the expense and any associated invoice. This action cannot be undone."
+      />
+
+      <MarkAsAssetModal
+        key={markAsAssetExpense?.expense?.id ?? "closed"}
+        open={isMarkAsAssetOpen}
+        onOpenChange={setIsMarkAsAssetOpen}
+        expense={markAsAssetExpense?.expense ?? null}
+        onSuccess={() => {
+          setMarkAsAssetExpense(null);
+        }}
+        alreadyLinked={
+          !!markAsAssetExpense &&
+          linkedExpenseIds.has(markAsAssetExpense.expense.id)
+        }
       />
     </div>
   );

@@ -110,6 +110,9 @@ export async function POST(request: Request) {
       invoiceStoragePath, // Path in Supabase Storage
       invoiceFileName,
       invoiceSizeBytes,
+      eurEquivalent,
+      exchangeRate,
+      exchangeRateDate,
     } = body;
 
     if (
@@ -145,6 +148,9 @@ export async function POST(request: Request) {
       invoiceStoragePath: invoiceStoragePath || null,
       invoiceFileName: invoiceFileName || null,
       invoiceSizeBytes: invoiceSizeBytes || null,
+      eurEquivalent: eurEquivalent ?? null,
+      exchangeRate: exchangeRate ?? null,
+      exchangeRateDate: exchangeRateDate ? new Date(exchangeRateDate) : null,
     });
 
     return NextResponse.json(expense, { status: 201 });
@@ -216,6 +222,17 @@ export async function PATCH(request: Request) {
       }),
       ...(updateData.invoiceSizeBytes !== undefined && {
         invoiceSizeBytes: updateData.invoiceSizeBytes || null,
+      }),
+      ...(updateData.eurEquivalent !== undefined && {
+        eurEquivalent: updateData.eurEquivalent ?? null,
+      }),
+      ...(updateData.exchangeRate !== undefined && {
+        exchangeRate: updateData.exchangeRate ?? null,
+      }),
+      ...(updateData.exchangeRateDate !== undefined && {
+        exchangeRateDate: updateData.exchangeRateDate
+          ? new Date(updateData.exchangeRateDate)
+          : null,
       }),
     });
 

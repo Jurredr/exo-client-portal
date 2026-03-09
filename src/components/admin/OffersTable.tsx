@@ -48,6 +48,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Mail,
 } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import {
@@ -76,6 +77,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusCombobox } from "@/components/status-combobox";
 import { CreateOfferForm } from "./CreateOfferForm";
+import { SendEmailModal } from "./SendEmailModal";
+import { useQueryClient } from "@tanstack/react-query";
+import { offerKeys } from "@/hooks/use-offers";
 
 interface OfferData {
   offer: {
@@ -130,6 +134,7 @@ export function OffersTable() {
     }
   );
   const { data: projectsData } = useAllProjects();
+  const queryClient = useQueryClient();
   const deleteMutation = useDeleteOffer();
   const updateMutation = useUpdateOffer();
 
@@ -147,6 +152,8 @@ export function OffersTable() {
   );
 
   const [deleteOffer, setDeleteOffer] = useState<OfferData | null>(null);
+  const [sendEmailOffer, setSendEmailOffer] = useState<OfferData | null>(null);
+  const [isSendEmailOpen, setIsSendEmailOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<OfferData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -326,6 +333,16 @@ export function OffersTable() {
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSendEmailOffer(row.original);
+                  setIsSendEmailOpen(true);
+                }}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Send by email
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -696,6 +713,34 @@ export function OffersTable() {
         confirmationText={deleteOffer?.offer.fileName || "this offer"}
         warningMessage="This will permanently delete the offer and its file. This action cannot be undone."
       />
+
+      {sendEmailOffer && (
+        <SendEmailModal
+          open={isSendEmailOpen}
+          onOpenChange={setIsSendEmailOpen}
+          defaultTo=""
+          defaultSubject="Offerte - EXO"
+          defaultBody=""
+          title="Verstuur offerte per e-mail"
+          description="De offerte wordt als PDF bijgevoegd. Pas het bericht aan indien gewenst."
+          onSend={async (data) => {
+            const res = await fetch(
+              `/api/offers/${sendEmailOffer.offer.id}/send`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+              }
+            );
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || "Failed to send");
+            }
+            setSendEmailOffer(null);
+            queryClient.invalidateQueries({ queryKey: offerKeys.all });
+          }}
+        />
+      )}
     </div>
   );
 }

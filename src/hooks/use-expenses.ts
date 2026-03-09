@@ -50,6 +50,9 @@ export interface CreateExpenseData {
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;
+  eurEquivalent?: number | null;
+  exchangeRate?: number | null;
+  exchangeRateDate?: string | null;
 }
 
 export interface UpdateExpenseData {
@@ -66,6 +69,9 @@ export interface UpdateExpenseData {
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceSizeBytes?: number | null;
   invoiceFileName?: string | null;
+  eurEquivalent?: number | null;
+  exchangeRate?: number | null;
+  exchangeRateDate?: string | null;
 }
 
 export const expenseKeys = {

@@ -13,6 +13,7 @@ import {
   contractProjects,
   expenses,
   offers,
+  assets,
 } from "@/db/schema";
 import {
   eq,
@@ -2278,6 +2279,20 @@ function parseExpenseAmount(amount: string | null | undefined): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+export interface AssetDepreciationInfo {
+  id: string;
+  name: string;
+  purchaseDate: Date;
+  purchasePrice: number;
+  residualValue: number;
+  usefulLifeYears: number;
+  category: string | null;
+  yearlyDepreciation: number;
+  currentBookValue: number;
+  totalDepreciationInPeriod: number;
+  schedule: Array<{ year: number; depreciation: number; bookValue: number }>;
+}
+
 export interface FinancialsStats {
   revenue: {
     total: number; // Omzet exclusief BTW (revenue excluding VAT)
@@ -2292,7 +2307,9 @@ export interface FinancialsStats {
     recurring: number;
     byCategory: Array<{ category: string; amount: number; count: number }>;
     chartData: Array<{ date: string; expenses: number }>;
+    depreciation: number; // Total depreciation in period (replaces direct cost for linked assets)
   };
+  assets: AssetDepreciationInfo[];
   profit: {
     gross: number;
     margin: number; // percentage
@@ -2557,6 +2574,9 @@ export async function getFinancialsStats(
       .filter((id): id is string => id != null)
   );
 
+  // Expenses linked to assets: exclude from direct cost (use depreciation instead)
+  const linkedExpenseIds = await getLinkedExpenseIdsFromAssets();
+
   const allExpenses = await db
     .select({
       id: expenses.id,
@@ -2564,6 +2584,7 @@ export async function getFinancialsStats(
       currency: expenses.currency,
       date: expenses.date,
       category: expenses.category,
+      eurEquivalent: expenses.eurEquivalent,
     })
     .from(expenses)
     .orderBy(expenses.date);
@@ -2577,13 +2598,22 @@ export async function getFinancialsStats(
 
   for (const exp of allExpenses) {
     if (reimbursedIds.has(exp.id)) continue; // Pass-through: don't count
+    if (linkedExpenseIds.has(exp.id)) continue; // Asset: use depreciation instead
 
-    const amount = parseExpenseAmount(exp.amount);
-    const amountInEUR = await convertToEUR(
-      amount,
-      exp.currency || "EUR",
-      usdToEurRate
-    );
+    let amountInEUR: number;
+    if (
+      exp.eurEquivalent != null &&
+      parseFloat(String(exp.eurEquivalent)) > 0
+    ) {
+      amountInEUR = parseFloat(String(exp.eurEquivalent));
+    } else {
+      const amount = parseExpenseAmount(exp.amount);
+      amountInEUR = await convertToEUR(
+        amount,
+        exp.currency || "EUR",
+        usdToEurRate
+      );
+    }
 
     const expDate = exp.date ? new Date(exp.date) : new Date();
     const inPeriod = expDate >= startDate && expDate <= endDate;
@@ -2613,6 +2643,117 @@ export async function getFinancialsStats(
         : expDate.toISOString().split("T")[0];
       expensesByDate[key] = (expensesByDate[key] || 0) + amountInEUR;
     }
+  }
+
+  // --- Assets & Depreciation ---
+  const allAssets = await getAllAssets();
+  let totalDepreciationInPeriod = 0;
+  const assetsInfo: Array<{
+    id: string;
+    name: string;
+    purchaseDate: Date;
+    purchasePrice: number;
+    residualValue: number;
+    usefulLifeYears: number;
+    category: string | null;
+    yearlyDepreciation: number;
+    currentBookValue: number;
+    totalDepreciationInPeriod: number;
+    schedule: Array<{ year: number; depreciation: number; bookValue: number }>;
+  }> = [];
+
+  for (const a of allAssets) {
+    const purchasePrice = parseFloat(String(a.purchasePrice)) || 0;
+    const residualValue = parseFloat(String(a.residualValue)) || 0;
+    const usefulLifeYears = a.usefulLifeYears || 5;
+    const yearlyDepreciation =
+      usefulLifeYears > 0
+        ? (purchasePrice - residualValue) / usefulLifeYears
+        : 0;
+
+    const purchaseDate = a.purchaseDate ? new Date(a.purchaseDate) : new Date();
+    const yearsSincePurchase =
+      (endDate.getTime() - purchaseDate.getTime()) /
+      (365.25 * 24 * 60 * 60 * 1000);
+    const yearsDepreciated = Math.min(
+      Math.max(0, Math.floor(yearsSincePurchase)),
+      usefulLifeYears
+    );
+    const totalDepreciated = yearlyDepreciation * yearsDepreciated;
+    const currentBookValue = Math.max(
+      residualValue,
+      purchasePrice - totalDepreciated
+    );
+
+    // Depreciation schedule (per year)
+    const schedule: Array<{
+      year: number;
+      depreciation: number;
+      bookValue: number;
+    }> = [];
+    let runningBookValue = purchasePrice;
+    const startYear = purchaseDate.getFullYear();
+    for (let y = 0; y < usefulLifeYears; y++) {
+      const year = startYear + y;
+      const dep =
+        y < usefulLifeYears - 1
+          ? yearlyDepreciation
+          : Math.max(0, runningBookValue - residualValue);
+      runningBookValue = Math.max(residualValue, runningBookValue - dep);
+      schedule.push({ year, depreciation: dep, bookValue: runningBookValue });
+    }
+
+    // Depreciation falling in current period (prorated by month)
+    let depInPeriod = 0;
+    if (isAllTime) {
+      depInPeriod = totalDepreciated;
+    } else {
+      const periodStartYear = startDate.getFullYear();
+      const periodEndYear = endDate.getFullYear();
+      const purchaseYear = purchaseDate.getFullYear();
+      for (let yr = periodStartYear; yr <= periodEndYear; yr++) {
+        const yearIndex = yr - purchaseYear;
+        if (yearIndex >= 0 && yearIndex < usefulLifeYears) {
+          const yearStart = new Date(yr, 0, 1);
+          const yearEnd = new Date(yr, 11, 31, 23, 59, 59, 999);
+          const overlapStart = startDate > yearStart ? startDate : yearStart;
+          const overlapEnd = endDate < yearEnd ? endDate : yearEnd;
+          if (overlapStart <= overlapEnd) {
+            const monthsInPeriod =
+              (overlapEnd.getFullYear() - overlapStart.getFullYear()) * 12 +
+              (overlapEnd.getMonth() - overlapStart.getMonth()) +
+              1;
+            depInPeriod +=
+              (yearlyDepreciation * Math.max(0, monthsInPeriod)) / 12;
+          }
+        }
+      }
+    }
+
+    totalDepreciationInPeriod += depInPeriod;
+
+    assetsInfo.push({
+      id: a.id,
+      name: a.name,
+      purchaseDate,
+      purchasePrice,
+      residualValue,
+      usefulLifeYears,
+      category: a.category,
+      yearlyDepreciation,
+      currentBookValue,
+      totalDepreciationInPeriod: depInPeriod,
+      schedule,
+    });
+  }
+
+  totalExpenses += totalDepreciationInPeriod;
+
+  if (totalDepreciationInPeriod > 0) {
+    expensesByCategory["Depreciation"] = {
+      amount: totalDepreciationInPeriod,
+      count: assetsInfo.length,
+    };
   }
 
   const expensesByCategoryArray = Object.entries(expensesByCategory)
@@ -2750,7 +2891,9 @@ export async function getFinancialsStats(
       recurring: recurringExpenses,
       byCategory: expensesByCategoryArray,
       chartData: expensesChartData,
+      depreciation: totalDepreciationInPeriod,
     },
+    assets: assetsInfo,
     profit: {
       gross: grossProfit,
       margin,
@@ -2944,6 +3087,7 @@ export async function getAllInvoicesPaginated(options?: {
       company: {
         id: companies.id,
         name: companies.name,
+        email: companies.email,
       },
     })
     .from(invoices)
@@ -3435,6 +3579,8 @@ export async function updateInvoice(
     pdfStoragePath: string | null; // Path in Supabase Storage
     pdfFileName: string | null;
     pdfSizeBytes: number | null;
+    sentAt: Date | null;
+    sentToEmail: string | null;
     lineItems?: Array<{
       id?: string;
       description: string;
@@ -4076,6 +4222,9 @@ export async function createExpense(data: {
   invoiceStoragePath?: string | null; // Path in Supabase Storage
   invoiceFileName?: string | null;
   invoiceSizeBytes?: number | null;
+  eurEquivalent?: string | number | null;
+  exchangeRate?: string | number | null;
+  exchangeRateDate?: Date | null;
 }) {
   const [expense] = await db
     .insert(expenses)
@@ -4092,6 +4241,11 @@ export async function createExpense(data: {
       invoiceStoragePath: data.invoiceStoragePath || null,
       invoiceFileName: data.invoiceFileName || null,
       invoiceSizeBytes: data.invoiceSizeBytes || null,
+      eurEquivalent:
+        data.eurEquivalent != null ? String(data.eurEquivalent) : null,
+      exchangeRate:
+        data.exchangeRate != null ? String(data.exchangeRate) : null,
+      exchangeRateDate: data.exchangeRateDate || null,
     })
     .returning();
 
@@ -4314,14 +4468,24 @@ export async function updateExpense(
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
     invoiceSizeBytes: number | null;
+    eurEquivalent: string | number | null;
+    exchangeRate: string | number | null;
+    exchangeRateDate: Date | null;
   }>
 ) {
+  const setData: Record<string, unknown> = { ...data, updatedAt: new Date() };
+  if (data.eurEquivalent !== undefined)
+    setData.eurEquivalent =
+      data.eurEquivalent != null ? String(data.eurEquivalent) : null;
+  if (data.exchangeRate !== undefined)
+    setData.exchangeRate =
+      data.exchangeRate != null ? String(data.exchangeRate) : null;
+  if (data.exchangeRateDate !== undefined)
+    setData.exchangeRateDate = data.exchangeRateDate || null;
+
   const [expense] = await db
     .update(expenses)
-    .set({
-      ...data,
-      updatedAt: new Date(),
-    })
+    .set(setData as Partial<typeof expenses.$inferInsert>)
     .where(eq(expenses.id, expenseId))
     .returning();
 
@@ -4393,6 +4557,8 @@ export async function updateOffer(
     fileStoragePath: string | null;
     fileName: string | null;
     fileSizeBytes: number | null;
+    sentAt: Date | null;
+    sentToEmail: string | null;
   }>
 ) {
   const [offer] = await db
@@ -4405,6 +4571,37 @@ export async function updateOffer(
     .returning();
 
   return offer;
+}
+
+export async function getOfferById(offerId: string) {
+  const result = await db
+    .select({
+      offer: {
+        id: offers.id,
+        projectId: offers.projectId,
+        note: offers.note,
+        content: offers.content,
+        fileStoragePath: offers.fileStoragePath,
+        fileName: offers.fileName,
+        fileSizeBytes: offers.fileSizeBytes,
+        status: offers.status,
+        createdAt: offers.createdAt,
+        updatedAt: offers.updatedAt,
+      },
+      project: {
+        id: projects.id,
+        title: projects.title,
+      },
+    })
+    .from(offers)
+    .leftJoin(projects, eq(offers.projectId, projects.id))
+    .where(eq(offers.id, offerId))
+    .limit(1);
+
+  if (!result[0]) {
+    return null;
+  }
+  return result[0];
 }
 
 export async function getAllOffersPaginated(options?: {
@@ -4515,4 +4712,266 @@ export async function deleteOffer(offerId: string) {
       console.error("Error deleting offer file from Storage:", error);
     }
   }
+}
+
+// Asset queries
+export async function getAllAssets() {
+  return await db
+    .select({
+      id: assets.id,
+      name: assets.name,
+      description: assets.description,
+      purchaseDate: assets.purchaseDate,
+      purchasePrice: assets.purchasePrice,
+      residualValue: assets.residualValue,
+      usefulLifeYears: assets.usefulLifeYears,
+      category: assets.category,
+      linkedExpenseId: assets.linkedExpenseId,
+      createdAt: assets.createdAt,
+    })
+    .from(assets)
+    .orderBy(desc(assets.purchaseDate));
+}
+
+export async function getAssetById(assetId: string) {
+  const result = await db
+    .select()
+    .from(assets)
+    .where(eq(assets.id, assetId))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function createAsset(data: {
+  name: string;
+  description?: string | null;
+  purchaseDate: Date;
+  purchasePrice: string | number;
+  residualValue?: string | number;
+  usefulLifeYears?: number;
+  category?: string | null;
+  linkedExpenseId?: string | null;
+}) {
+  const [asset] = await db
+    .insert(assets)
+    .values({
+      name: data.name,
+      description: data.description ?? null,
+      purchaseDate: data.purchaseDate,
+      purchasePrice: String(data.purchasePrice),
+      residualValue:
+        data.residualValue != null ? String(data.residualValue) : "0",
+      usefulLifeYears: data.usefulLifeYears ?? 5,
+      category: data.category ?? null,
+      linkedExpenseId: data.linkedExpenseId ?? null,
+    })
+    .returning();
+  return asset;
+}
+
+export async function updateAsset(
+  assetId: string,
+  data: {
+    name?: string;
+    description?: string | null;
+    purchaseDate?: Date;
+    purchasePrice?: string | number;
+    residualValue?: string | number;
+    usefulLifeYears?: number;
+    category?: string | null;
+    linkedExpenseId?: string | null;
+  }
+) {
+  const updateObj: Record<string, unknown> = {};
+  if (data.name !== undefined) updateObj.name = data.name;
+  if (data.description !== undefined) updateObj.description = data.description;
+  if (data.purchaseDate !== undefined)
+    updateObj.purchaseDate = data.purchaseDate;
+  if (data.purchasePrice !== undefined)
+    updateObj.purchasePrice = String(data.purchasePrice);
+  if (data.residualValue !== undefined)
+    updateObj.residualValue = String(data.residualValue);
+  if (data.usefulLifeYears !== undefined)
+    updateObj.usefulLifeYears = data.usefulLifeYears;
+  if (data.category !== undefined) updateObj.category = data.category;
+  if (data.linkedExpenseId !== undefined)
+    updateObj.linkedExpenseId = data.linkedExpenseId;
+
+  const [updated] = await db
+    .update(assets)
+    .set(updateObj as Partial<typeof assets.$inferInsert>)
+    .where(eq(assets.id, assetId))
+    .returning();
+  return updated;
+}
+
+export async function deleteAsset(assetId: string) {
+  await db.delete(assets).where(eq(assets.id, assetId));
+}
+
+export interface BTWQuarterData {
+  quarter: string;
+  year: number;
+  quarterNum: number;
+  btwCollected: number;
+  btwPaid: number;
+  netPosition: number;
+  isBeforeKOREnd: boolean;
+}
+
+/** BTW Aangifte data per quarter. KOR ended 1 April 2026. */
+export async function getBTWAangifteData(
+  year?: number
+): Promise<BTWQuarterData[]> {
+  const targetYear = year ?? new Date().getFullYear();
+  const usdToEurRate = await getEurToUsdRate();
+  const korEndDate = new Date(2026, 3, 1); // 1 April 2026
+
+  const quarters: BTWQuarterData[] = [
+    {
+      quarter: `Q1 ${targetYear}`,
+      year: targetYear,
+      quarterNum: 1,
+      btwCollected: 0,
+      btwPaid: 0,
+      netPosition: 0,
+      isBeforeKOREnd: true,
+    },
+    {
+      quarter: `Q2 ${targetYear}`,
+      year: targetYear,
+      quarterNum: 2,
+      btwCollected: 0,
+      btwPaid: 0,
+      netPosition: 0,
+      isBeforeKOREnd: true,
+    },
+    {
+      quarter: `Q3 ${targetYear}`,
+      year: targetYear,
+      quarterNum: 3,
+      btwCollected: 0,
+      btwPaid: 0,
+      netPosition: 0,
+      isBeforeKOREnd: false,
+    },
+    {
+      quarter: `Q4 ${targetYear}`,
+      year: targetYear,
+      quarterNum: 4,
+      btwCollected: 0,
+      btwPaid: 0,
+      netPosition: 0,
+      isBeforeKOREnd: false,
+    },
+  ];
+
+  const quarterStarts = [
+    new Date(targetYear, 0, 1),
+    new Date(targetYear, 3, 1),
+    new Date(targetYear, 6, 1),
+    new Date(targetYear, 9, 1),
+  ];
+  const quarterEnds = [
+    new Date(targetYear, 2, 31, 23, 59, 59, 999),
+    new Date(targetYear, 5, 30, 23, 59, 59, 999),
+    new Date(targetYear, 8, 30, 23, 59, 59, 999),
+    new Date(targetYear, 11, 31, 23, 59, 59, 999),
+  ];
+
+  for (let q = 0; q < 4; q++) {
+    quarters[q].isBeforeKOREnd = quarterEnds[q] < korEndDate;
+  }
+
+  const paidInvoices = await db
+    .select({
+      id: invoices.id,
+      currency: invoices.currency,
+      isKOR: invoices.isKOR,
+      paidAt: invoices.paidAt,
+      dueDate: invoices.dueDate,
+      createdAt: invoices.createdAt,
+    })
+    .from(invoices)
+    .where(and(eq(invoices.status, "paid"), isNull(invoices.expenseId)));
+
+  const paidIds = paidInvoices.map((i) => i.id);
+  const lineItems =
+    paidIds.length > 0
+      ? await db
+          .select({
+            invoiceId: invoiceLineItems.invoiceId,
+            quantity: invoiceLineItems.quantity,
+            unitPrice: invoiceLineItems.unitPrice,
+            taxPercentage: invoiceLineItems.taxPercentage,
+          })
+          .from(invoiceLineItems)
+          .where(inArray(invoiceLineItems.invoiceId, paidIds))
+          .orderBy(invoiceLineItems.order)
+      : [];
+
+  const lineItemsByInv = new Map<
+    string,
+    Array<{
+      quantity: string | number;
+      unitPrice: string | number;
+      taxPercentage: string | number;
+    }>
+  >();
+  for (const item of lineItems) {
+    const list = lineItemsByInv.get(item.invoiceId) ?? [];
+    list.push({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      taxPercentage: item.taxPercentage,
+    });
+    lineItemsByInv.set(item.invoiceId, list);
+  }
+
+  for (const inv of paidInvoices) {
+    const dateForQuarter = inv.paidAt
+      ? new Date(inv.paidAt)
+      : inv.dueDate
+        ? new Date(inv.dueDate)
+        : new Date(inv.createdAt);
+
+    let quarterIndex = -1;
+    for (let q = 0; q < 4; q++) {
+      if (
+        dateForQuarter >= quarterStarts[q] &&
+        dateForQuarter <= quarterEnds[q]
+      ) {
+        quarterIndex = q;
+        break;
+      }
+    }
+    if (quarterIndex < 0) continue;
+
+    const items = lineItemsByInv.get(inv.id) ?? [];
+    const vatAmount = inv.isKOR ? 0 : calculateVATFromLineItems(items);
+    const vatInEUR = await convertToEUR(
+      vatAmount,
+      inv.currency || "EUR",
+      usdToEurRate
+    );
+    const isDebit = true;
+    quarters[quarterIndex].btwCollected += isDebit ? vatInEUR : -vatInEUR;
+  }
+
+  for (let q = 0; q < 4; q++) {
+    quarters[q].netPosition = quarters[q].btwCollected - quarters[q].btwPaid;
+  }
+
+  return quarters;
+}
+
+/** Get expense IDs that are linked to assets (exclude from direct cost) */
+export async function getLinkedExpenseIdsFromAssets(): Promise<Set<string>> {
+  const rows = await db
+    .select({ linkedExpenseId: assets.linkedExpenseId })
+    .from(assets)
+    .where(isNotNull(assets.linkedExpenseId));
+  return new Set(
+    rows.map((r) => r.linkedExpenseId).filter((id): id is string => id != null)
+  );
 }

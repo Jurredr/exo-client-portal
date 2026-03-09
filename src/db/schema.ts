@@ -191,7 +191,7 @@ export const expenses = pgTable("expenses", {
     .references(() => users.id)
     .notNull(),
   description: text("description").notNull(),
-  amount: text("amount").notNull(), // Stored as text to preserve formatting
+  amount: text("amount").notNull(), // Stored as text to preserve formatting (original amount)
   currency: text("currency").notNull().default("EUR"), // USD, EUR
   date: timestamp("date").defaultNow().notNull(),
   category: text("category"), // e.g., "office", "software", "travel", "equipment", etc.
@@ -205,6 +205,10 @@ export const expenses = pgTable("expenses", {
   invoiceStoragePath: text("invoice_storage_path"), // Path in Supabase Storage (e.g., "expenses/expense-123.pdf")
   invoiceFileName: text("invoice_file_name"), // Original filename
   invoiceSizeBytes: integer("invoice_size_bytes"), // File size in bytes
+  // Historical exchange rate: for non-EUR expenses, store EUR equivalent at transaction date
+  eurEquivalent: decimal("eur_equivalent", { precision: 12, scale: 2 }),
+  exchangeRate: decimal("exchange_rate", { precision: 10, scale: 6 }),
+  exchangeRateDate: timestamp("exchange_rate_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -240,6 +244,8 @@ export const invoices = pgTable("invoices", {
   pdfStoragePath: text("pdf_storage_path"), // Path in Supabase Storage (e.g., "invoices/invoice-123.pdf")
   pdfFileName: text("pdf_file_name"), // Original filename
   pdfSizeBytes: integer("pdf_size_bytes"), // File size in bytes
+  sentAt: timestamp("sent_at"), // When invoice was sent by email
+  sentToEmail: text("sent_to_email"), // Email address it was sent to
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -264,8 +270,30 @@ export const offers = pgTable("offers", {
   fileName: text("file_name"), // Original filename
   fileSizeBytes: integer("file_size_bytes"), // File size in bytes
   status: text("status").notNull().default("draft"), // draft, sent, signed, discarded
+  sentAt: timestamp("sent_at"), // When offer was sent by email
+  sentToEmail: text("sent_to_email"), // Email address it was sent to
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const assets = pgTable("assets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  description: text("description"),
+  purchaseDate: timestamp("purchase_date").notNull(),
+  purchasePrice: decimal("purchase_price", {
+    precision: 12,
+    scale: 2,
+  }).notNull(),
+  residualValue: decimal("residual_value", { precision: 12, scale: 2 })
+    .notNull()
+    .default("0"),
+  usefulLifeYears: integer("useful_life_years").notNull().default(5),
+  category: text("category"), // e.g. "equipment", "software", "furniture"
+  linkedExpenseId: uuid("linked_expense_id")
+    .references(() => expenses.id, { onDelete: "set null" })
+    .unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const invoiceLineItems = pgTable("invoice_line_items", {

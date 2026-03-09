@@ -344,6 +344,27 @@
       "when": 1772928475993,
       "tag": "0048_offers_content",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1772930341537,
+      "tag": "0049_wealthy_spyke",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1772930677027,
+      "tag": "0050_cloudy_kingpin",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1772931830720,
+      "tag": "0051_material_mikhail_rasputin",
+      "breakpoints": true
     }
   ]
 }

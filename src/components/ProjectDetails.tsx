@@ -220,7 +220,13 @@ export default function ProjectDetails({
             <span className="mr-2">EXO</span>
 
             <span className="relative bottom-1 mr-3 inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full align-middle md:h-10 md:w-16">
-              <Image src="/exo-pill.png" alt="" fill className="object-cover" />
+              <Image
+                src="/exo-pill.png"
+                alt=""
+                fill
+                className="object-cover"
+                draggable={false}
+              />
             </span>
 
             <span className="mr-3">—</span>
@@ -238,6 +244,7 @@ export default function ProjectDetails({
                   className="object-cover"
                   sizes="(max-width: 768px) 24px, 64px"
                   unoptimized
+                  draggable={false}
                 />
               </span>
             )}

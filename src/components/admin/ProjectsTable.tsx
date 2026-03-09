@@ -65,10 +65,13 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  Loader2,
   ChevronsRight,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 import { CreateProjectForm } from "./CreateProjectForm";
+import { GenerateProjectDescriptionModal } from "./GenerateProjectDescriptionModal";
+import { useOffers } from "@/hooks/use-offers";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import Link from "next/link";
 import {
@@ -227,9 +230,17 @@ export function ProjectsTable() {
   const [originalDeadline, setOriginalDeadline] = useState<string>("");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isGenerateDescriptionOpen, setIsGenerateDescriptionOpen] =
+    useState(false);
   const [deleteProject, setDeleteProject] = useState<ProjectData | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  const { data: projectOffersData } = useOffers(1, 100, {
+    projectId: selectedProject?.project.id,
+  });
+  const projectOffers =
+    projectOffersData?.data?.map((d) => d.offer).filter((o) => o) || [];
 
   const columns: ColumnDef<ProjectData>[] = useMemo(
     () => [
@@ -759,7 +770,18 @@ export function ProjectsTable() {
           />
         </div>
         <div className="flex flex-col gap-3">
-          <Label htmlFor="edit-description">Description</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="edit-description">Description</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsGenerateDescriptionOpen(true)}
+            >
+              <Sparkles className="h-4 w-4 mr-1" />
+              Genereer beschrijving
+            </Button>
+          </div>
           <Textarea
             id="edit-description"
             name="description"
@@ -1376,7 +1398,18 @@ export function ProjectsTable() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-description">Description</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="edit-description">Description</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsGenerateDescriptionOpen(true)}
+                      >
+                        <Sparkles className="h-4 w-4 mr-1" />
+                        Genereer beschrijving
+                      </Button>
+                    </div>
                     <Textarea
                       id="edit-description"
                       name="description"
@@ -1505,6 +1538,24 @@ export function ProjectsTable() {
         confirmationText={deleteProject?.project.title || ""}
         warningMessage="This will permanently delete the project and all associated data including hour registrations, deliverables, and client assets. This action cannot be undone."
       />
+
+      {selectedProject && (
+        <GenerateProjectDescriptionModal
+          open={isGenerateDescriptionOpen}
+          onOpenChange={setIsGenerateDescriptionOpen}
+          projectId={selectedProject.project.id}
+          projectTitle={selectedProject.project.title}
+          offers={projectOffers
+            .filter((o) => (o as { content?: string | null }).content)
+            .map((o) => ({
+              id: o.id,
+              note: o.note,
+              fileName: o.fileName,
+              status: o.status,
+            }))}
+          onGenerated={(desc) => setEditDescription(desc)}
+        />
+      )}
     </div>
   );
 }

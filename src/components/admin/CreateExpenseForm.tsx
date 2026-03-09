@@ -366,6 +366,36 @@ export function CreateExpenseForm({
       // If neither invoiceFile nor removeInvoice, we don't set file fields
       // This means the API will preserve the existing file (if any)
 
+      // Fetch historical exchange rate for non-EUR expenses
+      let eurEquivalent: number | null = null;
+      let exchangeRate: number | null = null;
+      let exchangeRateDate: string | null = null;
+      if (currency !== "EUR" && amount && date) {
+        try {
+          const dateStr =
+            typeof date === "string"
+              ? date.slice(0, 10)
+              : new Date(date).toISOString().slice(0, 10);
+          const res = await fetch(
+            `/api/expenses/exchange-rate?date=${dateStr}&currency=${currency}`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const rate = data.rate as number;
+            const amt =
+              parseFloat(amount.replace(/[^0-9.,]/g, "").replace(",", ".")) ||
+              0;
+            if (typeof rate === "number" && amt > 0) {
+              eurEquivalent = amt * rate;
+              exchangeRate = rate;
+              exchangeRateDate = data.date ?? dateStr;
+            }
+          }
+        } catch {
+          // Fall back to current rate conversion in backend
+        }
+      }
+
       if (expense) {
         const updateData: UpdateExpenseData = {
           id: expense.id,
@@ -384,6 +414,11 @@ export function CreateExpenseForm({
                 invoiceSizeBytes: invoiceSizeBytes ?? null,
               }
             : {}),
+          ...(eurEquivalent != null && {
+            eurEquivalent,
+            exchangeRate,
+            exchangeRateDate,
+          }),
         };
         updateExpenseMutation.mutate(updateData, {
           onSuccess: () => {
@@ -426,6 +461,11 @@ export function CreateExpenseForm({
           invoiceStoragePath,
           invoiceFileName,
           invoiceSizeBytes,
+          ...(eurEquivalent != null && {
+            eurEquivalent,
+            exchangeRate,
+            exchangeRateDate,
+          }),
         };
         // Optimistic close: close modal immediately for faster workflow
         onSuccess?.();

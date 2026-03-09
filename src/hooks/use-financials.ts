@@ -30,3 +30,34 @@ export function useFinancials(timeRange: string = "all", taxYear?: number) {
     staleTime: 60 * 1000, // 60 seconds
   });
 }
+
+export interface BTWQuarterData {
+  quarter: string;
+  year: number;
+  quarterNum: number;
+  btwCollected: number;
+  btwPaid: number;
+  netPosition: number;
+  isBeforeKOREnd: boolean;
+}
+
+export const btwAangifteKeys = {
+  all: ["btw-aangifte"] as const,
+  year: (year: number) => [...btwAangifteKeys.all, year] as const,
+};
+
+async function fetchBTWAangifte(year: number): Promise<BTWQuarterData[]> {
+  const response = await fetch(`/api/dashboard/btw-aangifte?year=${year}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch BTW aangifte");
+  }
+  return response.json();
+}
+
+export function useBTWAangifte(year: number = new Date().getFullYear()) {
+  return useQuery({
+    queryKey: btwAangifteKeys.year(year),
+    queryFn: () => fetchBTWAangifte(year),
+    staleTime: 60 * 1000,
+  });
+}

@@ -2,6 +2,7 @@
 
 import { SiteHeader } from "@/components/site-header";
 import FinancialsOverview from "@/components/admin/FinancialsOverview";
+import { BTWDeadlineBanner } from "@/components/admin/BTWDeadlineBanner";
 
 export default function FinancialsPage() {
   return (
@@ -18,6 +19,7 @@ export default function FinancialsPage() {
                   statistics
                 </p>
               </div>
+              <BTWDeadlineBanner />
               <FinancialsOverview />
             </div>
           </div>

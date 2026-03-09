@@ -11,6 +11,7 @@ import {
   IconFileInvoice,
   IconFileText,
   IconReceipt,
+  IconPackage,
   IconFileDescription,
   IconChartBar,
 } from "@tabler/icons-react";
@@ -41,17 +42,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { useCurrentUser, useUpdateUser } from "@/hooks/use-users";
 import { useOrganizations } from "@/hooks/use-organizations";
 
@@ -152,8 +146,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (!userId) return;
 
     const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const name = formData.get("name") as string;
-    const organizationId = formData.get("organizationId") as string;
+    const firstName = (formData.get("firstName") as string)?.trim() || "";
+    const lastName = (formData.get("lastName") as string)?.trim() || "";
+    const name = [firstName, lastName].filter(Boolean).join(" ").trim() || null;
 
     // Upload image to Storage if a new file is provided
     let imageStoragePath: string | null = null;
@@ -188,9 +183,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     updateUserMutation.mutate(
       {
         id: userId,
-        name: name.trim() || null,
-        organizationId:
-          organizationId && organizationId !== "none" ? organizationId : null,
+        name,
         // Only include image fields if a new file was uploaded
         ...(accountImageFile
           ? {
@@ -286,6 +279,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: "/dashboard/expenses",
           icon: IconReceipt,
           isActive: pathname === "/dashboard/expenses",
+        },
+        {
+          title: "Assets",
+          url: "/dashboard/assets",
+          icon: IconPackage,
+          isActive: pathname === "/dashboard/assets",
         },
       ],
     },
@@ -389,32 +388,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 className="bg-muted"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="account-name">Name</Label>
-              <Input
-                id="account-name"
-                name="name"
-                defaultValue={userData.name}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="account-org">Organization</Label>
-              <Select
-                name="organizationId"
-                defaultValue={userOrganizationId || "none"}
-              >
-                <SelectTrigger id="account-org" className="w-full">
-                  <SelectValue placeholder="Select an organization" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {organizations.map((org) => (
-                    <SelectItem key={org.id} value={org.id}>
-                      {org.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="account-firstName">First name</Label>
+                <Input
+                  id="account-firstName"
+                  name="firstName"
+                  defaultValue={
+                    userData.name
+                      ? userData.name.split(" ").slice(0, 1).join(" ")
+                      : ""
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="account-lastName">Last name</Label>
+                <Input
+                  id="account-lastName"
+                  name="lastName"
+                  defaultValue={
+                    userData.name
+                      ? userData.name.split(" ").slice(1).join(" ").trim()
+                      : ""
+                  }
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Profile Image</Label>
@@ -471,7 +469,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               >
                 Cancel
               </Button>
-              <Button type="submit">Save Changes</Button>
+              <Button type="submit" disabled={updateUserMutation.isPending}>
+                {updateUserMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
             </div>
           </form>
         </DialogContent>

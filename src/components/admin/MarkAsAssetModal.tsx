@@ -11,6 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { EXPENSE_CATEGORIES } from "@/lib/constants/expense-categories";
 import { useCreateAsset } from "@/hooks/use-assets";
 import { toast } from "sonner";
 
@@ -41,9 +49,10 @@ export function MarkAsAssetModal({
   const [name, setName] = useState(() => expense?.description ?? "");
   const [residualValue, setResidualValue] = useState("0");
   const [usefulLifeYears, setUsefulLifeYears] = useState(5);
-  const [category, setCategory] = useState(
-    () => expense?.category || "Equipment"
-  );
+  const [category, setCategory] = useState(() => {
+    const expCat = expense?.category;
+    return expCat && EXPENSE_CATEGORIES.includes(expCat) ? expCat : "Equipment";
+  });
 
   const createAsset = useCreateAsset();
 
@@ -153,12 +162,22 @@ export function MarkAsAssetModal({
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g. Equipment, Software"
-              />
+              <Select
+                value={category || "none"}
+                onValueChange={(v) => setCategory(v === "none" ? "" : v)}
+              >
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {EXPENSE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button

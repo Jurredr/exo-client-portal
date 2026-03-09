@@ -779,7 +779,7 @@ export function ProjectsTable() {
               onClick={() => setIsGenerateDescriptionOpen(true)}
             >
               <Sparkles className="h-4 w-4 mr-1" />
-              Genereer beschrijving
+              Generate description
             </Button>
           </div>
           <Textarea
@@ -1407,7 +1407,7 @@ export function ProjectsTable() {
                         onClick={() => setIsGenerateDescriptionOpen(true)}
                       >
                         <Sparkles className="h-4 w-4 mr-1" />
-                        Genereer beschrijving
+                        Generate description
                       </Button>
                     </div>
                     <Textarea

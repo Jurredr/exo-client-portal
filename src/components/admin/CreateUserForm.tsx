@@ -30,8 +30,7 @@ export function CreateUserForm({
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
     string[]
   >([]);
-  const { data: organizationsData, isLoading: isLoadingOrgs } =
-    useOrganizations();
+  const { data: organizationsData } = useOrganizations();
   const { data: contactsData = [] } = useContacts();
   const createUserMutation = useCreateUser();
   const organizations = organizationsData || [];
@@ -146,9 +145,10 @@ export function CreateUserForm({
           id="user-email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
           placeholder="client@example.com"
           required
+          disabled
+          className="bg-muted"
         />
         <p className="text-xs text-muted-foreground">
           Pre-filled from contact. Edit the contact to change.
@@ -159,9 +159,9 @@ export function CreateUserForm({
         <OrganizationCombobox
           organizations={organizations}
           selectedIds={selectedOrganizationIds}
-          onSelectionChange={setSelectedOrganizationIds}
+          onSelectionChange={() => {}}
           placeholder="Select organizations..."
-          disabled={isLoadingOrgs}
+          disabled
         />
         <p className="text-xs text-muted-foreground">
           Pre-filled from contact. Edit the contact to change.

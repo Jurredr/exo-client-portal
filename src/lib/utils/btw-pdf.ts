@@ -8,7 +8,7 @@ export interface BTWQuarterData {
   btwCollected: number;
   btwPaid: number;
   netPosition: number;
-  isBeforeKOREnd: boolean;
+  isInKORPeriod: boolean;
 }
 
 export async function generateBTWAangiftePDF(
@@ -28,13 +28,13 @@ export async function generateBTWAangiftePDF(
     doc.fontSize(12).text(`Belastingjaar ${year}`, { align: "center" });
     doc.moveDown(2);
 
-    const korNotice = quarters.some((q) => q.isBeforeKOREnd);
+    const korNotice = quarters.some((q) => q.isInKORPeriod);
     if (korNotice) {
       doc
         .fontSize(10)
         .fillColor("#666")
         .text(
-          "Let op: Voor periodes vóór Q2 2026 gold de Kleine Ondernemersregeling (KOR), die op 1 april 2026 is beëindigd.",
+          "Let op: EXO was in de Kleine Ondernemersregeling (KOR) van 1 juli 2024 tot 1 april 2026. Geen BTW geheven in die periode.",
           { align: "left", width: 495 }
         );
       doc.moveDown(1.5).fillColor("black");
@@ -71,7 +71,7 @@ export async function generateBTWAangiftePDF(
         50 + colWidths[0] + colWidths[1] + colWidths[2],
         y
       );
-      if (q.isBeforeKOREnd) {
+      if (q.isInKORPeriod) {
         doc
           .fontSize(8)
           .fillColor("#666")

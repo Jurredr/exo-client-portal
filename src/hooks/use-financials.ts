@@ -38,7 +38,7 @@ export interface BTWQuarterData {
   btwCollected: number;
   btwPaid: number;
   netPosition: number;
-  isBeforeKOREnd: boolean;
+  isInKORPeriod: boolean;
 }
 
 export const btwAangifteKeys = {

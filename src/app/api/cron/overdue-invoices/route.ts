@@ -21,8 +21,14 @@ function formatDate(d: Date): string {
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
+  const vercelCronHeader = request.headers.get("x-vercel-cron");
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Allow: Bearer CRON_SECRET, or x-vercel-cron (Vercel sends this for cron invocations),
+  // or no auth when CRON_SECRET is not set (local testing)
+  const isAuthorized =
+    !cronSecret || authHeader === `Bearer ${cronSecret}` || !!vercelCronHeader;
+
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

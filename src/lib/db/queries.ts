@@ -33,6 +33,7 @@ import {
   EXO_ORGANIZATION_NAME,
   VAT_PERCENTAGE,
 } from "@/lib/constants";
+import { KOR_END_DATE, KOR_START_DATE } from "@/lib/constants/exo-company";
 import {
   calculateDutchIncomeTax,
   isRecurringExpenseCategory,
@@ -2348,8 +2349,6 @@ export async function getFinancialsStats(
     59,
     999
   );
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
 
   // Last 30 days (rolling window) - uses client date when provided
   const startOfLast30Days = new Date(now);
@@ -2373,8 +2372,9 @@ export async function getFinancialsStats(
     endDate.setHours(23, 59, 59, 999);
     groupByMonth = true;
   } else if (timeRange === "year") {
-    startDate = startOfYear;
-    endDate = endOfYear;
+    const year = taxYear ?? now.getFullYear();
+    startDate = new Date(year, 0, 1);
+    endDate = new Date(year, 11, 31, 23, 59, 59, 999);
     groupByMonth = true;
   } else {
     const days = timeRange === "90d" ? 90 : timeRange === "30d" ? 30 : 7;
@@ -2389,8 +2389,9 @@ export async function getFinancialsStats(
   let prevStartDate: Date | null = null;
   let prevEndDate: Date | null = null;
   if (!isAllTime && timeRange === "year") {
-    prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
-    prevEndDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+    const year = taxYear ?? now.getFullYear();
+    prevStartDate = new Date(year - 1, 0, 1);
+    prevEndDate = new Date(year - 1, 11, 31, 23, 59, 59, 999);
   } else if (!isAllTime && timeRange !== "year") {
     const days = timeRange === "90d" ? 90 : timeRange === "30d" ? 30 : 7;
     prevEndDate = new Date(startDate);
@@ -2476,11 +2477,6 @@ export async function getFinancialsStats(
 
   for (const inv of paidInvoices) {
     const amount = parseInvoiceAmount(inv.amount);
-    const amountInEUR = await convertToEUR(
-      amount,
-      inv.currency || "EUR",
-      usdToEurRate
-    );
     const lineItems = lineItemsByInvoiceId.get(inv.id) ?? [];
     const isKOR = inv.isKOR ?? false;
     const vatInInvoiceCurrency = isKOR
@@ -2493,8 +2489,19 @@ export async function getFinancialsStats(
     );
 
     const isDebit = (inv.transactionType || "debit") === "debit";
-    // Revenue = invoice total (no VAT adjustment)
-    const value = isDebit ? amountInEUR : -amountInEUR;
+    // Revenue = omzet exclusief BTW (revenue excluding VAT)
+    // KOR: full amount is revenue. Non-KOR: subtract VAT (liability to tax authority)
+    const revenueExclVATInvoiceCurrency = getRevenueExcludingVAT(
+      amount,
+      lineItems,
+      isKOR
+    );
+    const revenueExclVATEUR = await convertToEUR(
+      revenueExclVATInvoiceCurrency,
+      inv.currency || "EUR",
+      usdToEurRate
+    );
+    const value = isDebit ? revenueExclVATEUR : -revenueExclVATEUR;
 
     // Use paidAt for all date-based logic (revenue = when received)
     const dateForPeriod = inv.paidAt
@@ -4816,16 +4823,15 @@ export interface BTWQuarterData {
   btwCollected: number;
   btwPaid: number;
   netPosition: number;
-  isBeforeKOREnd: boolean;
+  isInKORPeriod: boolean;
 }
 
-/** BTW Aangifte data per quarter. KOR ended 1 April 2026. */
+/** BTW Aangifte data per quarter. Uses EXO KOR dates from constants. */
 export async function getBTWAangifteData(
   year?: number
 ): Promise<BTWQuarterData[]> {
   const targetYear = year ?? new Date().getFullYear();
   const usdToEurRate = await getEurToUsdRate();
-  const korEndDate = new Date(2026, 3, 1); // 1 April 2026
 
   const quarters: BTWQuarterData[] = [
     {
@@ -4835,7 +4841,7 @@ export async function getBTWAangifteData(
       btwCollected: 0,
       btwPaid: 0,
       netPosition: 0,
-      isBeforeKOREnd: true,
+      isInKORPeriod: false,
     },
     {
       quarter: `Q2 ${targetYear}`,
@@ -4844,7 +4850,7 @@ export async function getBTWAangifteData(
       btwCollected: 0,
       btwPaid: 0,
       netPosition: 0,
-      isBeforeKOREnd: true,
+      isInKORPeriod: false,
     },
     {
       quarter: `Q3 ${targetYear}`,
@@ -4853,7 +4859,7 @@ export async function getBTWAangifteData(
       btwCollected: 0,
       btwPaid: 0,
       netPosition: 0,
-      isBeforeKOREnd: false,
+      isInKORPeriod: false,
     },
     {
       quarter: `Q4 ${targetYear}`,
@@ -4862,7 +4868,7 @@ export async function getBTWAangifteData(
       btwCollected: 0,
       btwPaid: 0,
       netPosition: 0,
-      isBeforeKOREnd: false,
+      isInKORPeriod: false,
     },
   ];
 
@@ -4880,7 +4886,9 @@ export async function getBTWAangifteData(
   ];
 
   for (let q = 0; q < 4; q++) {
-    quarters[q].isBeforeKOREnd = quarterEnds[q] < korEndDate;
+    // Quarter is in KOR period if it overlaps with [KOR_START_DATE, KOR_END_DATE)
+    quarters[q].isInKORPeriod =
+      quarterEnds[q] >= KOR_START_DATE && quarterStarts[q] < KOR_END_DATE;
   }
 
   const paidInvoices = await db

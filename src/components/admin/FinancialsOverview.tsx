@@ -50,6 +50,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { getBTWAangifteYears } from "@/lib/constants/exo-company";
 import {
   SUPPORTED_TAX_YEARS,
   getIncomeTaxBrackets,
@@ -786,7 +787,7 @@ function BTWAangifteTab() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[2024, 2025, 2026, 2027].map((y) => (
+              {getBTWAangifteYears().map((y) => (
                 <SelectItem key={y} value={String(y)}>
                   {y}
                 </SelectItem>
@@ -800,14 +801,14 @@ function BTWAangifteTab() {
         </div>
       </div>
 
-      {quarters?.some((q) => q.isBeforeKOREnd) && (
+      {quarters?.some((q) => q.isInKORPeriod) && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-4 text-sm">
           <p className="font-medium text-amber-800 dark:text-amber-200">
             KOR (Kleine Ondernemersregeling) ended 1 April 2026
           </p>
           <p className="text-muted-foreground mt-1">
-            For quarters before Q2 2026, the small business scheme applied. No
-            VAT was charged during that period.
+            EXO was in the small business scheme from 1 July 2024 until 1 April
+            2026. No VAT was charged during that period.
           </p>
         </div>
       )}
@@ -842,7 +843,7 @@ function BTWAangifteTab() {
                     <tr key={q.quarter} className="border-b last:border-0">
                       <td className="py-3">
                         <span className="font-medium">{q.quarter}</span>
-                        {q.isBeforeKOREnd && (
+                        {q.isInKORPeriod && (
                           <span className="ml-2 text-xs text-muted-foreground">
                             (KOR)
                           </span>

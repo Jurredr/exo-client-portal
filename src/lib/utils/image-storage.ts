@@ -11,6 +11,7 @@ import {
 
 const USERS_BUCKET = "users";
 const USERS_FOLDER = "users";
+const CONTACTS_FOLDER = "contacts";
 const ORGANIZATIONS_BUCKET = "organizations";
 const ORGANIZATIONS_FOLDER = "organizations";
 
@@ -59,6 +60,51 @@ export async function uploadUserImage(
     };
   } catch (error) {
     console.error("Error uploading user image:", error);
+    return null;
+  }
+}
+
+/**
+ * Upload a compressed contact profile image to Supabase Storage
+ * Stored in users bucket (same as user images) for signed URL compatibility
+ * @param file - The image file to upload
+ * @param contactId - The contact ID to use in the filename
+ * @returns The storage path and size if successful, null if failed
+ */
+export async function uploadContactImage(
+  file: File,
+  contactId: string
+): Promise<{ path: string; sizeBytes: number; mimeType: string } | null> {
+  try {
+    const compressed = await compressUserImage(file);
+    if (!compressed) {
+      console.error("Failed to compress contact image");
+      return null;
+    }
+
+    const supabase = await createClient();
+    const timestamp = Date.now();
+    const storagePath = `${CONTACTS_FOLDER}/${contactId}-${timestamp}.jpg`;
+
+    const { data, error } = await supabase.storage
+      .from(USERS_BUCKET)
+      .upload(storagePath, compressed.buffer, {
+        contentType: compressed.mimeType,
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("Error uploading contact image to Storage:", error);
+      return null;
+    }
+
+    return {
+      path: data.path,
+      sizeBytes: compressed.sizeBytes,
+      mimeType: compressed.mimeType,
+    };
+  } catch (error) {
+    console.error("Error uploading contact image:", error);
     return null;
   }
 }

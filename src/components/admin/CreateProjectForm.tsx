@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useCreateProject } from "@/hooks/use-projects";
+import { useOffers } from "@/hooks/use-offers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FolderPlus, DollarSign, Calendar } from "lucide-react";
+import { FolderPlus, DollarSign, Calendar, Sparkles } from "lucide-react";
+import { GenerateProjectDescriptionModal } from "./GenerateProjectDescriptionModal";
 import { StatusCombobox, StatusOption } from "@/components/status-combobox";
 import { getProjectStages, getDefaultStage } from "@/lib/constants/stages";
 
@@ -44,9 +46,14 @@ export function CreateProjectForm({
   const [stage, setStage] = useState(getDefaultStage("client"));
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [isGenerateDescriptionOpen, setIsGenerateDescriptionOpen] =
+    useState(false);
   // TanStack Query hooks
   const { data: organizationsData, isLoading: isLoadingOrgs } =
     useOrganizations();
+  const { data: allOffersData } = useOffers(1, 100);
+  const allOffers =
+    allOffersData?.data?.map((d) => d.offer).filter((o) => o) || [];
   const organizations = useMemo(
     () => organizationsData || [],
     [organizationsData]
@@ -160,7 +167,18 @@ export function CreateProjectForm({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="project-description">Description</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="project-description">Description</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsGenerateDescriptionOpen(true)}
+          >
+            <Sparkles className="h-4 w-4 mr-1" />
+            Generate description
+          </Button>
+        </div>
         <Textarea
           id="project-description"
           value={description}
@@ -169,6 +187,20 @@ export function CreateProjectForm({
           rows={3}
         />
       </div>
+      <GenerateProjectDescriptionModal
+        open={isGenerateDescriptionOpen}
+        onOpenChange={setIsGenerateDescriptionOpen}
+        projectTitle={title || "New project"}
+        offers={allOffers
+          .filter((o) => (o as { content?: string | null }).content)
+          .map((o) => ({
+            id: o.id,
+            note: o.note,
+            fileName: o.fileName,
+            status: o.status,
+          }))}
+        onGenerated={(desc) => setDescription(desc)}
+      />
       <div className="space-y-2">
         <Label htmlFor="project-org">Organization *</Label>
         <Select

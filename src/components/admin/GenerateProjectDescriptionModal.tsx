@@ -33,7 +33,7 @@ interface OfferOption {
 interface GenerateProjectDescriptionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projectId: string;
+  projectId?: string;
   projectTitle: string;
   offers: OfferOption[];
   onGenerated: (description: string) => void;
@@ -66,19 +66,28 @@ export function GenerateProjectDescriptionModal({
 
     setIsGenerating(true);
     try {
-      const res = await fetch(
-        `/api/projects/${projectId}/generate-description`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      const url = projectId
+        ? `/api/projects/${projectId}/generate-description`
+        : "/api/projects/generate-description";
+      const body = projectId
+        ? {
             source,
             offerId: source === "offer" ? offerId : undefined,
             customInput: source === "custom" ? customInput.trim() : undefined,
             language,
-          }),
-        }
-      );
+          }
+        : {
+            projectTitle,
+            source,
+            offerId: source === "offer" ? offerId : undefined,
+            customInput: source === "custom" ? customInput.trim() : undefined,
+            language,
+          };
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to generate description");
@@ -127,10 +136,10 @@ export function GenerateProjectDescriptionModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Genereer beschrijving</DialogTitle>
+          <DialogTitle>Generate description</DialogTitle>
           <DialogDescription>
-            Genereer een projectbeschrijving op basis van een offerte of eigen
-            input voor {projectTitle}
+            Generate a project description from an offer or custom input for{" "}
+            {projectTitle}
           </DialogDescription>
         </DialogHeader>
 
@@ -141,7 +150,7 @@ export function GenerateProjectDescriptionModal({
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="offer" className="gap-2">
               <FileText className="h-4 w-4" />
-              Obv offerte
+              From offer
             </TabsTrigger>
             <TabsTrigger value="custom" className="gap-2">
               <Sparkles className="h-4 w-4" />
@@ -151,16 +160,16 @@ export function GenerateProjectDescriptionModal({
 
           {source === "offer" && (
             <div className="space-y-2 pt-4">
-              <Label>Selecteer offerte</Label>
+              <Label>Select offer</Label>
               <Select
                 value={offerId || "none"}
                 onValueChange={(v) => setOfferId(v === "none" ? "" : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Kies een offerte" />
+                  <SelectValue placeholder="Choose an offer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Geen geselecteerd</SelectItem>
+                  <SelectItem value="none">None selected</SelectItem>
                   {offersWithContent.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.note || o.fileName || `Offer ${o.id.slice(0, 8)}`} (
@@ -171,8 +180,7 @@ export function GenerateProjectDescriptionModal({
               </Select>
               {offersWithContent.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Geen offertes gevonden voor dit project. Gebruik &quot;Custom
-                  input&quot;.
+                  No offers with content found. Use &quot;Custom input&quot;.
                 </p>
               )}
             </div>
@@ -184,7 +192,7 @@ export function GenerateProjectDescriptionModal({
               <Textarea
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Beschrijf het project of plak tekst om samen te vatten..."
+                placeholder="Describe the project or paste text to summarize..."
                 rows={5}
                 className="resize-none"
               />
@@ -193,7 +201,7 @@ export function GenerateProjectDescriptionModal({
         </Tabs>
 
         <div className="space-y-2">
-          <Label>Taal</Label>
+          <Label>Language</Label>
           <Select
             value={language}
             onValueChange={(v) => setLanguage(v as "NL" | "EN")}
@@ -202,7 +210,7 @@ export function GenerateProjectDescriptionModal({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="NL">Nederlands</SelectItem>
+              <SelectItem value="NL">Dutch</SelectItem>
               <SelectItem value="EN">English</SelectItem>
             </SelectContent>
           </Select>
@@ -222,19 +230,19 @@ export function GenerateProjectDescriptionModal({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Genereren...
+              Generating...
             </>
           ) : (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              Genereer beschrijving
+              Generate description
             </>
           )}
         </Button>
 
         {generatedDescription && (
           <div className="space-y-2">
-            <Label>Gegenereerde beschrijving (bewerk indien nodig)</Label>
+            <Label>Generated description (edit if needed)</Label>
             <Textarea
               value={generatedDescription}
               onChange={(e) => setGeneratedDescription(e.target.value)}
@@ -246,11 +254,9 @@ export function GenerateProjectDescriptionModal({
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
-            {generatedDescription ? "Annuleren" : "Sluiten"}
+            {generatedDescription ? "Cancel" : "Close"}
           </Button>
-          {generatedDescription && (
-            <Button onClick={handleApply}>Toepassen</Button>
-          )}
+          {generatedDescription && <Button onClick={handleApply}>Apply</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

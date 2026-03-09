@@ -1902,12 +1902,46 @@ export async function getDashboardStats(
       amount: invoices.amount,
       currency: invoices.currency,
       transactionType: invoices.transactionType,
+      isKOR: invoices.isKOR,
       dueDate: invoices.dueDate,
       paidAt: invoices.paidAt,
       createdAt: invoices.createdAt,
     })
     .from(invoices)
     .where(and(eq(invoices.status, "paid"), isNull(invoices.expenseId)));
+
+  const paidInvoiceIds = paidInvoices.map((i) => i.id);
+  const lineItemsForPaid =
+    paidInvoiceIds.length > 0
+      ? await db
+          .select({
+            invoiceId: invoiceLineItems.invoiceId,
+            quantity: invoiceLineItems.quantity,
+            unitPrice: invoiceLineItems.unitPrice,
+            taxPercentage: invoiceLineItems.taxPercentage,
+          })
+          .from(invoiceLineItems)
+          .where(inArray(invoiceLineItems.invoiceId, paidInvoiceIds))
+          .orderBy(invoiceLineItems.order)
+      : [];
+
+  const lineItemsByInvoiceId = new Map<
+    string,
+    Array<{
+      quantity: string | number;
+      unitPrice: string | number;
+      taxPercentage: string | number;
+    }>
+  >();
+  for (const item of lineItemsForPaid) {
+    const list = lineItemsByInvoiceId.get(item.invoiceId) ?? [];
+    list.push({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      taxPercentage: item.taxPercentage,
+    });
+    lineItemsByInvoiceId.set(item.invoiceId, list);
+  }
 
   // Helper: compare by calendar date (YYYY-MM-DD) to avoid timezone/parsing edge cases
   const toDateStr = (d: Date) =>
@@ -1929,8 +1963,17 @@ export async function getDashboardStats(
 
   for (const inv of paidInvoices) {
     const amount = parseInvoiceAmount(inv.amount);
-    const amountInEUR = await convertToEUR(
+    const lineItems = lineItemsByInvoiceId.get(inv.id) ?? [];
+    const isKOR = inv.isKOR ?? false;
+
+    // Revenue excl. BTW (consistent with financials page)
+    const revenueExclVATInvoiceCurrency = getRevenueExcludingVAT(
       amount,
+      lineItems,
+      isKOR
+    );
+    const amountInEUR = await convertToEUR(
+      revenueExclVATInvoiceCurrency,
       inv.currency || "EUR",
       usdToEurRate
     );

@@ -11,6 +11,7 @@ import {
 import { useAllProjects } from "@/hooks/use-projects";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { shouldShowProjectContact } from "@/lib/constants/hour-registration";
+import { EXO_ORGANIZATION_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -471,44 +472,65 @@ export function HourRegistrationsTable() {
     );
   }, [projectsData]);
 
-  // Projects filtered by category and by selected company
+  // EXO company ID for labs projects (always EXO)
+  const exoCompanyId = useMemo(
+    () => companiesData.find((c) => c.name === EXO_ORGANIZATION_NAME)?.id,
+    [companiesData]
+  );
+
+  // Projects filtered by category and by selected company (or EXO for labs)
   const projects = useMemo(() => {
     if (!shouldShowProjectContact(manualEntry.category)) {
       return [];
     }
     let filtered = allProjects;
-    // If company selected, filter to projects for that company
-    if (manualEntry.companyId) {
+    if (manualEntry.category === "labs") {
+      // Labs: always use EXO company, no company selector needed
+      if (!exoCompanyId) return [];
+      filtered = allProjects.filter(
+        (p: Project & { type?: string; companyId?: string }) =>
+          p.companyId === exoCompanyId && p.type === "labs"
+      );
+    } else {
+      // Client/other: require company selection
+      if (!manualEntry.companyId) return [];
       filtered = allProjects.filter(
         (p: Project & { type?: string; companyId?: string }) =>
           p.companyId === manualEntry.companyId
       );
-    } else {
-      return []; // Only show projects when company is selected
     }
     if (manualEntry.category === "labs") {
-      return filtered
-        .filter((p: Project & { type?: string }) => p.type === "labs")
-        .map((p: Project & { type?: string }) => ({
-          id: p.id,
-          title: p.title,
-        }));
+      return filtered.map((p: Project & { type?: string }) => ({
+        id: p.id,
+        title: p.title,
+      }));
     }
     return filtered
       .filter((p: Project & { type?: string }) => p.type === "client")
       .map((p: Project & { type?: string }) => ({ id: p.id, title: p.title }));
-  }, [manualEntry.category, manualEntry.companyId, allProjects]);
+  }, [manualEntry.category, manualEntry.companyId, allProjects, exoCompanyId]);
 
   // Clear projectId when category changes to non-project category
   const prevCategoryRef = useRef(manualEntry.category);
   useEffect(() => {
-    if (
-      prevCategoryRef.current !== manualEntry.category &&
-      !shouldShowProjectContact(manualEntry.category)
-    ) {
-      setTimeout(() => {
+    if (prevCategoryRef.current !== manualEntry.category) {
+      if (!shouldShowProjectContact(manualEntry.category)) {
+        setManualEntry((prev) => ({
+          ...prev,
+          projectId: undefined,
+          companyId: undefined,
+        }));
+      } else if (manualEntry.category === "labs") {
+        // Switching to labs: hide company selector, clear companyId and projectId
+        setManualEntry((prev) => ({
+          ...prev,
+          companyId: undefined,
+          projectId: undefined,
+        }));
+      } else {
+        // Switching from labs to client: clear projectId (was labs project)
         setManualEntry((prev) => ({ ...prev, projectId: undefined }));
-      }, 0);
+      }
       prevCategoryRef.current = manualEntry.category;
     }
   }, [manualEntry.category]);
@@ -962,31 +984,36 @@ export function HourRegistrationsTable() {
                 </div>
                 {shouldShowProjectContact(manualEntry.category) && (
                   <>
-                    <div className="space-y-2">
-                      <Label htmlFor="manual-company">Company (Optional)</Label>
-                      <Select
-                        value={manualEntry.companyId || "none"}
-                        onValueChange={(value) =>
-                          setManualEntry({
-                            ...manualEntry,
-                            companyId: value === "none" ? undefined : value,
-                          })
-                        }
-                      >
-                        <SelectTrigger id="manual-company" className="w-full">
-                          <SelectValue placeholder="Select company" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          {companiesData.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {manualEntry.companyId && (
+                    {manualEntry.category !== "labs" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="manual-company">
+                          Company (Optional)
+                        </Label>
+                        <Select
+                          value={manualEntry.companyId || "none"}
+                          onValueChange={(value) =>
+                            setManualEntry({
+                              ...manualEntry,
+                              companyId: value === "none" ? undefined : value,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="manual-company" className="w-full">
+                            <SelectValue placeholder="Select company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {companiesData.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {(manualEntry.category === "labs" ||
+                      manualEntry.companyId) && (
                       <div className="space-y-2">
                         <Label htmlFor="manual-project">
                           Project (Optional)

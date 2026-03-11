@@ -158,7 +158,7 @@ export function CreateContractForm({
 
     const filteredProjects =
       projectsData
-        ?.filter((p) => p.project.organizationId === organizationId)
+        ?.filter((p) => p.project.companyId === organizationId)
         .map((p) => ({
           id: p.project.id,
           title: p.project.title,

@@ -495,11 +495,11 @@ export function CreateInvoiceForm({
 
     const filteredProjects =
       projectsData
-        ?.filter((p) => p.project.organizationId === organizationId)
+        ?.filter((p) => p.project.companyId === organizationId)
         .map((p) => ({
           id: p.project.id,
           title: p.project.title,
-          organizationId: p.project.organizationId ?? organizationId,
+          organizationId: p.project.companyId ?? organizationId,
           subtotal: p.project.subtotal,
           currency: p.project.currency,
         })) || [];

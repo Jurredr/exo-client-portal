@@ -80,6 +80,19 @@ import { StatusCombobox } from "@/components/status-combobox";
 import { CreateInvoiceForm } from "./CreateInvoiceForm";
 import { SendEmailModal } from "./SendEmailModal";
 
+function getDefaultInvoiceEmailBody(invoiceData: {
+  invoice: { invoiceNumber: string; amount: string; currency: string };
+  company?: { name: string } | null;
+}) {
+  const companyName = invoiceData.company?.name || "de klant";
+  return `
+<p>Beste ${companyName},</p>
+<p>Hierbij ontvangt u factuur <strong>${invoiceData.invoice.invoiceNumber}</strong> ter waarde van <strong>${invoiceData.invoice.amount} ${invoiceData.invoice.currency}</strong>.</p>
+<p>De factuur is als PDF bijgevoegd.</p>
+<p>Met vriendelijke groet,<br>EXO</p>
+  `.trim();
+}
+
 interface InvoiceData {
   invoice: {
     id: string;
@@ -949,7 +962,7 @@ export function InvoicesTable() {
           onOpenChange={setIsSendEmailOpen}
           defaultTo={sendEmailInvoice.company?.email || ""}
           defaultSubject={`Factuur ${sendEmailInvoice.invoice.invoiceNumber} - EXO`}
-          defaultBody=""
+          defaultBody={getDefaultInvoiceEmailBody(sendEmailInvoice)}
           title="Verstuur factuur per e-mail"
           description="De factuur wordt als PDF bijgevoegd. Pas het bericht aan indien gewenst."
           onSend={async (data) => {

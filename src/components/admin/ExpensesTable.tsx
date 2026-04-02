@@ -87,6 +87,7 @@ interface ExpenseData {
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceFileName: string | null;
     invoiceSizeBytes: number | null;
+    btwStatus: string;
     createdAt: string;
     updatedAt: string;
   };
@@ -114,6 +115,19 @@ const formatAmount = (amount: string, currency: string = "EUR") => {
     currency: currency || "EUR",
   }).format(num);
 };
+
+const BTW_STATUS_LABELS: Record<string, string> = {
+  te_vorderen: "Te vorderen",
+  verrekend: "Verrekend",
+  n_v_t: "N.v.t.",
+};
+
+const BTW_STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline"> =
+  {
+    te_vorderen: "default",
+    verrekend: "secondary",
+    n_v_t: "outline",
+  };
 
 const EXPENSE_CATEGORIES = [
   "Office",
@@ -202,7 +216,12 @@ export function ExpensesTable() {
           );
         },
         cell: ({ row }) => (
-          <div className="font-medium">{row.original.expense.description}</div>
+          <div
+            className="font-medium max-w-[200px] truncate"
+            title={row.original.expense.description}
+          >
+            {row.original.expense.description}
+          </div>
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
@@ -282,6 +301,20 @@ export function ExpensesTable() {
             <Badge variant="secondary">{category}</Badge>
           ) : (
             <span className="text-muted-foreground">—</span>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        accessorKey: "expense.btwStatus",
+        id: "btwStatus",
+        header: "BTW",
+        cell: ({ row }) => {
+          const status = row.original.expense.btwStatus;
+          return (
+            <Badge variant={BTW_STATUS_VARIANTS[status] || "outline"}>
+              {BTW_STATUS_LABELS[status] || status}
+            </Badge>
           );
         },
         enableSorting: false,

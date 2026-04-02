@@ -213,7 +213,12 @@ export function ContractsTable() {
           );
         },
         cell: ({ row }) => (
-          <div className="font-medium">{row.original.contract.name}</div>
+          <div
+            className="font-medium max-w-[200px] truncate"
+            title={row.original.contract.name}
+          >
+            {row.original.contract.name}
+          </div>
         ),
         enableSorting: true,
         sortingFn: (rowA, rowB) => {

@@ -1,0 +1,1 @@
+ALTER TABLE "expenses" ADD COLUMN "btw_status" text DEFAULT 'te_vorderen' NOT NULL;

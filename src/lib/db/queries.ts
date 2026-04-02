@@ -4275,6 +4275,7 @@ export async function createExpense(data: {
   eurEquivalent?: string | number | null;
   exchangeRate?: string | number | null;
   exchangeRateDate?: Date | null;
+  btwStatus?: string;
 }) {
   const [expense] = await db
     .insert(expenses)
@@ -4296,6 +4297,7 @@ export async function createExpense(data: {
       exchangeRate:
         data.exchangeRate != null ? String(data.exchangeRate) : null,
       exchangeRateDate: data.exchangeRateDate || null,
+      btwStatus: data.btwStatus || "te_vorderen",
     })
     .returning();
 
@@ -4319,6 +4321,7 @@ export async function getAllExpenses() {
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
+        btwStatus: expenses.btwStatus,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -4356,6 +4359,7 @@ export async function getAllExpensesPaginated(options?: {
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
+        btwStatus: expenses.btwStatus,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -4455,6 +4459,7 @@ export async function getExpensesByUser(userId: string) {
         invoiceStoragePath: expenses.invoiceStoragePath, // Path string is safe to include (not the actual file data)
         invoiceFileName: expenses.invoiceFileName,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
+        btwStatus: expenses.btwStatus,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -4487,6 +4492,7 @@ export async function getExpenseById(expenseId: string) {
         invoiceStoragePath: expenses.invoiceStoragePath,
         invoiceFileName: expenses.invoiceFileName,
         invoiceSizeBytes: expenses.invoiceSizeBytes,
+        btwStatus: expenses.btwStatus,
         createdAt: expenses.createdAt,
         updatedAt: expenses.updatedAt,
       },
@@ -4521,6 +4527,7 @@ export async function updateExpense(
     eurEquivalent: string | number | null;
     exchangeRate: string | number | null;
     exchangeRateDate: Date | null;
+    btwStatus: string;
   }>
 ) {
   const setData: Record<string, unknown> = { ...data, updatedAt: new Date() };

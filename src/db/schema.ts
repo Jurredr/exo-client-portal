@@ -209,6 +209,7 @@ export const expenses = pgTable("expenses", {
   eurEquivalent: decimal("eur_equivalent", { precision: 12, scale: 2 }),
   exchangeRate: decimal("exchange_rate", { precision: 10, scale: 6 }),
   exchangeRateDate: timestamp("exchange_rate_date"),
+  btwStatus: text("btw_status").notNull().default("te_vorderen"), // "te_vorderen", "verrekend", "n_v_t"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

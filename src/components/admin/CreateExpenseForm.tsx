@@ -66,7 +66,14 @@ interface Expense {
   invoiceStoragePath: string | null; // Path in Supabase Storage
   invoiceFileName: string | null;
   invoiceSizeBytes: number | null;
+  btwStatus?: string;
 }
+
+const BTW_STATUS_OPTIONS = [
+  { value: "te_vorderen", label: "Te vorderen" },
+  { value: "verrekend", label: "Verrekend" },
+  { value: "n_v_t", label: "N.v.t." },
+] as const;
 
 export function CreateExpenseForm({
   onSuccess,
@@ -88,6 +95,9 @@ export function CreateExpenseForm({
     expense?.date ? new Date(expense.date).toISOString().split("T")[0] : ""
   );
   const [category, setCategory] = useState<string>(expense?.category || "");
+  const [btwStatus, setBtwStatus] = useState<string>(
+    expense?.btwStatus || "te_vorderen"
+  );
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   // Preview is only for newly selected image files
   // For existing files in Storage, we just show the filename
@@ -118,6 +128,8 @@ export function CreateExpenseForm({
   );
   const [originalDate, setOriginalDate] = useState<string>("");
   const [originalCategory, setOriginalCategory] = useState<string>("");
+  const [originalBtwStatus, setOriginalBtwStatus] =
+    useState<string>("te_vorderen");
   const [, setOriginalInvoiceStoragePath] = useState<string | null>(null);
   const { data: currentUser } = useCurrentUser();
   const createExpenseMutation = useCreateExpense();
@@ -146,6 +158,7 @@ export function CreateExpenseForm({
         ? new Date(expense.date).toISOString().split("T")[0]
         : "";
       const cat = expense.category || "";
+      const btw = expense.btwStatus || "te_vorderen";
       const invPath = expense.invoiceStoragePath;
 
       setOriginalDescription(desc);
@@ -153,6 +166,7 @@ export function CreateExpenseForm({
       setOriginalCurrency(curr);
       setOriginalDate(dt);
       setOriginalCategory(cat);
+      setOriginalBtwStatus(btw);
       setOriginalInvoiceStoragePath(invPath);
     } else {
       // Reset original values when not editing
@@ -161,6 +175,7 @@ export function CreateExpenseForm({
       setOriginalCurrency("EUR");
       setOriginalDate("");
       setOriginalCategory("");
+      setOriginalBtwStatus("te_vorderen");
       setOriginalInvoiceStoragePath(null);
     }
   }, [expense]);
@@ -175,6 +190,7 @@ export function CreateExpenseForm({
       currency !== originalCurrency ||
       date !== originalDate ||
       category !== originalCategory ||
+      btwStatus !== originalBtwStatus ||
       selectedCompanyId !== (expense.companyId ?? null) ||
       invoiceFile !== null ||
       removeInvoice
@@ -191,6 +207,8 @@ export function CreateExpenseForm({
     originalDate,
     category,
     originalCategory,
+    btwStatus,
+    originalBtwStatus,
     selectedCompanyId,
     invoiceFile,
     removeInvoice,
@@ -404,6 +422,7 @@ export function CreateExpenseForm({
           currency,
           ...(date ? { date } : {}),
           category: category || null,
+          btwStatus,
           vendor: expense.vendor ?? null,
           companyId: selectedCompanyId,
           // Only include file fields if they're explicitly set (new file or removal)
@@ -450,6 +469,7 @@ export function CreateExpenseForm({
           currency,
           date: date, // date is validated above, so it's guaranteed to be a string
           category: category || null,
+          btwStatus,
           vendor: finalCompanyId
             ? addingNewCompany
               ? newCompanyName.trim()
@@ -478,6 +498,7 @@ export function CreateExpenseForm({
             setCurrency("EUR");
             setDate("");
             setCategory("");
+            setBtwStatus("te_vorderen");
             setInvoiceFile(null);
             setInvoicePreview(null);
             setSuggestedCompanies([]);
@@ -659,6 +680,24 @@ export function CreateExpenseForm({
             {EXPENSE_CATEGORIES.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="expense-btw-status">BTW-status</Label>
+        <Select
+          value={btwStatus}
+          onValueChange={(value) => setBtwStatus(value)}
+        >
+          <SelectTrigger id="expense-btw-status" className="w-full">
+            <SelectValue placeholder="Selecteer BTW-status" />
+          </SelectTrigger>
+          <SelectContent>
+            {BTW_STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
               </SelectItem>
             ))}
           </SelectContent>

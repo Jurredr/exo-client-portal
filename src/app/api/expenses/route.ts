@@ -113,6 +113,7 @@ export async function POST(request: Request) {
       eurEquivalent,
       exchangeRate,
       exchangeRateDate,
+      btwStatus,
     } = body;
 
     if (
@@ -151,6 +152,7 @@ export async function POST(request: Request) {
       eurEquivalent: eurEquivalent ?? null,
       exchangeRate: exchangeRate ?? null,
       exchangeRateDate: exchangeRateDate ? new Date(exchangeRateDate) : null,
+      btwStatus: btwStatus || "te_vorderen",
     });
 
     return NextResponse.json(expense, { status: 201 });
@@ -233,6 +235,9 @@ export async function PATCH(request: Request) {
         exchangeRateDate: updateData.exchangeRateDate
           ? new Date(updateData.exchangeRateDate)
           : null,
+      }),
+      ...(updateData.btwStatus !== undefined && {
+        btwStatus: updateData.btwStatus,
       }),
     });
 

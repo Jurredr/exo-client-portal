@@ -144,7 +144,12 @@ export function AssetsTable() {
           </Button>
         ),
         cell: ({ row }) => (
-          <div className="font-medium">{row.original.name}</div>
+          <div
+            className="font-medium max-w-[200px] truncate"
+            title={row.original.name}
+          >
+            {row.original.name}
+          </div>
         ),
         enableSorting: true,
       },

@@ -16,6 +16,7 @@ interface ExpenseData {
     invoiceStoragePath: string | null; // Path in Supabase Storage
     invoiceSizeBytes: number | null;
     invoiceFileName: string | null;
+    btwStatus: string;
     createdAt: string;
     updatedAt: string;
   };
@@ -53,6 +54,7 @@ export interface CreateExpenseData {
   eurEquivalent?: number | null;
   exchangeRate?: number | null;
   exchangeRateDate?: string | null;
+  btwStatus?: string;
 }
 
 export interface UpdateExpenseData {
@@ -72,6 +74,7 @@ export interface UpdateExpenseData {
   eurEquivalent?: number | null;
   exchangeRate?: number | null;
   exchangeRateDate?: string | null;
+  btwStatus?: string;
 }
 
 export const expenseKeys = {

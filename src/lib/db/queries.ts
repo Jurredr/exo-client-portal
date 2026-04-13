@@ -828,6 +828,118 @@ export async function getCompanyById(companyId: string) {
   return company[0] || null;
 }
 
+export async function getCompanyDetails(companyId: string) {
+  // 1. Fetch company
+  const company = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+
+  if (!company[0]) return null;
+
+  // 2. Fetch projects with hours per project
+  const companyProjects = await db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      title: projects.title,
+      status: projects.status,
+      subtotal: projects.subtotal,
+      currency: projects.currency,
+      type: projects.type,
+      startDate: projects.startDate,
+      deadline: projects.deadline,
+      totalHours:
+        sql<string>`COALESCE(SUM(CAST(${hourRegistrations.hours} AS DECIMAL(10,2))), 0)::text`.as(
+          "total_hours"
+        ),
+    })
+    .from(projects)
+    .leftJoin(hourRegistrations, eq(hourRegistrations.projectId, projects.id))
+    .where(eq(projects.companyId, companyId))
+    .groupBy(
+      projects.id,
+      projects.slug,
+      projects.title,
+      projects.status,
+      projects.subtotal,
+      projects.currency,
+      projects.type,
+      projects.startDate,
+      projects.deadline
+    )
+    .orderBy(desc(projects.createdAt));
+
+  // 3. Fetch invoice aggregations
+  const currentYear = new Date().getFullYear();
+  const yearStart = new Date(currentYear, 0, 1); // Jan 1
+  const yearEnd = new Date(currentYear + 1, 0, 1); // Jan 1 next year
+
+  const invoiceAggregations = await db
+    .select({
+      paidAllTime:
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+          "paid_all_time"
+        ),
+      invoicedAllTime:
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'paid') THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+          "invoiced_all_time"
+        ),
+      paidCurrentYear:
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${yearStart} AND ${invoices.invoiceDate} < ${yearEnd} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+          "paid_current_year"
+        ),
+      invoicedCurrentYear:
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'paid') AND ${invoices.invoiceDate} >= ${yearStart} AND ${invoices.invoiceDate} < ${yearEnd} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+          "invoiced_current_year"
+        ),
+    })
+    .from(invoices)
+    .where(eq(invoices.companyId, companyId));
+
+  const revenue = invoiceAggregations[0] ?? {
+    paidAllTime: "0",
+    invoicedAllTime: "0",
+    paidCurrentYear: "0",
+    invoicedCurrentYear: "0",
+  };
+
+  // 4. Calculate total hours
+  const totalHoursAllTime = companyProjects.reduce(
+    (sum, p) => sum + parseFloat(p.totalHours || "0"),
+    0
+  );
+
+  // Hours for current year
+  const currentYearHours = await db
+    .select({
+      total:
+        sql<string>`COALESCE(SUM(CAST(${hourRegistrations.hours} AS DECIMAL(10,2))), 0)::text`.as(
+          "total"
+        ),
+    })
+    .from(hourRegistrations)
+    .innerJoin(projects, eq(projects.id, hourRegistrations.projectId))
+    .where(
+      and(
+        eq(projects.companyId, companyId),
+        gte(hourRegistrations.date, yearStart),
+        lte(hourRegistrations.date, yearEnd)
+      )
+    );
+
+  return {
+    company: company[0],
+    projects: companyProjects,
+    revenue,
+    hours: {
+      allTime: totalHoursAllTime.toFixed(2),
+      currentYear: currentYearHours[0]?.total || "0",
+    },
+  };
+}
+
 export async function getCompaniesByNameOrBtw(
   vendorName?: string | null,
   btwNumber?: string | null

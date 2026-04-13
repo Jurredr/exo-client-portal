@@ -875,6 +875,8 @@ export async function getCompanyDetails(companyId: string) {
   const currentYear = new Date().getFullYear();
   const yearStart = new Date(currentYear, 0, 1); // Jan 1
   const yearEnd = new Date(currentYear + 1, 0, 1); // Jan 1 next year
+  const yearStartStr = yearStart.toISOString();
+  const yearEndStr = yearEnd.toISOString();
 
   const invoiceAggregations = await db
     .select({
@@ -887,11 +889,11 @@ export async function getCompanyDetails(companyId: string) {
           "invoiced_all_time"
         ),
       paidCurrentYear:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${yearStart} AND ${invoices.invoiceDate} < ${yearEnd} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${yearStartStr} AND ${invoices.invoiceDate} < ${yearEndStr} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
           "paid_current_year"
         ),
       invoicedCurrentYear:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'paid') AND ${invoices.invoiceDate} >= ${yearStart} AND ${invoices.invoiceDate} < ${yearEnd} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'paid') AND ${invoices.invoiceDate} >= ${yearStartStr} AND ${invoices.invoiceDate} < ${yearEndStr} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
           "invoiced_current_year"
         ),
     })

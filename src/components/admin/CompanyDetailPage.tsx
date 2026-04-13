@@ -1,14 +1,29 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { useCompanyDetails, CompanyDetails } from "@/hooks/use-company-details";
+import {
+  useUpdateOrganization,
+  organizationKeys,
+} from "@/hooks/use-organizations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { EnhancedDataTable } from "@/components/enhanced-data-table";
-import { ArrowLeft, ArrowUpDown, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Loader2, Pencil, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface CompanyDetailPageProps {
   companyId: string;
@@ -58,7 +73,133 @@ type CompanyProject = CompanyDetails["projects"][number];
 
 export function CompanyDetailPage({ companyId }: CompanyDetailPageProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data, isLoading } = useCompanyDetails(companyId);
+  const updateMutation = useUpdateOrganization();
+
+  // Edit dialog state
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editKvk, setEditKvk] = useState("");
+  const [editBtw, setEditBtw] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editTelephone, setEditTelephone] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Populate edit form when dialog opens
+  useEffect(() => {
+    if (isEditOpen && data?.company) {
+      const c = data.company;
+      setEditName(c.name);
+      setEditAddress(c.address || "");
+      setEditKvk(c.kvkNumber || "");
+      setEditBtw(c.btwNumber || "");
+      setEditEmail(c.email || "");
+      setEditTelephone(c.telephone || "");
+      setImageFile(null);
+      setRemoveImage(false);
+      setImagePreview(
+        c.imageStoragePath ? `/api/organizations/${c.id}/image` : null
+      );
+    }
+  }, [isEditOpen, data?.company]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size must be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+      setImageFile(file);
+      setRemoveImage(false);
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data?.company) return;
+    setIsSubmitting(true);
+
+    if (!editName.trim()) {
+      toast.error("Company name is required");
+      setIsSubmitting(false);
+      return;
+    }
+
+    let imageStoragePath: string | null = null;
+    let imageSizeBytes: number | null = null;
+
+    if (imageFile) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", imageFile);
+        uploadFormData.append("organizationId", data.company.id);
+        const uploadResponse = await fetch("/api/organizations/upload-image", {
+          method: "POST",
+          body: uploadFormData,
+        });
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || "Failed to upload image");
+        }
+        const uploadResult = await uploadResponse.json();
+        imageStoragePath = uploadResult.storagePath;
+        imageSizeBytes = uploadResult.sizeBytes;
+      } catch {
+        toast.error("Failed to upload image. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    updateMutation.mutate(
+      {
+        id: data.company.id,
+        name: editName.trim(),
+        imageStoragePath: removeImage
+          ? null
+          : imageFile
+            ? (imageStoragePath ?? null)
+            : (data.company.imageStoragePath ?? null),
+        imageSizeBytes: removeImage
+          ? null
+          : imageFile
+            ? (imageSizeBytes ?? null)
+            : (data.company.imageSizeBytes ?? null),
+        address: editAddress.trim() || null,
+        kvkNumber: editKvk.trim() || null,
+        btwNumber: editBtw.trim() || null,
+        email: editEmail.trim() || null,
+        telephone: editTelephone.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Company updated successfully");
+          setIsEditOpen(false);
+          setIsSubmitting(false);
+          queryClient.invalidateQueries({
+            queryKey: organizationKeys.detail(companyId),
+          });
+        },
+        onError: (error: Error) => {
+          toast.error(error.message || "Failed to update organization");
+          setIsSubmitting(false);
+        },
+      }
+    );
+  };
 
   const projectColumns: ColumnDef<CompanyProject>[] = useMemo(
     () => [
@@ -208,9 +349,7 @@ export function CompanyDetailPage({ companyId }: CompanyDetailPageProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                router.push(`/dashboard/organizations?edit=${company.id}`)
-              }
+              onClick={() => setIsEditOpen(true)}
             >
               <Pencil className="h-3.5 w-3.5 mr-1.5" />
               Edit
@@ -287,6 +426,147 @@ export function CompanyDetailPage({ companyId }: CompanyDetailPageProps) {
           emptyMessage="No projects found for this company."
         />
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Company</DialogTitle>
+            <DialogDescription>Update company details</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdate} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="detail-edit-name">Name</Label>
+              <Input
+                id="detail-edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Logo Image</Label>
+              <div className="flex items-center gap-4">
+                {imagePreview && (
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={imagePreview} alt="Logo" />
+                    <AvatarFallback>
+                      {getInitials(editName || "O")}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div className="flex-1">
+                  <Input
+                    id="detail-edit-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="cursor-pointer"
+                  />
+                </div>
+                {imagePreview && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setImagePreview(null);
+                      setImageFile(null);
+                      setRemoveImage(true);
+                      const fileInput = document.getElementById(
+                        "detail-edit-image"
+                      ) as HTMLInputElement;
+                      if (fileInput) fileInput.value = "";
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="space-y-4 border rounded-lg p-4">
+              <Label className="text-base font-semibold">
+                Contact Information (Optional)
+              </Label>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="detail-edit-address">Address</Label>
+                  <Input
+                    id="detail-edit-address"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="Street address, city, postal code, country"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="detail-edit-kvk">KVK Number</Label>
+                    <Input
+                      id="detail-edit-kvk"
+                      value={editKvk}
+                      onChange={(e) => setEditKvk(e.target.value)}
+                      placeholder="e.g., 90251695"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="detail-edit-btw">BTW Number</Label>
+                    <Input
+                      id="detail-edit-btw"
+                      value={editBtw}
+                      onChange={(e) => setEditBtw(e.target.value)}
+                      placeholder="e.g., NL004799795B92"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="detail-edit-email">Email</Label>
+                    <Input
+                      id="detail-edit-email"
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      placeholder="email@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="detail-edit-telephone">Telephone</Label>
+                    <Input
+                      id="detail-edit-telephone"
+                      type="tel"
+                      value={editTelephone}
+                      onChange={(e) => setEditTelephone(e.target.value)}
+                      placeholder="e.g., +31 6 13458011"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting || updateMutation.isPending}
+              >
+                {isSubmitting || updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

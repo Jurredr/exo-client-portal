@@ -871,40 +871,102 @@ export async function getCompanyDetails(companyId: string) {
     )
     .orderBy(desc(projects.createdAt));
 
-  // 3. Fetch invoice aggregations
+  // 3. Fetch invoice revenue (excl. VAT, matching financials page logic)
   const currentYear = new Date().getFullYear();
-  const yearStart = new Date(currentYear, 0, 1); // Jan 1
-  const yearEnd = new Date(currentYear + 1, 0, 1); // Jan 1 next year
-  const yearStartStr = yearStart.toISOString();
-  const yearEndStr = yearEnd.toISOString();
+  const yearStart = new Date(currentYear, 0, 1);
+  const yearEnd = new Date(currentYear + 1, 0, 1);
 
-  const invoiceAggregations = await db
+  const companyInvoices = await db
     .select({
-      paidAllTime:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
-          "paid_all_time"
-        ),
-      outstandingAllTime:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'overdue') THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
-          "outstanding_all_time"
-        ),
-      paidCurrentYear:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${yearStartStr} AND ${invoices.invoiceDate} < ${yearEndStr} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
-          "paid_current_year"
-        ),
-      outstandingCurrentYear:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'overdue') AND ${invoices.invoiceDate} >= ${yearStartStr} AND ${invoices.invoiceDate} < ${yearEndStr} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
-          "outstanding_current_year"
-        ),
+      id: invoices.id,
+      amount: invoices.amount,
+      currency: invoices.currency,
+      status: invoices.status,
+      transactionType: invoices.transactionType,
+      isKOR: invoices.isKOR,
+      invoiceDate: invoices.invoiceDate,
+      paidAt: invoices.paidAt,
     })
     .from(invoices)
-    .where(eq(invoices.companyId, companyId));
+    .where(
+      and(
+        eq(invoices.companyId, companyId),
+        isNull(invoices.expenseId) // Exclude reimbursement invoices
+      )
+    );
 
-  const revenue = invoiceAggregations[0] ?? {
-    paidAllTime: "0",
-    outstandingAllTime: "0",
-    paidCurrentYear: "0",
-    outstandingCurrentYear: "0",
+  // Fetch line items for all company invoices
+  const companyInvoiceIds = companyInvoices.map((i) => i.id);
+  const companyLineItems =
+    companyInvoiceIds.length > 0
+      ? await db
+          .select({
+            invoiceId: invoiceLineItems.invoiceId,
+            quantity: invoiceLineItems.quantity,
+            unitPrice: invoiceLineItems.unitPrice,
+            taxPercentage: invoiceLineItems.taxPercentage,
+          })
+          .from(invoiceLineItems)
+          .where(inArray(invoiceLineItems.invoiceId, companyInvoiceIds))
+      : [];
+
+  const lineItemsByInvoice = new Map<
+    string,
+    Array<{
+      quantity: string | number;
+      unitPrice: string | number;
+      taxPercentage: string | number;
+    }>
+  >();
+  for (const item of companyLineItems) {
+    const list = lineItemsByInvoice.get(item.invoiceId) ?? [];
+    list.push({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      taxPercentage: item.taxPercentage,
+    });
+    lineItemsByInvoice.set(item.invoiceId, list);
+  }
+
+  // Calculate revenue excl. VAT per invoice, aggregate by status and year
+  let paidAllTime = 0;
+  let paidCurrentYear = 0;
+  let outstandingAllTime = 0;
+  let outstandingCurrentYear = 0;
+
+  for (const inv of companyInvoices) {
+    const amount = parseInvoiceAmount(inv.amount);
+    const lineItems = lineItemsByInvoice.get(inv.id) ?? [];
+    const revenueExclVAT = getRevenueExcludingVAT(
+      amount,
+      lineItems,
+      inv.isKOR ?? false
+    );
+    const isDebit = (inv.transactionType || "debit") === "debit";
+    const value = isDebit ? revenueExclVAT : -revenueExclVAT;
+
+    if (inv.status === "paid") {
+      paidAllTime += value;
+      const dateForYear = inv.paidAt
+        ? new Date(inv.paidAt)
+        : new Date(inv.invoiceDate);
+      if (dateForYear >= yearStart && dateForYear < yearEnd) {
+        paidCurrentYear += value;
+      }
+    } else if (inv.status === "sent" || inv.status === "overdue") {
+      outstandingAllTime += value;
+      const invoiceDate = new Date(inv.invoiceDate);
+      if (invoiceDate >= yearStart && invoiceDate < yearEnd) {
+        outstandingCurrentYear += value;
+      }
+    }
+  }
+
+  const revenue = {
+    paidAllTime: paidAllTime.toFixed(2),
+    outstandingAllTime: outstandingAllTime.toFixed(2),
+    paidCurrentYear: paidCurrentYear.toFixed(2),
+    outstandingCurrentYear: outstandingCurrentYear.toFixed(2),
   };
 
   // 4. Calculate total hours

@@ -778,9 +778,43 @@ export async function getAllCompanies() {
     }
   });
 
+  // Get project counts for each company
+  const projectCounts = await db
+    .select({
+      companyId: projects.companyId,
+      count: sql<number>`COUNT(*)::int`.as("count"),
+    })
+    .from(projects)
+    .groupBy(projects.companyId);
+
+  const projectCountMap: Record<string, number> = {};
+  projectCounts.forEach((row) => {
+    projectCountMap[row.companyId] = row.count;
+  });
+
+  // Get total paid revenue for each company
+  const revenueByCompany = await db
+    .select({
+      companyId: invoices.companyId,
+      totalPaid:
+        sql<string>`COALESCE(SUM(CAST(${invoices.amount} AS DECIMAL(12,2))), 0)::text`.as(
+          "total_paid"
+        ),
+    })
+    .from(invoices)
+    .where(eq(invoices.status, "paid"))
+    .groupBy(invoices.companyId);
+
+  const revenueMap: Record<string, string> = {};
+  revenueByCompany.forEach((row) => {
+    revenueMap[row.companyId] = row.totalPaid;
+  });
+
   return companyList.map((company) => ({
     ...company,
     contactCount: contactCountMap[company.id] || 0,
+    projectCount: projectCountMap[company.id] || 0,
+    totalRevenue: revenueMap[company.id] || "0",
   }));
 }
 

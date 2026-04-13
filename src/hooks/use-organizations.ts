@@ -14,6 +14,8 @@ interface OrganizationData {
   updatedAt: string;
   userCount?: number;
   contactCount?: number;
+  projectCount?: number;
+  totalRevenue?: string;
 }
 
 interface CreateOrganizationData {

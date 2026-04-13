@@ -778,9 +778,43 @@ export async function getAllCompanies() {
     }
   });
 
+  // Get project counts for each company
+  const projectCounts = await db
+    .select({
+      companyId: projects.companyId,
+      count: sql<number>`COUNT(*)::int`.as("count"),
+    })
+    .from(projects)
+    .groupBy(projects.companyId);
+
+  const projectCountMap: Record<string, number> = {};
+  projectCounts.forEach((row) => {
+    projectCountMap[row.companyId] = row.count;
+  });
+
+  // Get total paid revenue for each company
+  const revenueByCompany = await db
+    .select({
+      companyId: invoices.companyId,
+      totalPaid:
+        sql<string>`COALESCE(SUM(CAST(${invoices.amount} AS DECIMAL(12,2))), 0)::text`.as(
+          "total_paid"
+        ),
+    })
+    .from(invoices)
+    .where(eq(invoices.status, "paid"))
+    .groupBy(invoices.companyId);
+
+  const revenueMap: Record<string, string> = {};
+  revenueByCompany.forEach((row) => {
+    revenueMap[row.companyId] = row.totalPaid;
+  });
+
   return companyList.map((company) => ({
     ...company,
     contactCount: contactCountMap[company.id] || 0,
+    projectCount: projectCountMap[company.id] || 0,
+    totalRevenue: revenueMap[company.id] || "0",
   }));
 }
 
@@ -792,6 +826,182 @@ export async function getCompanyById(companyId: string) {
     .limit(1);
 
   return company[0] || null;
+}
+
+export async function getCompanyDetails(companyId: string) {
+  // 1. Fetch company
+  const company = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+
+  if (!company[0]) return null;
+
+  // 2. Fetch projects with hours per project
+  const companyProjects = await db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      title: projects.title,
+      status: projects.status,
+      subtotal: projects.subtotal,
+      currency: projects.currency,
+      type: projects.type,
+      startDate: projects.startDate,
+      deadline: projects.deadline,
+      totalHours:
+        sql<string>`COALESCE(SUM(CAST(${hourRegistrations.hours} AS DECIMAL(10,2))), 0)::text`.as(
+          "total_hours"
+        ),
+    })
+    .from(projects)
+    .leftJoin(hourRegistrations, eq(hourRegistrations.projectId, projects.id))
+    .where(eq(projects.companyId, companyId))
+    .groupBy(
+      projects.id,
+      projects.slug,
+      projects.title,
+      projects.status,
+      projects.subtotal,
+      projects.currency,
+      projects.type,
+      projects.startDate,
+      projects.deadline
+    )
+    .orderBy(desc(projects.createdAt));
+
+  // 3. Fetch invoice revenue (excl. VAT, matching financials page logic)
+  const currentYear = new Date().getFullYear();
+  const yearStart = new Date(currentYear, 0, 1);
+  const yearEnd = new Date(currentYear + 1, 0, 1);
+
+  const companyInvoices = await db
+    .select({
+      id: invoices.id,
+      amount: invoices.amount,
+      currency: invoices.currency,
+      status: invoices.status,
+      transactionType: invoices.transactionType,
+      isKOR: invoices.isKOR,
+      invoiceDate: invoices.invoiceDate,
+      paidAt: invoices.paidAt,
+    })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.companyId, companyId),
+        isNull(invoices.expenseId) // Exclude reimbursement invoices
+      )
+    );
+
+  // Fetch line items for all company invoices
+  const companyInvoiceIds = companyInvoices.map((i) => i.id);
+  const companyLineItems =
+    companyInvoiceIds.length > 0
+      ? await db
+          .select({
+            invoiceId: invoiceLineItems.invoiceId,
+            quantity: invoiceLineItems.quantity,
+            unitPrice: invoiceLineItems.unitPrice,
+            taxPercentage: invoiceLineItems.taxPercentage,
+          })
+          .from(invoiceLineItems)
+          .where(inArray(invoiceLineItems.invoiceId, companyInvoiceIds))
+      : [];
+
+  const lineItemsByInvoice = new Map<
+    string,
+    Array<{
+      quantity: string | number;
+      unitPrice: string | number;
+      taxPercentage: string | number;
+    }>
+  >();
+  for (const item of companyLineItems) {
+    const list = lineItemsByInvoice.get(item.invoiceId) ?? [];
+    list.push({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      taxPercentage: item.taxPercentage,
+    });
+    lineItemsByInvoice.set(item.invoiceId, list);
+  }
+
+  // Calculate revenue excl. VAT per invoice, aggregate by status and year
+  let paidAllTime = 0;
+  let paidCurrentYear = 0;
+  let outstandingAllTime = 0;
+  let outstandingCurrentYear = 0;
+
+  for (const inv of companyInvoices) {
+    const amount = parseInvoiceAmount(inv.amount);
+    const lineItems = lineItemsByInvoice.get(inv.id) ?? [];
+    const revenueExclVAT = getRevenueExcludingVAT(
+      amount,
+      lineItems,
+      inv.isKOR ?? false
+    );
+    const isDebit = (inv.transactionType || "debit") === "debit";
+    const value = isDebit ? revenueExclVAT : -revenueExclVAT;
+
+    if (inv.status === "paid") {
+      paidAllTime += value;
+      const dateForYear = inv.paidAt
+        ? new Date(inv.paidAt)
+        : new Date(inv.invoiceDate);
+      if (dateForYear >= yearStart && dateForYear < yearEnd) {
+        paidCurrentYear += value;
+      }
+    } else if (inv.status === "sent" || inv.status === "overdue") {
+      outstandingAllTime += value;
+      const invoiceDate = new Date(inv.invoiceDate);
+      if (invoiceDate >= yearStart && invoiceDate < yearEnd) {
+        outstandingCurrentYear += value;
+      }
+    }
+  }
+
+  const revenue = {
+    paidAllTime: paidAllTime.toFixed(2),
+    outstandingAllTime: outstandingAllTime.toFixed(2),
+    paidCurrentYear: paidCurrentYear.toFixed(2),
+    outstandingCurrentYear: outstandingCurrentYear.toFixed(2),
+  };
+
+  // 4. Calculate total hours
+  const totalHoursAllTime = companyProjects.reduce(
+    (sum, p) => sum + parseFloat(p.totalHours || "0"),
+    0
+  );
+
+  // Hours for current year
+  const currentYearHours = await db
+    .select({
+      total:
+        sql<string>`COALESCE(SUM(CAST(${hourRegistrations.hours} AS DECIMAL(10,2))), 0)::text`.as(
+          "total"
+        ),
+    })
+    .from(hourRegistrations)
+    .innerJoin(projects, eq(projects.id, hourRegistrations.projectId))
+    .where(
+      and(
+        eq(projects.companyId, companyId),
+        gte(hourRegistrations.date, yearStart),
+        lte(hourRegistrations.date, yearEnd)
+      )
+    );
+
+  return {
+    company: company[0],
+    projects: companyProjects,
+    revenue,
+    hours: {
+      allTime: totalHoursAllTime.toFixed(2),
+      currentYear: currentYearHours[0]?.total || "0",
+    },
+  };
 }
 
 export async function getCompaniesByNameOrBtw(

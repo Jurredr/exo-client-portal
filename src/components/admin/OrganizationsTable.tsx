@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   useOrganizations,
@@ -65,6 +66,8 @@ interface Organization {
   updatedAt: string;
   userCount?: number;
   contactCount?: number;
+  projectCount?: number;
+  totalRevenue?: string;
 }
 
 export function OrganizationsTable() {
@@ -100,6 +103,7 @@ export function OrganizationsTable() {
   const [, setOriginalImageStoragePath] = useState<string | null>(null);
   const prevSelectedOrgIdRef = useRef<string | null>(null);
   const isMobile = useIsMobile();
+  const router = useRouter();
 
   // Check if form has changes
   const hasChanges = useMemo(() => {
@@ -186,6 +190,67 @@ export function OrganizationsTable() {
           <div className="font-medium">{row.original.name}</div>
         ),
         enableSorting: true,
+      },
+      {
+        accessorKey: "projectCount",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="-ml-3 h-8"
+            >
+              Projects
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const count = row.original.projectCount || 0;
+          return <div className="font-medium">{count}</div>;
+        },
+        enableSorting: true,
+      },
+      {
+        accessorKey: "totalRevenue",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+              className="-ml-3 h-8"
+            >
+              Revenue
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+        cell: ({ row }) => {
+          const revenue = row.original.totalRevenue || "0";
+          const num = parseFloat(revenue);
+          if (isNaN(num) || num === 0)
+            return <span className="text-muted-foreground">€0</span>;
+          return (
+            <div className="font-medium">
+              {new Intl.NumberFormat("nl-NL", {
+                style: "currency",
+                currency: "EUR",
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(num)}
+            </div>
+          );
+        },
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const a = parseFloat(rowA.original.totalRevenue || "0");
+          const b = parseFloat(rowB.original.totalRevenue || "0");
+          return a - b;
+        },
       },
       {
         accessorKey: "contactCount",
@@ -293,8 +358,7 @@ export function OrganizationsTable() {
   // Organizations are now fetched via TanStack Query
 
   const handleRowClick = (org: Organization) => {
-    setSelectedOrg(org);
-    setIsEditOpen(true);
+    router.push(`/dashboard/organizations/${org.id}`);
   };
 
   useEffect(() => {

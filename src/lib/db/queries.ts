@@ -884,17 +884,17 @@ export async function getCompanyDetails(companyId: string) {
         sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
           "paid_all_time"
         ),
-      invoicedAllTime:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'paid') THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
-          "invoiced_all_time"
+      outstandingAllTime:
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'overdue') THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+          "outstanding_all_time"
         ),
       paidCurrentYear:
         sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${yearStartStr} AND ${invoices.invoiceDate} < ${yearEndStr} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
           "paid_current_year"
         ),
-      invoicedCurrentYear:
-        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'paid') AND ${invoices.invoiceDate} >= ${yearStartStr} AND ${invoices.invoiceDate} < ${yearEndStr} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
-          "invoiced_current_year"
+      outstandingCurrentYear:
+        sql<string>`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('sent', 'overdue') AND ${invoices.invoiceDate} >= ${yearStartStr} AND ${invoices.invoiceDate} < ${yearEndStr} THEN CAST(${invoices.amount} AS DECIMAL(12,2)) ELSE 0 END), 0)::text`.as(
+          "outstanding_current_year"
         ),
     })
     .from(invoices)
@@ -902,9 +902,9 @@ export async function getCompanyDetails(companyId: string) {
 
   const revenue = invoiceAggregations[0] ?? {
     paidAllTime: "0",
-    invoicedAllTime: "0",
+    outstandingAllTime: "0",
     paidCurrentYear: "0",
-    invoicedCurrentYear: "0",
+    outstandingCurrentYear: "0",
   };
 
   // 4. Calculate total hours

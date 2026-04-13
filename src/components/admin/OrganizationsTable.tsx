@@ -239,7 +239,7 @@ export function OrganizationsTable() {
               {new Intl.NumberFormat("nl-NL", {
                 style: "currency",
                 currency: "EUR",
-                minimumFractionDigits: 0,
+                minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               }).format(num)}
             </div>

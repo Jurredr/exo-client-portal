@@ -16,9 +16,9 @@ interface CompanyProject {
 
 interface CompanyRevenue {
   paidAllTime: string;
-  invoicedAllTime: string;
+  outstandingAllTime: string;
   paidCurrentYear: string;
-  invoicedCurrentYear: string;
+  outstandingCurrentYear: string;
 }
 
 interface CompanyHours {

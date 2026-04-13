@@ -36,7 +36,7 @@ function formatCurrency(amount: string | number): string {
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
     currency: "EUR",
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(num);
 }
@@ -246,15 +246,15 @@ export function CompanyDetailPage({ companyId }: CompanyDetailPageProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Revenue Invoiced
+              Outstanding
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(revenue.invoicedAllTime)}
+              {formatCurrency(revenue.outstandingAllTime)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(revenue.invoicedCurrentYear)} in {currentYear}
+              {formatCurrency(revenue.outstandingCurrentYear)} in {currentYear}
             </p>
           </CardContent>
         </Card>

@@ -13,6 +13,7 @@ interface ProjectData {
     deadline: string | null;
     subtotal: string | null;
     currency: string;
+    taxPercentage: string | null;
     type: "client" | "labs";
     organizationId?: string;
     companyId?: string;

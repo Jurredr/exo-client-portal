@@ -103,6 +103,7 @@ interface ProjectData {
     deadline: string | null;
     subtotal: string | null;
     currency: string;
+    taxPercentage: string | null;
     type: string;
     organizationId?: string;
     companyId?: string;
@@ -597,8 +598,8 @@ export function ProjectsTable() {
       setOriginalSubtotal(subtotal);
       setOriginalStartDate(startDate);
       setOriginalDeadline(deadline);
-      setEditTaxPercentage(selectedProject?.taxPercentage ?? "21");
-      setOriginalTaxPercentage(selectedProject?.taxPercentage ?? "21");
+      setEditTaxPercentage(selectedProject?.project.taxPercentage ?? "21");
+      setOriginalTaxPercentage(selectedProject?.project.taxPercentage ?? "21");
     }
   }, [selectedProject, isEditOpen]);
 

@@ -92,19 +92,21 @@ export function formatCurrencyCompact(
 
 export function calculateVAT(
   subtotal: string | null | undefined,
-  currency: string = "EUR"
+  currency: string = "EUR",
+  taxPercentage: number = VAT_PERCENTAGE
 ): string {
   const subtotalValue = parseNumeric(subtotal);
-  const vat = subtotalValue * (VAT_PERCENTAGE / 100);
+  const vat = subtotalValue * (taxPercentage / 100);
   return formatCurrency(vat, currency);
 }
 
 export function calculateTotal(
   subtotal: string | null | undefined,
-  currency: string = "EUR"
+  currency: string = "EUR",
+  taxPercentage: number = VAT_PERCENTAGE
 ): string {
   const subtotalValue = parseNumeric(subtotal);
-  const vat = subtotalValue * (VAT_PERCENTAGE / 100);
+  const vat = subtotalValue * (taxPercentage / 100);
   const total = subtotalValue + vat;
   return formatCurrency(total, currency);
 }
@@ -112,12 +114,13 @@ export function calculateTotal(
 export function calculatePaymentAmount(
   subtotal: string | null | undefined,
   stage: string | null | undefined,
-  currency: string = "EUR"
+  currency: string = "EUR",
+  taxPercentage: number = VAT_PERCENTAGE
 ): string | null {
   const symbol = currency === "USD" ? "$" : "€";
   if (!subtotal) return `${symbol}0`;
   const subtotalValue = parseNumeric(subtotal);
-  const total = subtotalValue * (1 + VAT_PERCENTAGE / 100);
+  const total = subtotalValue * (1 + taxPercentage / 100);
 
   // Payment amount depends on the project stage
   switch (stage) {

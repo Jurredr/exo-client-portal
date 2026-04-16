@@ -45,6 +45,7 @@ interface CreateProjectData {
   stage?: string;
   startDate?: Date | string | null;
   deadline?: Date | string | null;
+  taxPercentage?: string | null;
 }
 
 interface UpdateProjectData {
@@ -59,6 +60,7 @@ interface UpdateProjectData {
   stage?: string;
   startDate?: Date | string | null;
   deadline?: Date | string | null;
+  taxPercentage?: string | null;
 }
 
 export const projectKeys = {

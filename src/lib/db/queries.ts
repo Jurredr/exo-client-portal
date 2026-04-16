@@ -1619,6 +1619,7 @@ export async function createProject(data: {
   currency?: string;
   type?: "client" | "labs";
   companyId: string;
+  taxPercentage?: string;
 }) {
   const slug = slugify(data.title, generateSlugSuffix());
   const [project] = await db
@@ -1635,6 +1636,7 @@ export async function createProject(data: {
       currency: data.currency || "EUR",
       type: data.type || "client",
       companyId: data.companyId,
+      taxPercentage: data.taxPercentage || "21",
     })
     .returning();
 
@@ -1846,6 +1848,7 @@ export async function updateProject(
     subtotal: string | null;
     currency: string;
     type: "client" | "labs";
+    taxPercentage: string;
   }>
 ) {
   const updateData: Record<string, unknown> = {

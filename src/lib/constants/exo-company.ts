@@ -1,6 +1,20 @@
 /**
- * EXO company dates and tax-related constants.
+ * EXO company information and constants.
+ * All EXO-specific details should be defined here and imported where needed.
  */
+
+/** EXO company contact and registration details */
+export const EXO_COMPANY = {
+  name: "EXO",
+  address: "Charlotte v Pallandthof 38,",
+  city: "1112ZL, Diemen, Nederland",
+  phone: "+31 6 13458011",
+  email: "exo@jurre.me",
+  website: "www.exo.black",
+  kvkNumber: "90251695",
+  btwNumber: "NL004799795B92",
+  iban: "NL96 KNAB 0781 0679 79",
+} as const;
 
 /** EXO founded 19 May 2023 */
 export const EXO_FOUNDED_DATE = new Date(2023, 4, 19); // month is 0-indexed

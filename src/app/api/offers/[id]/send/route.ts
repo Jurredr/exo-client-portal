@@ -9,7 +9,10 @@ import { Resend } from "resend";
 import { downloadOfferFile } from "@/lib/utils/file-storage";
 import { generateOfferPDF } from "@/lib/utils/offer-pdf";
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "EXO <exo@jurre.me>";
+import { EXO_COMPANY } from "@/lib/constants/exo-company";
+
+const FROM_EMAIL =
+  process.env.RESEND_FROM_EMAIL || `${EXO_COMPANY.name} <${EXO_COMPANY.email}>`;
 
 export async function POST(
   request: Request,

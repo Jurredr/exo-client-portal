@@ -7,6 +7,7 @@ import { ResourceCard } from "@/components/ResourceCard";
 import { ResourceCardSkeleton } from "@/components/ResourceCardSkeleton";
 import { AddCard } from "@/components/AddCard";
 import { VAT_PERCENTAGE } from "@/lib/constants";
+import { EXO_COMPANY } from "@/lib/constants/exo-company";
 import { formatDate } from "@/lib/utils/date";
 import {
   calculateVAT,
@@ -264,7 +265,7 @@ export default function ProjectDetails({
             <div className="mt-auto space-y-4 pt-6">
               <div>
                 <p className="font-sans text-sm font-semibold text-gray-900">
-                  exo@jurre.me
+                  {EXO_COMPANY.email}
                 </p>
                 <p className="font-sans text-xs text-gray-500">
                   EXO&apos;s email

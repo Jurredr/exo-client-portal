@@ -42,6 +42,7 @@ export function CreateProjectForm({
   const [organizationId, setOrganizationId] = useState<string>("");
   const [subtotal, setSubtotal] = useState("");
   const [currency, setCurrency] = useState<"USD" | "EUR">("EUR");
+  const [taxPercentage, setTaxPercentage] = useState("21");
   const [status, setStatus] = useState("active");
   const [stage, setStage] = useState(getDefaultStage("client"));
   const [startDate, setStartDate] = useState("");
@@ -112,6 +113,7 @@ export function CreateProjectForm({
         type: projectType,
         subtotal: subtotal && subtotal.trim() ? subtotal.trim() : null,
         currency: currency || "EUR",
+        taxPercentage: projectType === "client" ? taxPercentage || "21" : null,
         status,
         stage,
         startDate: startDate || null,
@@ -126,6 +128,7 @@ export function CreateProjectForm({
           setOrganizationId("");
           setSubtotal("");
           setCurrency("EUR");
+          setTaxPercentage("21");
           setStatus("active");
           setStage(getDefaultStage("client"));
           setStartDate("");
@@ -247,7 +250,7 @@ export function CreateProjectForm({
         </div>
       </div>
       {projectType === "client" && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label
               htmlFor="project-subtotal"
@@ -277,6 +280,19 @@ export function CreateProjectForm({
                 <SelectItem value="EUR">EUR (€)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="project-tax">Tax %</Label>
+            <Input
+              id="project-tax"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              placeholder="21"
+              value={taxPercentage}
+              onChange={(e) => setTaxPercentage(e.target.value)}
+            />
           </div>
         </div>
       )}

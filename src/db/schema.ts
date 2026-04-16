@@ -69,6 +69,7 @@ export const projects = pgTable("projects", {
   deadline: timestamp("deadline"),
   subtotal: text("subtotal"), // Nullable for EXO Labs projects
   currency: text("currency").notNull().default("EUR"), // USD, EUR
+  taxPercentage: text("tax_percentage").default("21"), // VAT percentage, defaults to 21%
   type: text("type").notNull().default("client"), // client, labs
   companyId: uuid("company_id")
     .references(() => companies.id)

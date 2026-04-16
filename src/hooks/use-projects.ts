@@ -13,6 +13,7 @@ interface ProjectData {
     deadline: string | null;
     subtotal: string | null;
     currency: string;
+    taxPercentage: string | null;
     type: "client" | "labs";
     organizationId?: string;
     companyId?: string;
@@ -45,6 +46,7 @@ interface CreateProjectData {
   stage?: string;
   startDate?: Date | string | null;
   deadline?: Date | string | null;
+  taxPercentage?: string | null;
 }
 
 interface UpdateProjectData {
@@ -59,6 +61,7 @@ interface UpdateProjectData {
   stage?: string;
   startDate?: Date | string | null;
   deadline?: Date | string | null;
+  taxPercentage?: string | null;
 }
 
 export const projectKeys = {

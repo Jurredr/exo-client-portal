@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "tax_percentage" text DEFAULT '21';

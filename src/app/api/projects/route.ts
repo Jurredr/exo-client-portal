@@ -134,6 +134,7 @@ export async function POST(request: Request) {
       type,
       organizationId,
       companyId: bodyCompanyId,
+      taxPercentage,
     } = body;
 
     const companyId = bodyCompanyId ?? organizationId;
@@ -178,6 +179,7 @@ export async function POST(request: Request) {
       currency: currency || "EUR",
       type: projectType,
       companyId,
+      taxPercentage: taxPercentage || "21",
     });
 
     return NextResponse.json(project, { status: 201 });
@@ -247,6 +249,9 @@ export async function PATCH(request: Request) {
       }),
       ...(updateData.currency && { currency: updateData.currency }),
       ...(updateData.type && { type: projectType }),
+      ...(updateData.taxPercentage !== undefined && {
+        taxPercentage: updateData.taxPercentage,
+      }),
     });
 
     return NextResponse.json(project);

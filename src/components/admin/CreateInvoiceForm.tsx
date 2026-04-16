@@ -47,6 +47,7 @@ interface Project {
   organizationId: string;
   subtotal: string | null;
   currency: string;
+  taxPercentage: string | null;
 }
 
 interface InvoiceLineItem {
@@ -502,6 +503,7 @@ export function CreateInvoiceForm({
           organizationId: p.project.companyId ?? organizationId,
           subtotal: p.project.subtotal,
           currency: p.project.currency,
+          taxPercentage: p.project.taxPercentage,
         })) || [];
     setProjects(filteredProjects);
   }, [organizationId, projectsData]);
@@ -810,7 +812,28 @@ export function CreateInvoiceForm({
         <Select
           value={projectId || "none"}
           onValueChange={(value) => {
-            setProjectId(value === "none" ? "" : value);
+            const selectedId = value === "none" ? "" : value;
+            setProjectId(selectedId);
+
+            if (selectedId) {
+              const selectedProject = projects.find((p) => p.id === selectedId);
+              if (selectedProject) {
+                const tax = isKOR
+                  ? "0"
+                  : (selectedProject.taxPercentage ?? "21");
+                setLineItems([
+                  {
+                    description: selectedProject.title,
+                    quantity: "1",
+                    unitPrice: selectedProject.subtotal ?? "",
+                    taxPercentage: tax,
+                  },
+                ]);
+                if (selectedProject.currency) {
+                  setCurrency(selectedProject.currency as "USD" | "EUR");
+                }
+              }
+            }
           }}
           disabled={isLoadingProjects || !organizationId}
         >

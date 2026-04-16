@@ -6,7 +6,6 @@ import Image from "next/image";
 import { ResourceCard } from "@/components/ResourceCard";
 import { ResourceCardSkeleton } from "@/components/ResourceCardSkeleton";
 import { AddCard } from "@/components/AddCard";
-import { VAT_PERCENTAGE } from "@/lib/constants";
 import { EXO_COMPANY } from "@/lib/constants/exo-company";
 import { formatDate } from "@/lib/utils/date";
 import {
@@ -165,12 +164,14 @@ export default function ProjectDetails({
   isInEXO = false,
 }: ProjectDetailsProps) {
   const currency = project.currency || "EUR";
-  const vat = calculateVAT(project.subtotal, currency);
-  const total = calculateTotal(project.subtotal, currency);
+  const projectTax = parseFloat(project.taxPercentage ?? "21") || 21;
+  const vat = calculateVAT(project.subtotal, currency, projectTax);
+  const total = calculateTotal(project.subtotal, currency, projectTax);
   const paymentAmount = calculatePaymentAmount(
     project.subtotal,
     project.stage,
-    currency
+    currency,
+    projectTax
   );
   const progress = getStageProgress(project.stage);
   const statusConfig = getStatusConfig(project.status ?? "active");
@@ -334,7 +335,7 @@ export default function ProjectDetails({
                 </div>
                 <div className="flex items-center justify-between font-sans text-sm">
                   <span className="flex items-center gap-1 text-gray-600">
-                    {VAT_PERCENTAGE}% BTW
+                    {projectTax}% BTW
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
@@ -347,8 +348,8 @@ export default function ProjectDetails({
                       </TooltipTrigger>
                       <TooltipContent className="max-w-68">
                         <p>
-                          BTW is 0% at the moment since EXO is still in the KOR
-                          (Kleine ondernemers regeling).
+                          BTW rate of {projectTax}% as configured for this
+                          project.
                         </p>
                       </TooltipContent>
                     </Tooltip>

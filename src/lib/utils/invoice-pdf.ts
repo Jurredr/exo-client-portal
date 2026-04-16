@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import { parseNumeric, formatCurrency } from "./currency";
+import { EXO_COMPANY } from "../constants/exo-company";
 
 interface InvoiceLineItem {
   id?: string;
@@ -226,18 +227,20 @@ export async function generateInvoicePDF(
     doc.fontSize(9);
     doc.text("PHONE:", leftMargin, contactInfoY).fillColor("white");
     doc
-      .text("+31 6 13458011", leftMargin, contactInfoY + 12)
+      .text(EXO_COMPANY.phone, leftMargin, contactInfoY + 12)
       .fillColor("#747474");
     doc.text("EMAIL:", leftMargin, contactInfoY + 30).fillColor("white");
     doc
-      .text("exo@jurre.me", leftMargin, contactInfoY + 42)
+      .text(EXO_COMPANY.email, leftMargin, contactInfoY + 42)
       .fillColor("#747474");
     doc.text("WEB:", leftMargin, contactInfoY + 60).fillColor("white");
     doc
-      .text("www.exo.black", leftMargin, contactInfoY + 72)
+      .text(EXO_COMPANY.website, leftMargin, contactInfoY + 72)
       .fillColor("#747474");
     doc.text("KVK:", leftMargin, contactInfoY + 90).fillColor("white");
-    doc.text("90251695", leftMargin, contactInfoY + 102).fillColor("#747474");
+    doc
+      .text(EXO_COMPANY.kvkNumber, leftMargin, contactInfoY + 102)
+      .fillColor("#747474");
 
     // Base64 encoded PNG of the EXO white logo
     const base64Image =
@@ -332,24 +335,26 @@ export async function generateInvoicePDF(
       .text(isCredit ? "From:" : "Pay To:", payToX, startY);
     let payToY = startY + 20;
     doc.fontSize(10).font("Helvetica");
-    doc.text("EXO", payToX, payToY, { width: sectionWidth });
+    doc.text(EXO_COMPANY.name, payToX, payToY, { width: sectionWidth });
     payToY += 15;
-    doc.text("Charlotte v Pallandthof 38,", payToX, payToY, {
+    doc.text(EXO_COMPANY.address, payToX, payToY, {
       width: sectionWidth,
     });
     payToY += 15;
-    doc.text("1112ZL, Diemen, Nederland", payToX, payToY, {
+    doc.text(EXO_COMPANY.city, payToX, payToY, {
       width: sectionWidth,
     });
     payToY += 20;
     doc.fontSize(9);
-    doc.text("KVK-number: 90251695", payToX, payToY, { width: sectionWidth });
-    payToY += 12;
-    doc.text("BTW-number: NL004799795B92", payToX, payToY, {
+    doc.text(`KVK-number: ${EXO_COMPANY.kvkNumber}`, payToX, payToY, {
       width: sectionWidth,
     });
     payToY += 12;
-    doc.text("Bank: NL61 INGB 0792 9410 39", payToX, payToY, {
+    doc.text(`BTW-number: ${EXO_COMPANY.btwNumber}`, payToX, payToY, {
+      width: sectionWidth,
+    });
+    payToY += 12;
+    doc.text(`Bank: ${EXO_COMPANY.iban}`, payToX, payToY, {
       width: sectionWidth,
     });
 

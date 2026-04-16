@@ -228,6 +228,8 @@ export function ProjectsTable() {
   const [originalSubtotal, setOriginalSubtotal] = useState<string>("");
   const [originalStartDate, setOriginalStartDate] = useState<string>("");
   const [originalDeadline, setOriginalDeadline] = useState<string>("");
+  const [editTaxPercentage, setEditTaxPercentage] = useState("");
+  const [originalTaxPercentage, setOriginalTaxPercentage] = useState("");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGenerateDescriptionOpen, setIsGenerateDescriptionOpen] =
@@ -595,6 +597,8 @@ export function ProjectsTable() {
       setOriginalSubtotal(subtotal);
       setOriginalStartDate(startDate);
       setOriginalDeadline(deadline);
+      setEditTaxPercentage(selectedProject?.taxPercentage ?? "21");
+      setOriginalTaxPercentage(selectedProject?.taxPercentage ?? "21");
     }
   }, [selectedProject, isEditOpen]);
 
@@ -610,7 +614,8 @@ export function ProjectsTable() {
       editCurrency !== originalCurrency ||
       editSubtotal.trim() !== originalSubtotal ||
       editStartDate !== originalStartDate ||
-      editDeadline !== originalDeadline
+      editDeadline !== originalDeadline ||
+      editTaxPercentage.trim() !== originalTaxPercentage.trim()
     );
   }, [
     selectedProject,
@@ -631,6 +636,8 @@ export function ProjectsTable() {
     originalStartDate,
     editDeadline,
     originalDeadline,
+    editTaxPercentage,
+    originalTaxPercentage,
   ]);
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -657,6 +664,8 @@ export function ProjectsTable() {
         currency: editCurrency,
         startDate: editStartDate || null,
         deadline: projectType === "labs" ? null : editDeadline || null,
+        taxPercentage:
+          projectType === "client" ? editTaxPercentage || "21" : null,
       },
       {
         onSuccess: () => {
@@ -818,7 +827,7 @@ export function ProjectsTable() {
         </div>
         {(selectedProject?.project.type === "client" ||
           !selectedProject?.project.type) && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-3">
               <Label htmlFor="edit-subtotal">Subtotal</Label>
               <Input
@@ -845,6 +854,19 @@ export function ProjectsTable() {
                   <SelectItem value="EUR">EUR (€)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="edit-tax">Tax %</Label>
+              <Input
+                id="edit-tax"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="21"
+                value={editTaxPercentage}
+                onChange={(e) => setEditTaxPercentage(e.target.value)}
+              />
             </div>
           </div>
         )}
@@ -1444,7 +1466,7 @@ export function ProjectsTable() {
                   </div>
                   {(selectedProject.project.type === "client" ||
                     !selectedProject.project.type) && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="edit-subtotal">Subtotal</Label>
                         <Input
@@ -1471,6 +1493,19 @@ export function ProjectsTable() {
                             <SelectItem value="EUR">EUR (€)</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-tax-dialog">Tax %</Label>
+                        <Input
+                          id="edit-tax-dialog"
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="100"
+                          placeholder="21"
+                          value={editTaxPercentage}
+                          onChange={(e) => setEditTaxPercentage(e.target.value)}
+                        />
                       </div>
                     </div>
                   )}

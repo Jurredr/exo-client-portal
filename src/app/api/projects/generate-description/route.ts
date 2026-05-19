@@ -11,7 +11,8 @@ const PROJECT_DESCRIPTION_PROMPT = `You are a professional at EXO, a creative ag
 
 The description should:
 - Be based specifically on the "Projectoverzicht" section in the source (if present); otherwise summarize the overall scope and deliverables
-- Be 2-4 sentences, professional and clear, written for the client
+- Be 1-2 short sentences (max ~40 words total), high-level and client-facing
+- Skip implementation details, internal scope notes, parallel projects, or team/process info
 - Use the language specified (NL or EN)
 - Be suitable for displaying on a project overview page
 

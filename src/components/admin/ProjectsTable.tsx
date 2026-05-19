@@ -343,9 +343,18 @@ export function ProjectsTable() {
         },
         enableSorting: true,
         sortingFn: (rowA, rowB) => {
-          return rowA.original.project.status.localeCompare(
-            rowB.original.project.status
-          );
+          const order: Record<string, number> = {
+            active: 0,
+            lead: 1,
+            on_hold: 2,
+            completed: 3,
+            cancelled: 4,
+          };
+          const a = rowA.original.project.status ?? "";
+          const b = rowB.original.project.status ?? "";
+          const ai = order[a] ?? Number.MAX_SAFE_INTEGER;
+          const bi = order[b] ?? Number.MAX_SAFE_INTEGER;
+          return ai - bi || a.localeCompare(b);
         },
       },
       {

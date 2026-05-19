@@ -1,6 +1,6 @@
 import { EXO_COMPANY } from "./constants/exo-company";
 
-export const VAT_PERCENTAGE = 0;
+export const VAT_PERCENTAGE = 21;
 
 /** @deprecated Use EXO_COMPANY.email from "@/lib/constants/exo-company" */
 export const EXO_EMAIL = EXO_COMPANY.email;

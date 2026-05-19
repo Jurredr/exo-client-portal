@@ -121,8 +121,6 @@ export function GenerateProjectDescriptionModal({
     onOpenChange(false);
   };
 
-  const offersWithContent = offers.filter(Boolean);
-
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setGeneratedDescription("");
@@ -170,7 +168,7 @@ export function GenerateProjectDescriptionModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None selected</SelectItem>
-                  {offersWithContent.map((o) => (
+                  {offers.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.note || o.fileName || `Offer ${o.id.slice(0, 8)}`} (
                       {o.status})
@@ -178,9 +176,10 @@ export function GenerateProjectDescriptionModal({
                   ))}
                 </SelectContent>
               </Select>
-              {offersWithContent.length === 0 && (
+              {offers.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No offers with content found. Use &quot;Custom input&quot;.
+                  No offers linked to this project. Use &quot;Custom
+                  input&quot;.
                 </p>
               )}
             </div>

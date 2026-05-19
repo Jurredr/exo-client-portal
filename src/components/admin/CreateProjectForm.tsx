@@ -194,14 +194,12 @@ export function CreateProjectForm({
         open={isGenerateDescriptionOpen}
         onOpenChange={setIsGenerateDescriptionOpen}
         projectTitle={title || "New project"}
-        offers={allOffers
-          .filter((o) => (o as { content?: string | null }).content)
-          .map((o) => ({
-            id: o.id,
-            note: o.note,
-            fileName: o.fileName,
-            status: o.status,
-          }))}
+        offers={allOffers.map((o) => ({
+          id: o.id,
+          note: o.note,
+          fileName: o.fileName,
+          status: o.status,
+        }))}
         onGenerated={(desc) => setDescription(desc)}
       />
       <div className="space-y-2">

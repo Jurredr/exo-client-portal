@@ -45,3 +45,6 @@ src/db/backups/*.sql
 
 # drizzle introspect temp output
 drizzle-introspect-temp/
+
+.playwright-mcp/
+docs/inspiration/

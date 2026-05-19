@@ -1581,14 +1581,12 @@ export function ProjectsTable() {
           onOpenChange={setIsGenerateDescriptionOpen}
           projectId={selectedProject.project.id}
           projectTitle={selectedProject.project.title}
-          offers={projectOffers
-            .filter((o) => (o as { content?: string | null }).content)
-            .map((o) => ({
-              id: o.id,
-              note: o.note,
-              fileName: o.fileName,
-              status: o.status,
-            }))}
+          offers={projectOffers.map((o) => ({
+            id: o.id,
+            note: o.note,
+            fileName: o.fileName,
+            status: o.status,
+          }))}
           onGenerated={(desc) => setEditDescription(desc)}
         />
       )}

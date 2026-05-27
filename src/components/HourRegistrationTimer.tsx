@@ -60,7 +60,8 @@ interface SplitEntry {
     | "labs"
     | "client_acquisition"
     | "content_creation"
-    | "traveling";
+    | "traveling"
+    | "networking";
   contactId?: string;
   projectId?: string;
   duration: number; // in seconds
@@ -85,6 +86,7 @@ export function HourRegistrationTimer() {
     | "client_acquisition"
     | "content_creation"
     | "traveling"
+    | "networking"
   >("client");
   const [contactId, setContactId] = useState<string | undefined>(undefined);
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
@@ -630,6 +632,7 @@ export function HourRegistrationTimer() {
     labs: "EXO Labs",
     content_creation: "Content Creation",
     traveling: "Traveling",
+    networking: "Networking",
   };
 
   return (
@@ -927,6 +930,7 @@ export function HourRegistrationTimer() {
                       | "client_acquisition"
                       | "content_creation"
                       | "traveling"
+                      | "networking"
                   )
                 }
               >
@@ -946,6 +950,7 @@ export function HourRegistrationTimer() {
                     Content Creation
                   </SelectItem>
                   <SelectItem value="traveling">Traveling</SelectItem>
+                  <SelectItem value="networking">Networking</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1016,7 +1021,9 @@ export function HourRegistrationTimer() {
                             ? "Describe the content you created..."
                             : category === "traveling"
                               ? "Describe your travel activities..."
-                              : "Describe the work you did..."
+                              : category === "networking"
+                                ? "Describe your networking activities..."
+                                : "Describe the work you did..."
                 }
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}

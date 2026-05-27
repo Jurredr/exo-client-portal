@@ -153,6 +153,7 @@ export async function POST(request: Request) {
       "client_acquisition",
       "content_creation",
       "traveling",
+      "networking",
     ];
     const validCategory = validCategories.includes(category)
       ? category
@@ -165,6 +166,7 @@ export async function POST(request: Request) {
       "research",
       "client_acquisition",
       "traveling",
+      "networking",
     ];
     if (nonProjectCategories.includes(validCategory) && projectId) {
       return NextResponse.json(
@@ -243,7 +245,9 @@ export async function PATCH(request: Request) {
       | "research"
       | "labs"
       | "client_acquisition"
-      | "content_creation";
+      | "content_creation"
+      | "traveling"
+      | "networking";
 
     let validCategory: ValidCategory | undefined = registration.category as
       | ValidCategory
@@ -257,6 +261,8 @@ export async function PATCH(request: Request) {
         "labs",
         "client_acquisition",
         "content_creation",
+        "traveling",
+        "networking",
       ];
       if (validCategories.includes(category as ValidCategory)) {
         validCategory = category as ValidCategory;
@@ -269,6 +275,8 @@ export async function PATCH(request: Request) {
       "brainstorming",
       "research",
       "client_acquisition",
+      "traveling",
+      "networking",
     ];
     const finalProjectId =
       category && validCategory && nonProjectCategories.includes(validCategory)
@@ -301,7 +309,9 @@ export async function PATCH(request: Request) {
         | "research"
         | "labs"
         | "client_acquisition"
-        | "content_creation";
+        | "content_creation"
+        | "traveling"
+        | "networking";
     } = {};
     if (description !== undefined) updateData.description = description;
     if (hours !== undefined) {

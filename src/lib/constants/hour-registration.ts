@@ -9,6 +9,7 @@ export const HOUR_REGISTRATION_CATEGORIES = {
     "administration",
     "brainstorming",
     "research",
+    "networking",
   ] as const,
   /** Categories that SHOULD show contact + project selector */
   SHOW_PROJECT_CONTACT: [

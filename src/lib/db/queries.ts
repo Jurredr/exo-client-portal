@@ -350,7 +350,8 @@ export async function createHourRegistration(
     | "labs"
     | "client_acquisition"
     | "content_creation"
-    | "traveling" = "client"
+    | "traveling"
+    | "networking" = "client"
 ) {
   const [registration] = await db
     .insert(hourRegistrations)
@@ -639,7 +640,9 @@ export async function updateHourRegistration(
       | "research"
       | "labs"
       | "client_acquisition"
-      | "content_creation";
+      | "content_creation"
+      | "traveling"
+      | "networking";
   }
 ) {
   const updateData: {

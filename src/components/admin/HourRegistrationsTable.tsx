@@ -422,7 +422,8 @@ export function HourRegistrationsTable() {
       | "labs"
       | "client_acquisition"
       | "content_creation"
-      | "traveling",
+      | "traveling"
+      | "networking",
     companyId: undefined as string | undefined,
     projectId: undefined as string | undefined,
   });
@@ -439,7 +440,8 @@ export function HourRegistrationsTable() {
       | "labs"
       | "client_acquisition"
       | "content_creation"
-      | "traveling",
+      | "traveling"
+      | "networking",
     companyId: undefined as string | undefined,
     projectId: undefined as string | undefined,
   });
@@ -756,7 +758,8 @@ export function HourRegistrationsTable() {
           | "labs"
           | "client_acquisition"
           | "content_creation"
-          | "traveling",
+          | "traveling"
+          | "networking",
         companyId: registration.projectId
           ? allProjects.find(
               (p: Project & { companyId?: string }) =>
@@ -955,7 +958,8 @@ export function HourRegistrationsTable() {
                           | "labs"
                           | "client_acquisition"
                           | "content_creation"
-                          | "traveling",
+                          | "traveling"
+                          | "networking",
                       })
                     }
                   >
@@ -979,6 +983,7 @@ export function HourRegistrationsTable() {
                         Content Creation
                       </SelectItem>
                       <SelectItem value="traveling">Traveling</SelectItem>
+                      <SelectItem value="networking">Networking</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1095,7 +1100,9 @@ export function HourRegistrationsTable() {
                                 ? "Describe the content you created..."
                                 : manualEntry.category === "traveling"
                                   ? "Describe your travel activities..."
-                                  : "Describe the work you did..."
+                                  : manualEntry.category === "networking"
+                                    ? "Describe your networking activities..."
+                                    : "Describe the work you did..."
                     }
                     value={manualEntry.description}
                     onChange={(e) =>
@@ -1291,7 +1298,8 @@ export function HourRegistrationsTable() {
                       | "labs"
                       | "client_acquisition"
                       | "content_creation"
-                      | "traveling",
+                      | "traveling"
+                      | "networking",
                   })
                 }
               >
@@ -1311,6 +1319,7 @@ export function HourRegistrationsTable() {
                     Content Creation
                   </SelectItem>
                   <SelectItem value="traveling">Traveling</SelectItem>
+                  <SelectItem value="networking">Networking</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1414,7 +1423,9 @@ export function HourRegistrationsTable() {
                             ? "Describe the content you created..."
                             : manualEntry.category === "traveling"
                               ? "Describe your travel activities..."
-                              : "Describe the work you did..."
+                              : manualEntry.category === "networking"
+                                ? "Describe your networking activities..."
+                                : "Describe the work you did..."
                 }
                 value={manualEntry.description}
                 onChange={(e) =>

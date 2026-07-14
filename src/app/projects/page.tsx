@@ -6,7 +6,7 @@ import {
   ensureUserExists,
   getUserByEmail,
   getCompanyById,
-  isUserInEXOCompany,
+  hasAdminAccess,
   getProjectsForUser,
 } from "@/lib/db/queries";
 import { ProjectUserMenu } from "@/components/ProjectUserMenu";
@@ -34,7 +34,7 @@ export default async function ProjectsPage() {
     user.user_metadata?.avatar_url || user.user_metadata?.image
   );
 
-  const isInEXO = await isUserInEXOCompany(user.email);
+  const isInEXO = await hasAdminAccess(user.email);
   if (isInEXO) {
     redirect("/dashboard");
   }

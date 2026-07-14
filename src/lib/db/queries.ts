@@ -48,6 +48,27 @@ export function isAdmin(email: string): boolean {
   return email.endsWith(ADMIN_EMAIL_DOMAIN);
 }
 
+/**
+ * Whether a user is allowed into the admin dashboard.
+ *
+ * Admin access is granted by any of:
+ *  - the `@jurre.me` email domain (EXO staff, auto-provisioned on login)
+ *  - the explicit `users.isAdmin` flag (e.g. an external accountant)
+ *  - membership of the EXO company (legacy signal, kept for backward compatibility)
+ *
+ * This is the single gate used across the dashboard and every admin API route.
+ */
+export async function hasAdminAccess(userEmail: string): Promise<boolean> {
+  if (isAdmin(userEmail)) {
+    return true;
+  }
+  const user = await getUserByEmail(userEmail);
+  if (user?.isAdmin) {
+    return true;
+  }
+  return isUserInEXOCompany(userEmail);
+}
+
 export async function isUserInEXOCompany(userEmail: string): Promise<boolean> {
   const user = await getUserByEmail(userEmail);
   if (!user) {
@@ -274,7 +295,7 @@ export async function canUserAccessProject(
   projectId: string
 ): Promise<boolean> {
   // Admins can access any project
-  if (isAdmin(userEmail)) {
+  if (await hasAdminAccess(userEmail)) {
     return true;
   }
 
@@ -1248,7 +1269,8 @@ export async function createUser(
   imageSizeBytes?: number | null,
   phone?: string | null,
   note?: string | null,
-  contactId?: string | null
+  contactId?: string | null,
+  isAdmin?: boolean
 ) {
   // Create user with first company as primary (for backward compatibility)
   let primaryCompanyId =
@@ -1274,6 +1296,7 @@ export async function createUser(
       imageSizeBytes: imageSizeBytes || null,
       companyId: primaryCompanyId,
       contactId: contactId || null,
+      isAdmin: isAdmin ?? false,
     })
     .returning();
 
@@ -1301,6 +1324,7 @@ export async function updateUser(
     imageSizeBytes?: number | null;
     phone: string | null;
     note: string | null;
+    isAdmin?: boolean;
   }>
 ) {
   // If companyIds is provided, update the junction table
@@ -1332,6 +1356,7 @@ export async function updateUser(
     imageSizeBytes: number | null;
     phone: string | null;
     note: string | null;
+    isAdmin: boolean;
     updatedAt: Date;
   }> = {
     ...(data.name !== undefined && { name: data.name }),
@@ -1349,6 +1374,7 @@ export async function updateUser(
     }),
     ...(data.phone !== undefined && { phone: data.phone }),
     ...(data.note !== undefined && { note: data.note }),
+    ...(data.isAdmin !== undefined && { isAdmin: data.isAdmin }),
     updatedAt: new Date(),
   };
 
@@ -1376,6 +1402,7 @@ export async function getAllUsers() {
         imageSizeBytes: users.imageSizeBytes,
         companyId: users.companyId,
         contactId: users.contactId,
+        isAdmin: users.isAdmin,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       },
@@ -1448,6 +1475,7 @@ export async function getAllUsersPaginated(options?: {
         imageStoragePath: users.imageStoragePath, // Path string is safe to include
         imageSizeBytes: users.imageSizeBytes,
         companyId: users.companyId,
+        isAdmin: users.isAdmin,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       },

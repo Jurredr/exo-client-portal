@@ -1,7 +1,7 @@
 import {
   getContactById,
   getUserByContactId,
-  isUserInEXOCompany,
+  hasAdminAccess,
 } from "@/lib/db/queries";
 import { getUserImageUrl } from "@/lib/utils/image-storage";
 import { createClient } from "@/lib/supabase/server";
@@ -25,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

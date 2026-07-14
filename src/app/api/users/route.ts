@@ -4,7 +4,7 @@ import {
   getAllUsers,
   getAllUsersPaginated,
   getAllUsersCount,
-  isUserInEXOCompany,
+  hasAdminAccess,
   updateUser,
   deleteUser,
 } from "@/lib/db/queries";
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -109,6 +109,7 @@ export async function POST(request: Request) {
       organizationId,
       organizationIds,
       contactId,
+      isAdmin,
       imageStoragePath, // Path in Supabase Storage
       imageSizeBytes,
     } = body;
@@ -153,7 +154,8 @@ export async function POST(request: Request) {
       imageSizeBytes || null,
       phone?.trim() || null,
       note?.trim() || null,
-      contactId.trim()
+      contactId.trim(),
+      isAdmin === true
     );
 
     return NextResponse.json(newUser, { status: 201 });
@@ -177,7 +179,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -190,6 +192,7 @@ export async function PATCH(request: Request) {
       note,
       organizationId,
       organizationIds,
+      isAdmin,
       imageStoragePath, // Path in Supabase Storage
       imageSizeBytes,
     } = body;
@@ -227,6 +230,7 @@ export async function PATCH(request: Request) {
         imageSizeBytes: imageSizeBytes || null,
       }),
       ...(orgIds !== undefined && { companyIds: orgIds }),
+      ...(isAdmin !== undefined && { isAdmin: isAdmin === true }),
     });
 
     return NextResponse.json(updatedUser);
@@ -250,7 +254,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -5,7 +5,7 @@ import {
   getProjectWithCompany,
   canUserAccessProject,
   ensureUserExists,
-  isUserInEXOCompany,
+  hasAdminAccess,
   getUserByEmail,
   getCompanyById,
 } from "@/lib/db/queries";
@@ -70,7 +70,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     redirect("/projects");
   }
 
-  const isInEXO = await isUserInEXOCompany(user.email);
+  const isInEXO = await hasAdminAccess(user.email);
 
   // Get user's company (not the project's)
   const userCompany = dbUser?.companyId

@@ -1,9 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  getOfferById,
-  isUserInEXOCompany,
-  updateOffer,
-} from "@/lib/db/queries";
+import { getOfferById, hasAdminAccess, updateOffer } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { downloadOfferFile } from "@/lib/utils/file-storage";
@@ -29,7 +25,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

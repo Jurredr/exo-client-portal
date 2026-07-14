@@ -4,12 +4,11 @@ import {
   getAllProjects,
   getAllProjectsPaginated,
   getAllProjectsCount,
-  isUserInEXOCompany,
+  hasAdminAccess,
   updateProject,
   getTotalHoursByProject,
   deleteProject,
   getProjectById,
-  isAdmin,
   getOrCreateEXOCompany,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
@@ -26,7 +25,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -117,7 +116,7 @@ export async function POST(request: Request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user || !user.email || !isAdmin(user.email)) {
+    if (!user || !user.email || !(await hasAdminAccess(user.email))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -203,7 +202,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -275,7 +274,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

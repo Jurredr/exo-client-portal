@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   getContractById,
-  isUserInEXOCompany,
+  hasAdminAccess,
   getUserByEmail,
 } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
@@ -31,7 +31,7 @@ export async function GET(
     }
 
     // Check if user can access this contract
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     const dbUser = await getUserByEmail(user.email);
 
     if (!dbUser) {

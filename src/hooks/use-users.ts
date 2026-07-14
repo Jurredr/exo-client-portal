@@ -10,6 +10,7 @@ interface UserData {
     phone: string | null;
     note: string | null;
     organizationId: string | null;
+    isAdmin: boolean;
     createdAt: string;
     updatedAt: string;
   };
@@ -43,6 +44,7 @@ interface CreateUserData {
   note?: string | null;
   organizationId?: string | null;
   organizationIds?: string[];
+  isAdmin?: boolean;
 }
 
 interface UpdateUserData {
@@ -55,6 +57,7 @@ interface UpdateUserData {
   note?: string | null;
   organizationId?: string | null;
   organizationIds?: string[];
+  isAdmin?: boolean;
 }
 
 export const userKeys = {

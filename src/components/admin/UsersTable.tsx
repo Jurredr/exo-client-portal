@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ import {
   ChevronsRight,
   Loader2,
   ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { CreateUserForm } from "./CreateUserForm";
@@ -89,6 +91,7 @@ interface UserData {
     imageStoragePath: string | null; // Path in Supabase Storage
     imageSizeBytes: number | null;
     organizationId: string | null;
+    isAdmin?: boolean;
     createdAt: string;
     updatedAt: string;
   };
@@ -157,6 +160,8 @@ export function UsersTable() {
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
     string[]
   >([]);
+  const [isAdminValue, setIsAdminValue] = useState(false);
+  const [originalIsAdmin, setOriginalIsAdmin] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
@@ -189,7 +194,15 @@ export function UsersTable() {
           );
         },
         cell: ({ row }: { row: { original: UserData } }) => (
-          <div className="font-medium">{row.original.user.email}</div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{row.original.user.email}</span>
+            {row.original.user.isAdmin && (
+              <Badge variant="secondary" className="gap-1 text-xs">
+                <ShieldCheck className="h-3 w-3" />
+                Admin
+              </Badge>
+            )}
+          </div>
         ),
         enableSorting: true,
         sortingFn: (
@@ -395,12 +408,14 @@ export function UsersTable() {
     if (!selectedUser || !isEditOpen) return false;
     const currentOrgIds = [...selectedOrganizationIds].sort().join(",");
     const originalOrgIds = [...originalOrganizationIds].sort().join(",");
-    return currentOrgIds !== originalOrgIds;
+    return currentOrgIds !== originalOrgIds || isAdminValue !== originalIsAdmin;
   }, [
     selectedUser,
     isEditOpen,
     selectedOrganizationIds,
     originalOrganizationIds,
+    isAdminValue,
+    originalIsAdmin,
   ]);
 
   const table = useReactTable({
@@ -456,8 +471,13 @@ export function UsersTable() {
       const orgIds = orgs.map((org) => org.id);
       setOriginalOrganizationIds(orgIds);
       setSelectedOrganizationIds(orgIds);
+      const admin = selectedUser.user.isAdmin === true;
+      setOriginalIsAdmin(admin);
+      setIsAdminValue(admin);
     } else {
       setSelectedOrganizationIds([]);
+      setOriginalIsAdmin(false);
+      setIsAdminValue(false);
     }
   }, [selectedUser, isEditOpen]);
 
@@ -473,6 +493,7 @@ export function UsersTable() {
           selectedOrganizationIds.length > 0
             ? selectedOrganizationIds
             : undefined,
+        isAdmin: isAdminValue,
       },
       {
         onSuccess: () => {
@@ -805,6 +826,28 @@ export function UsersTable() {
                       placeholder="Select organizations..."
                     />
                   </div>
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Checkbox
+                      id="edit-admin-mobile"
+                      checked={isAdminValue}
+                      onCheckedChange={(checked) =>
+                        setIsAdminValue(checked === true)
+                      }
+                      className="mt-0.5"
+                    />
+                    <div className="flex flex-col gap-1">
+                      <Label
+                        htmlFor="edit-admin-mobile"
+                        className="flex items-center gap-2 font-medium"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                        Admin access
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Grants full access to the admin dashboard.
+                      </p>
+                    </div>
+                  </div>
                 </form>
                 <DrawerFooter>
                   <Button
@@ -882,6 +925,29 @@ export function UsersTable() {
                       onSelectionChange={setSelectedOrganizationIds}
                       placeholder="Select organizations..."
                     />
+                  </div>
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Checkbox
+                      id="edit-admin"
+                      checked={isAdminValue}
+                      onCheckedChange={(checked) =>
+                        setIsAdminValue(checked === true)
+                      }
+                      className="mt-0.5"
+                    />
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="edit-admin"
+                        className="flex items-center gap-2 font-medium"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                        Admin access
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Grants full access to the admin dashboard (financials,
+                        invoices, projects, users).
+                      </p>
+                    </div>
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button

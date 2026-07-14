@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { isUserInEXOCompany, getBTWAangifteData } from "@/lib/db/queries";
+import { hasAdminAccess, getBTWAangifteData } from "@/lib/db/queries";
 import { generateBTWAangiftePDF } from "@/lib/utils/btw-pdf";
 import { NextResponse } from "next/server";
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

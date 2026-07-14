@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { isUserInEXOCompany, getProjectById } from "@/lib/db/queries";
+import { hasAdminAccess, getProjectById } from "@/lib/db/queries";
 import { db } from "@/db";
 import { offers } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -102,7 +102,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

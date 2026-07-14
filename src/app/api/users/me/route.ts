@@ -54,6 +54,7 @@ export async function GET() {
         note: dbUser.note,
         companyId: dbUser.companyId,
         organizationId: dbUser.companyId, // Alias for backward compatibility
+        isAdmin: dbUser.isAdmin,
         createdAt: dbUser.createdAt.toISOString(),
         updatedAt: dbUser.updatedAt.toISOString(),
       },

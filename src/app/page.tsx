@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import {
   ensureUserExists,
   getUserByEmail,
-  isUserInEXOCompany,
+  hasAdminAccess,
 } from "@/lib/db/queries";
 
 export default async function Home() {
@@ -27,7 +27,7 @@ export default async function Home() {
     user.user_metadata?.avatar_url || user.user_metadata?.image
   );
 
-  const isInEXO = await isUserInEXOCompany(user.email);
+  const isInEXO = await hasAdminAccess(user.email);
   if (isInEXO) {
     redirect("/dashboard");
   }

@@ -7,8 +7,9 @@ import { useCreateUser } from "@/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { UserPlus, Mail, Loader2 } from "lucide-react";
+import { UserPlus, Mail, Loader2, ShieldCheck } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ export function CreateUserForm({
   const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<
     string[]
   >([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { data: organizationsData } = useOrganizations();
   const { data: contactsData = [] } = useContacts();
   const createUserMutation = useCreateUser();
@@ -83,6 +85,7 @@ export function CreateUserForm({
               ? selectedOrganizationIds
               : undefined,
           contactId: selectedContactId,
+          isAdmin,
         },
         {
           onSuccess: () => {
@@ -90,6 +93,7 @@ export function CreateUserForm({
             setEmail("");
             setSelectedContactId("");
             setSelectedOrganizationIds([]);
+            setIsAdmin(false);
           },
           onError: (error: Error) => {
             toast.error(error.message || "Failed to create user");
@@ -166,6 +170,29 @@ export function CreateUserForm({
         <p className="text-xs text-muted-foreground">
           Pre-filled from contact. Edit the contact to change.
         </p>
+      </div>
+      <div className="rounded-md border p-3">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="user-admin"
+            checked={isAdmin}
+            onCheckedChange={(checked) => setIsAdmin(checked === true)}
+            className="mt-0.5"
+          />
+          <div className="space-y-1">
+            <Label
+              htmlFor="user-admin"
+              className="flex items-center gap-2 font-medium"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin access
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Grants full access to the admin dashboard (financials, invoices,
+              projects, users). Leave off for regular client accounts.
+            </p>
+          </div>
+        </div>
       </div>
       <Button
         type="submit"

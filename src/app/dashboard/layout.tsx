@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { isUserInEXOCompany } from "@/lib/db/queries";
+import { hasAdminAccess } from "@/lib/db/queries";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
@@ -18,7 +18,7 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const isInEXO = await isUserInEXOCompany(user.email);
+  const isInEXO = await hasAdminAccess(user.email);
   if (!isInEXO) {
     redirect("/projects");
   }

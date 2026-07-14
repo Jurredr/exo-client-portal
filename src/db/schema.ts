@@ -9,10 +9,20 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 
-export const COMPANY_TYPES = ["client", "supplier", "both"] as const;
+export const COMPANY_TYPES = [
+  "client",
+  "supplier",
+  "both",
+  "accountant",
+] as const;
 export type CompanyType = (typeof COMPANY_TYPES)[number];
 
-export const CONTACT_TYPES = ["client", "supplier", "both"] as const;
+export const CONTACT_TYPES = [
+  "client",
+  "supplier",
+  "both",
+  "accountant",
+] as const;
 export type ContactType = (typeof CONTACT_TYPES)[number];
 
 export const companies = pgTable("companies", {
@@ -54,6 +64,7 @@ export const users = pgTable("users", {
   contactId: uuid("contact_id")
     .references(() => contacts.id, { onDelete: "set null" })
     .unique(), // One-to-one: user = portal login, optionally linked to a contact
+  isAdmin: boolean("is_admin").notNull().default(false), // Grants access to the admin dashboard (decoupled from EXO org membership)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

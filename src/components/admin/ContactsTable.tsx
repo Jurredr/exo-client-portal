@@ -338,6 +338,7 @@ export function ContactsTable() {
           { label: "Client", value: "client" },
           { label: "Supplier", value: "supplier" },
           { label: "Both", value: "both" },
+          { label: "Accountant", value: "accountant" },
         ],
         getValue: (row: ContactData) => row.type || "client",
       },

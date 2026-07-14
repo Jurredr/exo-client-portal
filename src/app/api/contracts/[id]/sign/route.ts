@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   getContractById,
-  isUserInEXOCompany,
+  hasAdminAccess,
   updateContract,
   getUserByEmail,
 } from "@/lib/db/queries";
@@ -32,7 +32,7 @@ export async function POST(
     }
 
     // Check if user can access this contract (must be in the project's organization)
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     const dbUser = await getUserByEmail(user.email);
 
     if (!dbUser) {

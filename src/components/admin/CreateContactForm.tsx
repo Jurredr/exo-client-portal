@@ -317,6 +317,7 @@ export function CreateContactForm({
             <SelectItem value="client">Client</SelectItem>
             <SelectItem value="supplier">Supplier</SelectItem>
             <SelectItem value="both">Both</SelectItem>
+            <SelectItem value="accountant">Accountant</SelectItem>
           </SelectContent>
         </Select>
       </div>

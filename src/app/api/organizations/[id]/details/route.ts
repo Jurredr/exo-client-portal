@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getCompanyDetails, isUserInEXOCompany } from "@/lib/db/queries";
+import { getCompanyDetails, hasAdminAccess } from "@/lib/db/queries";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isInEXO = await isUserInEXOCompany(user.email);
+    const isInEXO = await hasAdminAccess(user.email);
     if (!isInEXO) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

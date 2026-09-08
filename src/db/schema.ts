@@ -159,6 +159,10 @@ export const hourRegistrations = pgTable("hour_registrations", {
   hours: decimal("hours", { precision: 10, scale: 2 }).notNull(), // Stored as decimal for precision
   category: text("category").notNull().default("client"), // client, administration, brainstorming, research, labs, client_acquisition, content_creation, traveling, networking
   date: timestamp("date").defaultNow().notNull(),
+  // manual = entered in the portal, ai_backfill = written by the Notion backfill automation
+  source: text("source").notNull().default("manual"),
+  // Latest Notion page edit time this row was derived from (ai_backfill rows only)
+  sourceSyncedAt: timestamp("source_synced_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
